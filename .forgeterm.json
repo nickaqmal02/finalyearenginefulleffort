@@ -1,0 +1,27 @@
+{
+  "window": {
+    "accentColor": "#2dd4bf",
+    "titlebarBackground": "#0b231e",
+    "titlebarBackgroundEnd": "#12332c",
+    "titlebarForeground": "#7ec4b8",
+    "sidebarBackground": "#0d2520",
+    "sidebarForeground": "#7ec4b8",
+    "buttonBackground": "#163d36",
+    "themeName": "mint"
+  },
+  "theme": {
+    "background": "#0f172a",
+    "foreground": "#e2e8f0",
+    "cursor": "#38bdf8",
+    "selection": "rgba(56, 189, 248, 0.3)",
+    "black": "#1e293b",
+    "red": "#f87171",
+    "green": "#4ade80",
+    "yellow": "#facc15",
+    "blue": "#60a5fa",
+    "magenta": "#c084fc",
+    "cyan": "#22d3ee",
+    "white": "#f1f5f9"
+  },
+  "terminalTheme": "dark"
+}
