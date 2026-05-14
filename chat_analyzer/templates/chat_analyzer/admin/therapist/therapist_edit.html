@@ -1,0 +1,51 @@
+{% extends "chat_analyzer/base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}Edit Therapist | Admin{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h3 class="mb-0"><i class="fas fa-edit"></i> Edit Therapist </h3>
+                    <small>Update Therapist Information</small>
+                </div>
+
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        {{ form|crispy }}
+                        
+                        <div class="d-flex gap-2 mt-3">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Update Therapist
+                            </button>
+                            <a href="{% url 'chat_analyzer:admin_therapist_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancel 
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-body">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle"></i> Therapist Information
+                    
+                    <ul class="mb-0 mt-2">
+                        <li>Created: {{ therapist.created_at|date:"Y-m-dH:i" }} </li>
+                        <li>Therapist ID: {{ therapist.id }}</li>
+                        
+
+                    </ul>
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

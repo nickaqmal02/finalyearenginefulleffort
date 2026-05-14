@@ -1,0 +1,151 @@
+{% load static %}
+
+<nav class="navbar navbar-dark bg-dark fixed-top">
+    <div class="container-fluid">
+        <!-- Brand -->
+        <a class="navbar-brand" href="{% url 'chat_analyzer:admin_dashboard' %}">
+            <i class="fas fa-chart-line"></i> Autism Center Admin
+        </a>
+        
+        <!-- Offcanvas Toggle Button -->
+        <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbar">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        
+        <!-- Offcanvas Sidebar -->
+        <div class="offcanvas offcanvas-end text-bg-dark" tabindex="-1" id="offcanvasNavbar">
+            <div class="offcanvas-header">
+                <h5 class="offcanvas-title">
+                    <i class="fas fa-user-shield"></i> Admin Panel
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
+            </div>
+            <div class="offcanvas-body">
+                <!-- User Info -->
+                <div class="text-center mb-4">
+                    <i class="fas fa-user-circle fa-3x"></i>
+                    <h5 class="mt-2">{{ request.session.user_name }}</h5>
+                    <small class="text-muted">Administrator</small>
+                </div>
+                
+                <!-- Navigation Links -->
+                <ul class="navbar-nav">
+                    <!-- Dashboard -->
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}" 
+                           href="{% url 'chat_analyzer:admin_dashboard' %}">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                    </li>
+                    
+                    <!-- Clients Dropdown -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-users"></i> Clients
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-dark">
+                            <li>
+                                <a class="dropdown-item" href="{% url 'chat_analyzer:admin_client_list' %}">
+                                    <i class="fas fa-list"></i> All Clients
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'chat_analyzer:admin_client_create' %}">
+                                    <i class="fas fa-plus"></i> Add Client
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    
+                    <!-- Therapists Dropdown -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user-md"></i> Therapists
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-dark">
+                            <li>
+                                <a class="dropdown-item" href="{% url 'chat_analyzer:admin_therapist_list' %}">
+                                    <i class="fas fa-list"></i> All Therapists
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'chat_analyzer:admin_therapist_create' %}">
+                                    <i class="fas fa-plus"></i> Add Therapist
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    
+                    <!-- Conversations Dropdown -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-comments"></i> Conversations
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-dark">
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="fas fa-list"></i> All Messages
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="fab fa-whatsapp"></i> Upload WhatsApp
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    
+                    <!-- Reports Dropdown -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-chart-bar"></i> Reports
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-dark">
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="fas fa-calendar"></i> Monthly Report
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="fas fa-smile"></i> Sentiment Report
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    
+                    <!-- Settings Dropdown -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-cog"></i> Settings
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-dark">
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="fas fa-user"></i> Profile
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="fas fa-key"></i> Change Password
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    
+                    <hr class="my-3">
+                    
+                    <!-- Logout -->
+                    <li class="nav-item">
+                        <a class="nav-link text-danger" href="{% url 'chat_analyzer:logout' %}">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<!-- Spacer to prevent content hiding under fixed navbar -->
+<div style="height: 70px;"></div>

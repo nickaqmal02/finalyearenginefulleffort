@@ -1,0 +1,128 @@
+{% extends "chat_analyzer/base.html" %}
+{% load static %}
+
+{% block title %}Welcome - Autism Center Analytics{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 100px 0;">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <h1 class="display-4 fw-bold mb-4">WhatsApp Analytics for Autism Centers</h1>
+                <p class="lead mb-4">Transform your WhatsApp conversations into actionable insights. Track client progress, analyze sentiment, and improve patient care.</p>
+                <div class="d-flex gap-3">
+                    <a href="{% url 'chat_analyzer:admin_register' %}" class="btn btn-light btn-lg px-4">Get Started Free</a>
+                    <a href="#features" class="btn btn-outline-light btn-lg px-4">Learn More</a>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <img src="https://via.placeholder.com/500x400?text=Analytics+Dashboard" alt="Dashboard Preview" class="img-fluid rounded shadow">
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section id="features" class="py-5">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="display-5 fw-bold">Powerful Features for Your Center</h2>
+            <p class="lead text-muted">Everything you need to manage client conversations effectively</p>
+        </div>
+        
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card h-100 shadow-sm feature-card">
+                    <div class="card-body text-center p-4">
+                        <i class="fas fa-whatsapp fa-3x text-primary mb-3"></i>
+                        <h5 class="card-title">WhatsApp Import</h5>
+                        <p class="card-text">Upload WhatsApp chat exports and automatically parse messages, dates, and senders.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card h-100 shadow-sm feature-card">
+                    <div class="card-body text-center p-4">
+                        <i class="fas fa-brain fa-3x text-primary mb-3"></i>
+                        <h5 class="card-title">Sentiment Analysis</h5>
+                        <p class="card-text">AI-powered sentiment analysis to understand client satisfaction and concerns.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card h-100 shadow-sm feature-card">
+                    <div class="card-body text-center p-4">
+                        <i class="fas fa-chart-line fa-3x text-primary mb-3"></i>
+                        <h5 class="card-title">Analytics Dashboard</h5>
+                        <p class="card-text">Visual insights and reports to track client progress and center performance.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card h-100 shadow-sm feature-card">
+                    <div class="card-body text-center p-4">
+                        <i class="fas fa-users fa-3x text-primary mb-3"></i>
+                        <h5 class="card-title">Client Management</h5>
+                        <p class="card-text">Organize clients, assign therapists, and track conversation history.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card h-100 shadow-sm feature-card">
+                    <div class="card-body text-center p-4">
+                        <i class="fas fa-chart-pie fa-3x text-primary mb-3"></i>
+                        <h5 class="card-title">Performance Reports</h5>
+                        <p class="card-text">Generate detailed reports on therapist performance and client outcomes.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card h-100 shadow-sm feature-card">
+                    <div class="card-body text-center p-4">
+                        <i class="fas fa-shield-alt fa-3x text-primary mb-3"></i>
+                        <h5 class="card-title">Secure & Private</h5>
+                        <p class="card-text">Enterprise-grade security to protect sensitive client information.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- About Section -->
+<section id="about" class="bg-light py-5">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <h2 class="display-5 fw-bold mb-4">Why Choose Us?</h2>
+                <p class="lead mb-4">We understand the unique challenges autism centers face in managing client communications.</p>
+                <ul class="list-unstyled">
+                    <li class="mb-3"><i class="fas fa-check-circle text-success me-2"></i> Designed specifically for autism centers</li>
+                    <li class="mb-3"><i class="fas fa-check-circle text-success me-2"></i> Easy WhatsApp integration</li>
+                    <li class="mb-3"><i class="fas fa-check-circle text-success me-2"></i> Malay language support for sentiment analysis</li>
+                    <li class="mb-3"><i class="fas fa-check-circle text-success me-2"></i> Dedicated support team</li>
+                </ul>
+                <a href="{% url 'chat_analyzer:admin_register' %}" class="btn btn-gradient btn-lg mt-3">Start Your Free Trial</a>
+            </div>
+            <div class="col-lg-6">
+                <img src="https://via.placeholder.com/500x400?text=Why+Choose+Us" alt="About Us" class="img-fluid rounded shadow">
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="py-5" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+    <div class="container text-center text-white">
+        <h2 class="display-5 fw-bold mb-4">Ready to Transform Your Center?</h2>
+        <p class="lead mb-4">Join hundreds of autism centers using our platform to improve client care.</p>
+        <a href="{% url 'chat_analyzer:admin_register' %}" class="btn btn-light btn-lg px-5">Get Started Today</a>
+    </div>
+</section>
+{% endblock %}

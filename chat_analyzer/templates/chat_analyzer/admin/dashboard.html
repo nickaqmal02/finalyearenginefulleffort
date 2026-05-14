@@ -1,0 +1,43 @@
+{% extends "chat_analyzer/base.html" %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<h1>Welcome, {{ request.session.user_name }}!</h1>
+<p>This is your admin dashboard.</p>
+
+<div class="row mt-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <h5>Total Clients</h5>
+                <h2>{{ total_clients }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <h5>Active Clients</h5>
+                <h2>{{ active_clients }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <h5>Therapists</h5>
+                <h2>{{ total_therapists }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <h5>Messages</h5>
+                <h2>{{ total_messages }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
