@@ -1,0 +1,246 @@
+{% extends "chat_analyzer/base.html" %}
+
+{% block title %}{{ therapist.name }} | Therapist Details{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- header -->
+     <div class="d-flex justify-content-between align-items-center mb-4">
+        
+        <div>
+            <h1 class="display-6">
+                <i class="fas fa-user-md"></i> {{ therapist.name }}
+            </h1>
+            <p class="text-muted">Therapist details and client assignments</p>
+        </div>
+        <div>
+            <a href="#" class="btn btn-warning">
+                <i class="fas fa-edit"></i> Edit Therapist
+            </a>
+            <a href="{% url 'chat_analyzer:admin_therapist_list' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to List
+            </a>
+        </div>
+        </div>
+
+        <div class="row">
+            <!-- Therapist Information Card -->
+             <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-info-circle"></i> Therapist Information
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-borderless">
+                            <tr>
+                                <th>Username:</th>
+                                <td>{{ therapist.username }}</td>
+                            </tr>
+                            <tr>
+                                <th>Full Name:</th>
+                                <td>{{ therapist.name }}</td>
+                            </tr>
+                            <tr>
+                                <th>Phone Number:</th>
+                                <td>{{ therapist.phone_number }}</td>
+                            </tr>
+                            <tr>
+                                <th>Specialization:</th>
+                                <td>{{ therapist.specialization|default:"General" }}</td>
+                            </tr>
+                            <tr>
+                                <th>Status:</th>
+                                <td>
+                                    {% if therapist.is_active %}
+                                        <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Inactive</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Registered:</th>
+                                <td>{{ therapist.created_at|date:"Y-m-d H:i" }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+                <!-- END OF THERAPIST INFROMATION CARD -->
+                <!-- THERAPIST STATISTIC CARD -->
+                <div class="card shadow-sm mt-3">
+                    <!-- LIKE ALWAYS WE DECLARE WHAT IS IN CARD HEADER FIRST -->
+                    <!-- LIKE ALWAYS I LOVE WAN AINUR MARDIAH BINTI WAN MOHD EDLI <33, nicky -->
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chart-bar"></i> Statistics 
+                        </h5>
+                    </div>
+                    <!-- S.CARD BODY-->
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <h3>{{ total_clients }}</h3>
+                                <small class="text-muted">Assigned Clients</small>
+                            </div>
+                            <div class="col-6">
+                                <h3>{{ active_clients }}</h3>
+                                <small class="text-muted">Active Clients</small>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="text-center">
+                            <h3>{{ total_conversations }}</h3>
+                            <small class="text-muted">Total Conversations</small>
+                        </div>
+                    </div>
+                </div>
+                <!-- QUICK ACTIONS CARD -->
+                <div class="card shadow-sm mt-3 mb-5">
+                    <div class="card-header bg-warning text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-bolt"></i> Actions 
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grip gap-2">
+                            <a href="#" class="btn btn-warning">
+                                <i class="fas fa-edit"></i> Edit Therapist
+                            </a>
+                            <button type="button" class="btn btn-danger mt-3" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                            <i class="fas fa-trash"></i> Deactivate/Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+             </div>
+
+             <!-- ASSIGNED CLIENTS CARD FOR THIS THERAPIST -->
+             <div class="col-md-8">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-user"></i> Assigned Clients
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% if assigned_clients %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Parent Name</th>
+                                            <th>Child Name</th>
+                                            <th>Phone</th>
+                                            <th>Status</th>
+                                            <th>Messages</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for client in assigned_clients %}
+                                        <tr>
+                                            <td>{{ client.id }}</td>
+                                            <td>{{ client.parent_name }}</td>
+                                            <td>{{ client.child_name }}</td>
+                                            <td>{{ client.phone_number }}</td>
+                                            <td>
+                                                {% if client.status == 'active' %}
+                                                    <span class="badge bg-success">Active</span>
+
+                                                {% elif client.status == 'inactive' %}
+                                                    <span class="badge bg-danger">Inactive</span>
+
+                                                {% else %}
+                                                    <span class="badge bg-warning">Pending</span>
+
+                                                {% endif %}
+
+                                            </td>
+                                            <td>
+                                                <a href="{% url 'chat_analyzer:admin_client_detail' client.id %}" class="btn btn-sm btn-info">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                            </td>
+
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>     
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5">
+                                <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                                <h5>No clients assigned yet</h5>
+                                <p class="text-muted">Assign clients to this therapist to see them here.</p>
+                                <a href="{% url 'chat_analyzer:admin_client_list' %}" class="btn btn-primary">
+                                    <i class="fas fa-user-plus"></i>Assign Client
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- RECENT CONVERSATIONS CARD -->
+                <div class="card shadow-sm mt-3">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0"><i class="fas fa-comments"></i> Recent Conversations </h5>
+                    </div>
+                    <div class="card-body">
+                        {% if recent_conversations %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead class="table-light">
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Client</th>
+                                        <th>Message</th>
+                                        <th>Sentiment</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for conv in recent_conversations %}
+                                        <tr>
+                                            <td>
+                                                {{ conv.date|date:"Y-m-d" }} {{ conv.time|time:"H:i" }}
+                                            </td>
+                                            <td>
+                                                {{ conv.client.parent_name }}
+                                            </td>
+                                            <td>
+                                                {{ conv.message|truncatewords:10 }}
+                                            </td>
+                                            <td>
+                                                {% if conv.sentiment_analysis = 'positive' %}
+                                                    <span class="badge bg-success"> 😊 Positive </span>
+
+                                                {% if conv.sentiment_analysis = 'negative' %}
+                                                    <span class="badge bg-danger"> 😞 Negative </span>
+
+                                                {% else %}
+                                                    <span class="badge bg-secondary"> Pending </span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5">
+                                <i class="fas fa-comments fa-3x text-muted mb-3"></i>
+                                <h5> No conversations yet </h5>
+                                <p class="text-muted">When clients send messages, they will appear here. </p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>  
+            </div>
+        </div>
+     </div>
+
+</div>
+
+{% endblock %}

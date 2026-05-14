@@ -1,27 +1,27 @@
 {
   "window": {
-    "accentColor": "#2dd4bf",
-    "titlebarBackground": "#0b231e",
-    "titlebarBackgroundEnd": "#12332c",
-    "titlebarForeground": "#7ec4b8",
-    "sidebarBackground": "#0d2520",
-    "sidebarForeground": "#7ec4b8",
-    "buttonBackground": "#163d36",
-    "themeName": "mint"
+    "accentColor": "#22d3ee",
+    "titlebarBackground": "#0b1f2a",
+    "titlebarBackgroundEnd": "#102e3d",
+    "titlebarForeground": "#7ec8d8",
+    "sidebarBackground": "#0c2129",
+    "sidebarForeground": "#7ec8d8",
+    "buttonBackground": "#143b4d",
+    "themeName": "ocean"
   },
   "theme": {
-    "background": "#0f172a",
-    "foreground": "#e2e8f0",
-    "cursor": "#38bdf8",
-    "selection": "rgba(56, 189, 248, 0.3)",
-    "black": "#1e293b",
-    "red": "#f87171",
-    "green": "#4ade80",
-    "yellow": "#facc15",
-    "blue": "#60a5fa",
-    "magenta": "#c084fc",
-    "cyan": "#22d3ee",
-    "white": "#f1f5f9"
+    "background": "#0a0e1a",
+    "foreground": "#c8d6e5",
+    "cursor": "#22d3ee",
+    "selection": "rgba(72, 219, 251, 0.25)",
+    "black": "#141a2e",
+    "red": "#ff6b6b",
+    "green": "#55efc4",
+    "yellow": "#feca57",
+    "blue": "#54a0ff",
+    "magenta": "#a29bfe",
+    "cyan": "#00d2d3",
+    "white": "#dfe6e9"
   },
-  "terminalTheme": "dark"
+  "terminalTheme": "midnight"
 }

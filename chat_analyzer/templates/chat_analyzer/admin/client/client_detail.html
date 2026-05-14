@@ -1,0 +1,74 @@
+{% extends "chat_analyzer/base.html" %}
+
+{% block title %}{{ client.parent_name}} | Client Details{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- header -->
+     <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="display-6">
+                <i class="fas fa-user-circle"></i>{{ client.parent_name }}
+            </h1>
+            <p class="text-muted">Client details and conversation history</p>
+        </div>
+        <div>
+            <a href="{% url 'chat_analyzer:admin_client_edit' client.id %}">
+                <i class="fas fa-edit"></i>Edit Client
+            </a>
+            <a href="{% url 'chat_analyzer:admin_client_list' %}">
+                <i class="fas fa-arrow-left"></i>Back to List
+            </a>
+        </div>
+     </div>
+
+     <div class="row">
+        <!-- Client Information Card -->
+        <div class="col-md-4">
+            <div class="card shadows-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i>Client Information</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless">
+                        <tr>
+                            <th>Username:</th>
+                            <td>{{ client.username }}</td>
+                        </tr>
+                        <tr>
+                            <th>Parent Name:</th>
+                            <td>{{ client.parent_name }}</td>
+                        </tr>
+                        <tr>
+                            <th>Child Name:</th>
+                            <td>{{ client.child_name }}</td>
+                        </tr>
+                        <tr>
+                            <th>Phone Number:</th>
+                            <td>{{ client.phone_number}}</td>
+                        </tr>
+                        <tr>
+                            <th>Address:</th>
+                            <td>{{ client.address|default:"Not provided"}} </td>
+                        </tr>
+                        <tr>
+                            <th>Status:</th>
+                            <td>
+                                {% if client.status == 'active' %}
+                                    <span class="badge bg-success">Active</span>
+                                {% elif client.status == 'inactive' %}
+                                    <span class="badge bg-danger">Inactive</span>
+                                {% else %}
+                                    <span class="badge bg-warning">Pending</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+     </div>
+
+</div>
+
+{% endblock %}

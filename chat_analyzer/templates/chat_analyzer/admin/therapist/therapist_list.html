@@ -1,0 +1,104 @@
+{% extends 'chat_analyzer/base.html' %}
+
+{% block title %} Therapist | Admin {% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- header-->
+     <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="d-flex justify-content-between align-items-center mb-4">Therapist Management</h1>
+            <p class="text-muted">Manage all therapists under your center</p>
+
+        </div>
+        <a href="{% url 'chat_analyzer:admin_therapist_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add New Therapist
+        </a>
+     </div>
+
+     <!-- Stats Card -->
+      <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card bg-primary text-white">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Therapists</h5>
+                        <h2 class="display-6">{{ total_therapists }}</h2>
+                    </div>
+                </div>
+            </div>
+      </div>
+
+      <!-- Therapists Table -->
+      <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-user-md"></i> All Therapist </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Username</th>
+                                <th>Phone</th>
+                                <th>Specialization</th>
+                                <th>Clients</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <!-- settle table head section -->
+                         <tbody>
+                        {% for therapist in therapists %}
+                        <tr>
+                            <td>{{ therapist.id }}</td>
+                            <td>
+                                <strong>{{ therapist.name }}</strong>
+                            </td>
+                            <td>{{ therapist.username }}</td>
+                            <td>{{ therapist.phone_number }}</td>
+                            <td>{{ therapist.specialization|default:"General" }}</td>
+                            <td>
+                                <span class="badge bg-info">{{ therapist.client_count }}</span>
+                            </td>
+                            <td>
+                                {% if therapist.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'chat_analyzer:admin_therapist_detail' therapist.id %}" class="btn btn-outline-info" title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{% url 'chat_analyzer:admin_therapist_edit' therapist.id %}" class="btn btn-outline-warning" title="Edit">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="{% url 'chat_analyzer:admin_therapist_toggle' therapist.id %}" class="btn btn-outline-secondary" title="Toggle Status">
+                                        <i class="fas fa-power-off"></i>
+                                    </a>
+                                </div>
+                            </td>
+                         </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5">
+                                <i class="fas fa-user-md fa-3x text-muted mb-3"></i>
+                                <h5>No therapists yet</h5>
+                                <p class="text-muted">Click "Add New Therapist" to get started.</p>
+                                <a href="{% url 'chat_analyzer:admin_therapist_create' %}" class="btn btn-primary">
+                                    <i class="fas fa-plus"></i> Add Your First Therapist
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    </table>
+                </div>
+            </div>
+      </div>
+</div>
+{% endblock %}
