@@ -14,7 +14,7 @@
             <p class="text-muted">Therapist details and client assignments</p>
         </div>
         <div>
-            <a href="#" class="btn btn-warning">
+            <a href="{% url 'chat_analyzer:admin_therapist_edit' therapist.id %}" class="btn btn-warning">
                 <i class="fas fa-edit"></i> Edit Therapist
             </a>
             <a href="{% url 'chat_analyzer:admin_therapist_list' %}" class="btn btn-secondary">
@@ -26,17 +26,21 @@
         <div class="row">
             <!-- Therapist Information Card -->
              <div class="col-md-4">
-                <div class="card shadow-sm">
+                <!-- REAL THERAPIST INFROMATION CARD SECTION WHICH IS USING 4 COLUMN SIZE -->
+                <div class="card shadow-sm card-hover">
                     <div class="card-header bg-primary text-white">
                         <h5 class="mb-0">
                             <i class="fas fa-info-circle"></i> Therapist Information
                         </h5>
                     </div>
                     <div class="card-body">
-                        <table class="table table-borderless">
+                        <!-- RESPONSIVE TABLE WRAPPER TO MAKE IT ADAPT WITH CURRENT WEB SIZE -->
+                        <div class="table-responsive">
+                        <table class="table table-borderless mb-0">
+                            <tbody>
                             <tr>
-                                <th>Username:</th>
-                                <td>{{ therapist.username }}</td>
+                                <th style="width: 40%">Username:</th>
+                                <td style="word-break: break-word;">{{ therapist.username }}</td>
                             </tr>
                             <tr>
                                 <th>Full Name:</th>
@@ -64,12 +68,14 @@
                                 <th>Registered:</th>
                                 <td>{{ therapist.created_at|date:"Y-m-d H:i" }}</td>
                             </tr>
+                            </tbody>
                         </table>
+                        </div>
                     </div>
                 </div>
                 <!-- END OF THERAPIST INFROMATION CARD -->
                 <!-- THERAPIST STATISTIC CARD -->
-                <div class="card shadow-sm mt-3">
+                <div class="card shadow-md mt-3 card-hover">
                     <!-- LIKE ALWAYS WE DECLARE WHAT IS IN CARD HEADER FIRST -->
                     <!-- LIKE ALWAYS I LOVE WAN AINUR MARDIAH BINTI WAN MOHD EDLI <33, nicky -->
                     <div class="card-header bg-success text-white">
@@ -97,15 +103,16 @@
                     </div>
                 </div>
                 <!-- QUICK ACTIONS CARD -->
-                <div class="card shadow-sm mt-3 mb-5">
+                <div class="card shadow-sm mt-3 mb-5 card-hover">
                     <div class="card-header bg-warning text-white">
                         <h5 class="mb-0">
                             <i class="fas fa-bolt"></i> Actions 
                         </h5>
                     </div>
                     <div class="card-body">
-                        <div class="d-grip gap-2">
-                            <a href="#" class="btn btn-warning">
+
+                        <div class="d-grid gap-2">
+                            <a href="{% url 'chat_analyzer:admin_therapist_edit' therapist.id %}" class="btn btn-warning">
                                 <i class="fas fa-edit"></i> Edit Therapist
                             </a>
                             <button type="button" class="btn btn-danger mt-3" data-bs-toggle="modal" data-bs-target="#deleteModal">
@@ -118,7 +125,7 @@
 
              <!-- ASSIGNED CLIENTS CARD FOR THIS THERAPIST -->
              <div class="col-md-8">
-                <div class="card shadow-sm">
+                <div class="card shadow-lg card-hover">
                     <div class="card-header bg-info text-white">
                         <h5 class="mb-0">
                             <i class="fas fa-user"></i> Assigned Clients
@@ -175,7 +182,7 @@
                                 <i class="fas fa-users fa-3x text-muted mb-3"></i>
                                 <h5>No clients assigned yet</h5>
                                 <p class="text-muted">Assign clients to this therapist to see them here.</p>
-                                <a href="{% url 'chat_analyzer:admin_client_list' %}" class="btn btn-primary">
+                                <a href="{% url 'chat_analyzer:admin_assign_clients_to_therapist' therapist.id %}" class="btn btn-primary">
                                     <i class="fas fa-user-plus"></i>Assign Client
                                 </a>
                             </div>
@@ -184,7 +191,7 @@
                 </div>
 
                 <!-- RECENT CONVERSATIONS CARD -->
-                <div class="card shadow-sm mt-3">
+                <div class="card shadow-md mt-3 card-hover">
                     <div class="card-header bg-secondary text-white">
                         <h5 class="mb-0"><i class="fas fa-comments"></i> Recent Conversations </h5>
                     </div>
@@ -213,10 +220,10 @@
                                                 {{ conv.message|truncatewords:10 }}
                                             </td>
                                             <td>
-                                                {% if conv.sentiment_analysis = 'positive' %}
+                                                {% if conv.sentiment_analysis == 'positive' %}
                                                     <span class="badge bg-success"> 😊 Positive </span>
 
-                                                {% if conv.sentiment_analysis = 'negative' %}
+                                                {% elif conv.sentiment_analysis == 'negative' %}
                                                     <span class="badge bg-danger"> 😞 Negative </span>
 
                                                 {% else %}
@@ -240,6 +247,30 @@
             </div>
         </div>
      </div>
+<!-- END OF -->
+
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Confirm Action</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+
+            </div>
+            <div class="modal-body">
+                <p>Are you want to deactivate <strong>{{ therapist.name }}</strong>?</p>
+                <p class="text-warning">You can reactivate them later from the therapist list.</p>
+                <p class="text-danger">Note: This will not delete assigned clients. </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <a href="{% url 'chat_analyzer:admin_therapist_toggle' therapist.id %}" class="btn btn-warning">
+                    <i class="fas fa-power-off"></i> Toggle Status
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
 
 </div>
 

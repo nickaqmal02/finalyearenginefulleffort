@@ -125,3 +125,33 @@ class TherapistRegistrationForm(forms.ModelForm):
             therapist.save()
         return therapist
     
+
+
+# =============== FORM FOR WHATSAPP UPLOAD FORM ====================="""
+
+
+# :: 1. WHATSAPP UPLOAD FORMS
+class WhatsappUploadForm(forms.Form):
+    """ form for uploading whatsapp chat files """
+    file = forms.FileField(
+        label='Whatsapp Chat File',
+        help_text='Upload .txt file exported from Whatsapp',
+        widget=forms.FileInput(attrs={
+            'class': 'form-control',
+            'accept':'.txt',
+            'id': 'whatsappFile'
+        })
+    )
+
+    def clean_file(self):
+        file = self.cleaned_data.get('file')
+
+        if not file:
+            raise forms.ValidationError('No File Selected')
+
+        if not file.name.endswith('.txt'):
+            raise forms.ValidationError('Please Upload a .txt file')
+
+        return file
+
+    

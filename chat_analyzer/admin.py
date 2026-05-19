@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Client, Conversation, Therapist,Admin
+from .models import Client, Conversation, Therapist,Admin, UnmatchedMessage
 import csv
 from django.http import HttpResponse
 
@@ -71,11 +71,13 @@ class ConversationAdmin(admin.ModelAdmin):
 @admin.register(Therapist)
 class TherapistAdmin(admin.ModelAdmin):
     ordering = ['-created_at']
-    list_display = ['name', 'username', 'specialization', 'is_active', 'created_at']
+    list_display = ['name', 'username', 'specialization', 'is_active']
     list_filter = ['is_active', 'specialization', 'created_at']
     search_fields = ['name', 'username', 'phone_number']
     list_editable = ['is_active']
     
+    readonly_fields = ['created_at', 'registered_by']
+
     fieldsets = (
         ('Personal Information', {
             'fields': ('username', 'name', 'phone_number', 'specialization')
@@ -98,3 +100,16 @@ class TherapistAdmin(admin.ModelAdmin):
 @admin.register(Admin)
 class AdminAdmin(admin.ModelAdmin):
     ordering=['-created_at']
+
+
+@admin.register(UnmatchedMessage)
+class UnmatchedMessageAdmin(admin.ModelAdmin):
+    list_display = ['date', 'time', 'username', 'message_preview', 'uploaded_at']
+    list_filter = ['date', 'uploaded_at']
+    search_fields = ['username', 'message']
+
+    def message_preview(self, obj):
+        return obj.message[:50] + '...' if len(obj.message) > 50 else obj.message
+    
+    message_preview.short_description = 'Message'
+

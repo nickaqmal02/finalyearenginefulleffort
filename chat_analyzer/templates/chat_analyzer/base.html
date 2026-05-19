@@ -56,6 +56,27 @@
         footer a:hover {
             color: white;
         }
+
+        .shadow-md {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+        }
+    
+    /* Add hover effects for interactive elements */
+        .hover-shadow-md:hover {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+            transition: box-shadow 0.3s ease;
+        }
+    
+    /* Card hover effect example */
+        .card-hover {
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+    
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1) !important;
+        }
+
     </style>
     
     {% block extra_css %}{% endblock %}

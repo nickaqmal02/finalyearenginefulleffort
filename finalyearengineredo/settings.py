@@ -1,4 +1,4 @@
-
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -114,3 +114,7 @@ STATIC_URL = 'static/'
 
 # admin registeration invite code (change this to something more secure )
 ADMIN_INVITE_CODE = 'AutismCenter2024!Secure123'
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+

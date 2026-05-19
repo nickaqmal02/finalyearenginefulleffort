@@ -51,7 +51,14 @@ class Client(models.Model):
     phone_number = models.CharField(max_length=255)
     address = models.CharField(max_length=255)
     registered_by = models.ForeignKey(Admin, on_delete=models.CASCADE, related_name='clients')
-    assigned_therapist = models.ForeignKey(Therapist, on_delete=models.CASCADE, related_name='clients')
+    assigned_therapist = models.ForeignKey(
+        Therapist,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='clients'
+        )
+    
     STATUS_CHOICES = [
         ('active', 'Active'),
         ('inactive', 'Inactive'),
@@ -123,3 +130,21 @@ class Conversation(models.Model):
     def __str__(self):
         client_name = self.client.parent_name if self.client else "Uknown"
         return f"{self.date} - {client_name}: {self.message[:50]}"
+    
+# UNMATCHED MESSAGE MODEL
+class UnmatchedMessage(models.Model):
+    """Messages that couldnt be linked to any client"""
+    date = models.DateField()
+    time = models.TimeField()
+    username = models.CharField(max_length=200)
+    message = models.TextField()
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    upload_batch = models.CharField(max_length=100, blank=True, null=True)
+
+    class Meta:
+        ordering = ['-date', '-time']
+        verbose_name = 'Unmatched Message'
+        verbose_name_plural = 'Unmatched Messages'
+
+    def __str__(self):
+        return f"{self.date} - {self.username} : {self.message[:50]}"

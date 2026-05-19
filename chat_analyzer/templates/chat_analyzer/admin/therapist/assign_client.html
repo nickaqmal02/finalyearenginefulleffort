@@ -1,0 +1,278 @@
+{% extends "chat_analyzer/base.html" %}
+
+{% block title %}Assign Clients to {{ therapist.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+     <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="display-6">
+                <i class="fas fa-user-md"></i> Manage Clients for {{ therapist.name }}
+
+            </h1>
+            <p class="text-muted">{{ therapist.specialization }} | {{ therapist.phone_number }}</p>
+
+        </div>
+        <a href="{% url 'chat_analyzer:admin_therapist_detail' therapist.id %}" class=btn btn-secondary>
+            <i class="fas fa-arrow-left"></i> Back to Therapist
+        </a>
+     </div>
+
+     <!-- now we enter to statistics section -->
+      <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5><i class="fas fa-users"></i> Currently Assigned </h5>
+                    <h2> {{ total_assigned }} clients </h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h5><i class="fas fa-user-plus"></i> Available to Assign</h5>
+                    <h2>{{ total_unassigned }} clients</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Assigned Clients (Left) -->
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <span class="badge bg-light text-dark">{{ assigned_clients|length }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if assigned_clients %}
+                        <form method="post" id="formAssigned">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="remove">
+
+                            <div class="mb-3">
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleCheckboxes('assigned')">
+                                        <i class="fas fa-check-double"></i> Select All
+                                    </button>
+                                    <button type="submit" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#transferModal">
+                                        <i class="fas fa-exchange-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="table-responsive">
+                                <table class="table table-hover" id="assignedtable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th width="40"><input type="checkbox" id="selectAllAssigned"> </th>
+                                            <th>Parent Name</th>
+                                            <th>Child Name</th>
+                                            <th>Phone</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for client in assigned_clients %}
+
+                                        <tr>
+                                            <td><input type="checkbox" name="client_ids" value="{{ client.id }}" class="client-checkbox assigned-checkbox"> </td>
+                                            <td>
+                                                <strong>{{ client.parent_name }}</strong>
+                                                <br>
+                                                <small class="text-muted">{{ client.username }}</small>
+
+                                            </td>
+                                            <td>{{ client.child_name }}</td>
+                                            <td>{{ client.phone_number }}</td>
+                                            <td>
+                                                {% if client.status == 'active' %}
+                                                <span class="badge bg-success">Active</span>
+                                                {% else %}
+                                                <span class="badge bg-danger">Inactive</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </form>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-users fa-3x text-muted mb-3">
+
+                            </i>
+                            <h5>No clients assigned yet</h5>
+                            <p>Use the right panel to assign cliens</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- UNASSIGNED CLIENTS (RIGHT)-->
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user-plus"></i> Available Clients
+                        <span class="badge bg-dark text-white">{{ unassigned_clients|length }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if unassigned_clients %}
+                        <form method="post" id="formUnassigned">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="assign">
+                            <div class="mb-3">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleCheckboxes('unassigned')">
+                                    <i class="fas fa-check-double"></i> Select All
+                                </button>
+                                <button type="submit" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-user-plus"></i> Assign Selected
+                                </button>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-hover" id="unassignedTable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th width="40"><input type="checkbox" id="selectAllAssigned"> </th>
+                                            <th> Parent Name </th>
+                                            <th> Child Name </th>
+                                            <th> Phone </th>
+                                            <th> Status </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for client in unassigned_clients %}
+                                        <tr>
+                                            <td><input type="checkbox" name="client_ids" value="{{ client.id }}" class="client-checkbox unassigned-checkbox"> </td>
+                                            <td>
+                                                <strong>{{ client.parent_name }} </strong>
+                                                <br>
+                                                <small class="text-muted">{{ client.username }}</small>
+                                            </td>
+                                            <td>{{ client.child_name }}</td>
+                                            <td>{{ client.phone_number }}</td>
+                                            <td>
+                                                {% if client.status == 'active' %}
+                                                    <span class="badge bg-success">Active</span>
+                                                {% else %}
+                                                    <span class="badge bg-danger">Inactive</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </form>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                            <h5>All clients are assigned!</h5>
+                            <p>All clients have been assigned to therapists</p>
+
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Transfer Modal -->
+<div class="modal fade" id="transferModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">Transfer Clients to Another Therapist</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="transfer">
+                <div class="modal-body">
+                    <p>Transfer selected clients to a different therapist:</p>
+                    <div class="mb-3">
+                        <label class="form-label">Select Therapist:</label>
+                        <select name="new_therapist_id" class="form-select" required>
+                            <option value="">-- Select Therapist --</option>
+                            {% for t in other_therapists %}
+                            <option value="{{ t.id }}">{{ t.name }} ({{ t.specialization }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div id="selectedClientsList"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-info">Transfer Clients</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Select All functionality
+document.getElementById('selectAllAssigned')?.addEventListener('change', function(e) {
+    document.querySelectorAll('.assigned-checkbox').forEach(cb => cb.checked = e.target.checked);
+});
+
+document.getElementById('selectAllUnassigned')?.addEventListener('change', function(e) {
+    document.querySelectorAll('.unassigned-checkbox').forEach(cb => cb.checked = e.target.checked);
+});
+
+function toggleCheckboxes(type) {
+    const checkboxes = document.querySelectorAll(`.${type}-checkbox`);
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    checkboxes.forEach(cb => cb.checked = !allChecked);
+}
+
+// Show selected clients in modal
+document.querySelectorAll('.btn-info[data-bs-toggle="modal"]').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const selected = [];
+        document.querySelectorAll('.assigned-checkbox:checked').forEach(cb => {
+            const row = cb.closest('tr');
+            const name = row.querySelector('td:nth-child(2) strong')?.innerText || 'Unknown';
+            selected.push(name);
+        });
+        
+        const listDiv = document.getElementById('selectedClientsList');
+        if (selected.length > 0) {
+            listDiv.innerHTML = `
+                <div class="alert alert-info">
+                    <strong>Clients to transfer (${selected.length}):</strong>
+                    <ul class="mb-0 mt-2">
+                        ${selected.map(s => `<li>${s}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        } else {
+            listDiv.innerHTML = '<div class="alert alert-warning">No clients selected. Please select clients first.</div>';
+        }
+    });
+});
+</script>  
+
+<style>
+    .table-responsive {
+        max-height: 500px;
+        overflow-y: auto;
+    }
+    thead {
+        position: sticky;
+        top: 0;
+        background: white;
+        z-index: 1;
+    }
+</style>
+
+{% endblock %}
