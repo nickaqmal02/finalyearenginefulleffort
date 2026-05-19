@@ -1,0 +1,101 @@
+{% extends "chat_analyzer/base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}Upload Whatsapp | Admin{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <!-- UPLOAD CARD SECTION -->
+             <div class="card shadow-sm">
+                <!-- CARD HEADER -->
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fab fa-whatsapp"></i> Upload Whatsapp Chat
+                    </h4>
+                    <small>Import Whatsapp Conversation history</small>
+                </div>
+                <!-- CARD BODY -->
+                 <div class="card-body">
+                    <form method="post" enctype="multipart/form-data" id="uploadForm">
+                        {% csrf_token %}
+                        {{ form|crispy }}
+
+                        <button type="submit" class="btn btn-primary w-100 mt-3" id="uploadBtn">
+                            <i class="fas fa-upload"></i>Upload and Process
+                        </button>
+                    </form>
+
+                <!-- LOADING SPINNER JUST SOME INTERACTIVE ELEMENT (HIDDEN INITIALLY) -->
+                 <div id="loadingSpinner" class="text-center mt-3" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Processing...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Processing messages, please wait...</p>
+                 </div>
+                 </div>
+             </div>
+
+            <!-- INSTRUCTIONS CARD -->
+            <div class="card mt-4 shadow-sm">
+                <!-- like always card header first -->
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> How to Export Whatsapp Chat</h5>
+                </div>
+                <!-- and then card body -->
+                <div class="card-body">
+                    <ol class="mb-0">
+                        <li>Open the WhatsApp chat you want to export</li>
+                        <li>Tap the menu (three dots) or group name</li>
+                        <li>Select "More" -> "Export Chat"</li>
+                        <li>Choose <strong> "Without Media"</strong></li>
+                        <li>Save the .txt file to your device</li>
+                        <li>Upload it using the form above</li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- Tips Card -->
+            <div class="card mt-3 shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="fas fa-lightbulb"></i> Tips for Best Results </h5>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li>Messages are automatically linked to clients by <strong>phone number</strong> or <strong>username</strong> </li>
+                        <li>Make sure client phone numbers are correctly entered in their profile </li>
+                        <li>For saved contacts, the contact name must match the client's username</li>
+                        <li>Supported format: <code>[13/10/2024, 23:23:42] Sender: Message</code></li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Example Card -->
+            <div class="card mt-3 shadow-sm mb-2">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-code"></i> Example Format</h5>
+                </div>
+                <div class="card-body">
+                    <pre class="bg-light p-3 rounded" style="font-size: 12px;">
+[13/10/2024, 09:30:15] +60 16-935 4580: Hello, I need help
+[13/10/2024, 09:32:22] Admin: Hi! How can I help?
+[13/10/2024, 09:35:45] +60 16-935 4580: My child needs therapy
+                    </pre>
+                    <small class="text-muted">Both bracket format and dash format are supported</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // show spinner when form submits
+    document.getElementById('uploadForm').addEventListener('submit', function(){
+        document.getElementById('uploadBtn').disabled = true;
+        document.getElementById('uploadBtn').innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Processing... ';
+        document.getElementById('loadingSpinner').style.display = 'block';
+    });
+</script>
+
+{% endblock %}

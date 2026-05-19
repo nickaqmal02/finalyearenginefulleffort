@@ -1,0 +1,225 @@
+{% extends "chat_analyzer/base.html" %}
+{% load static %}
+
+{% block title %}All Messages | Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="display-6">
+                <i class="fas fa-comments"></i> All Messages
+            </h1>
+            <p class="text-muted">View and manage all WhatsApp conversations</p>
+        </div>
+        <a href="{% url 'chat_analyzer:admin_upload_whatsapp' %}" class="btn btn-primary">
+            <i class="fab fa-whatsapp"></i> Upload New Chat
+        </a>
+    </div>
+    
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-white bg-primary shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title">Total Messages</h6>
+                            <h2 class="mb-0">{{ total_messages }}</h2>
+                        </div>
+                        <i class="fas fa-envelope fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-success shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title">Linked to Clients</h6>
+                            <h2 class="mb-0">{{ matched_messages }}</h2>
+                        </div>
+                        <i class="fas fa-link fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-warning shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title">Unmatched</h6>
+                            <h2 class="mb-0">{{ unmatched_messages }}</h2>
+                        </div>
+                        <i class="fas fa-question-circle fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filters -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <input type="text" name="search" class="form-control" placeholder="Search by sender or message" value="{{ request.GET.search }}">
+                </div>
+                <div class="col-md-2">
+                    <select name="status" class="form-select">
+                        <option value="">All Status</option>
+                        <option value="linked" {% if request.GET.status == 'linked' %}selected{% endif %}>Linked to Client</option>
+                        <option value="unlinked" {% if request.GET.status == 'unlinked' %}selected{% endif %}>Unmatched</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search"></i> Filter
+                    </button>
+                </div>
+                <div class="col-md-2">
+                    <a href="{% url 'chat_analyzer:admin_conversation_list' %}" class="btn btn-secondary w-100">
+                        <i class="fas fa-sync-alt"></i> Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Messages Table -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white">
+            <h5 class="mb-0"><i class="fas fa-list"></i> Conversation History</h5>
+        </div>
+        <div class="card-body">
+            {% if page_obj %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>Time</th>
+                                <th>Sender</th>
+                                <th>Client</th>
+                                <th>Message</th>
+                                <th>Sentiment</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for conv in page_obj %}
+                            <tr>
+                                <td>{{ conv.date|date:"Y-m-d" }}</td>
+                                <td>{{ conv.time|time:"H:i" }}</td>
+                                <td>
+                                    <strong>{{ conv.username|truncatechars:25 }}</strong>
+                                    {% if not conv.client %}
+                                        <span class="badge bg-warning ms-1">Unmatched</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if conv.client %}
+                                        <span class="badge bg-success">{{ conv.client.parent_name }}</span>
+                                        <br>
+                                        <small class="text-muted">{{ conv.client.child_name }}</small>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Unknown</span>
+                                        <br>
+                                        <small class="text-muted">Not linked to any client</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div style="max-width: 300px;">
+                                        {{ conv.message|truncatewords:15 }}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if conv.sentiment_analysis %}
+                                        {% if conv.sentiment_analysis == 'positive' %}
+                                            <span class="badge bg-success">😊 Positive</span>
+                                        {% elif conv.sentiment_analysis == 'negative' %}
+                                            <span class="badge bg-danger">😞 Negative</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Neutral</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-secondary">Pending</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="#" class="btn btn-sm btn-outline-info" title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                             </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                {% if page_obj.has_other_pages %}
+                <nav aria-label="Page navigation" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+                                    <i class="fas fa-chevron-left"></i> Previous
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link"><i class="fas fa-chevron-left"></i> Previous</span>
+                            </li>
+                        {% endif %}
+                        
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+                                        {{ num }}
+                                    </a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+                                    Next <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">Next <i class="fas fa-chevron-right"></i></span>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+                
+                <!-- Showing info -->
+                <div class="text-center text-muted mt-3">
+                    Showing page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }} 
+                    ({{ page_obj.paginator.count }} total messages)
+                </div>
+                
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-comments fa-4x text-muted mb-3"></i>
+                    <h4>No messages yet</h4>
+                    <p class="text-muted">Upload a WhatsApp file to get started.</p>
+                    <a href="{% url 'chat_analyzer:admin_upload_whatsapp' %}" class="btn btn-primary mt-2">
+                        <i class="fab fa-whatsapp"></i> Upload Your First Chat
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -78,12 +78,12 @@
                     
                     <!-- Conversations Dropdown -->
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                        <a class="nav-link dropdown-toggle" href="{% url 'chat_analyzer:admin_conversation_list' %}" role="button" data-bs-toggle="dropdown">
                             <i class="fas fa-comments"></i> Conversations
                         </a>
                         <ul class="dropdown-menu dropdown-menu-dark">
                             <li>
-                                <a class="dropdown-item" href="#">
+                                <a class="dropdown-item" href="{% url 'chat_analyzer:admin_conversation_list' %}">
                                     <i class="fas fa-list"></i> All Messages
                                 </a>
                             </li>

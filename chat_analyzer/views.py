@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from .forms import AdminRegisterationForm, LoginForm, ClientRegisterationForm, TherapistRegistrationForm
-from .models import Admin, Therapist, Client, Conversation
+from .models import Admin, Therapist, Client, Conversation, UnmatchedMessage
 from datetime import datetime
 
 # Create your views here.
@@ -486,4 +486,310 @@ def admin_therapist_detail(request, therapist_id):
             'total_conversations': total_conversations,
         }
 
-        return render(request, 'chat_analyzer/admin/therapist/therapist_detail.html', {'context':context})
+        return render(request, 'chat_analyzer/admin/therapist/therapist_detail.html', context)
+
+# :: ASSIGN CLIENT TO THERAPIST VIEWS ::
+def admin_assign_clients_to_therapist(request, therapist_id):
+    """ admin page to assign multiple clients to a spesific therapist"""
+
+    if not (request.session.get('user_id') and request.session.get('user_role') == 'admin'):
+        messages.warning(request, 'Please login as admin')
+        return redirect('chat_analyzer:login')
+    
+    # mcm biasa get admin_id
+    admin_id = request.session.get('user_id')
+    therapist = get_object_or_404(Therapist, id=therapist_id, registered_by_id=admin_id)
+
+    # get all assigned and unassigned clients
+    unassigned_clients = Client.objects.filter(
+        registered_by_id=admin_id,
+        assigned_therapist__isnull=True
+    ).order_by('parent_name')
+
+    assigned_clients = Client.objects.filter(
+        registered_by_id=admin_id,
+        assigned_therapist=therapist
+    ).order_by('parent_name')
+
+    # get other therapists (to switch assignments)
+    other_therapists = Therapist.objects.filter(
+        registered_by_id=admin_id,
+        is_active=True
+    ).exclude(id=therapist_id)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+    
+        if action == 'assign':
+            client_ids = request.POST.getlist('client_ids')
+            # clients to assign kita filter yg still xdk therapist assigned
+            clients_to_assign = Client.objects.filter(id__in=client_ids, registered_by_id=admin_id)
+            count = clients_to_assign.update(assigned_therapist=therapist)
+            messages.success(request, f'✅ Assigned {count} client(s) to {therapist.name}')
+
+        elif action == 'remove':
+            client_ids = request.POST.getlist('client_ids')
+            # bezo function clients to remove is it is for assigned therapist only
+            clients_to_remove = Client.objects.filter(id__in=client_ids, registered_by_id=admin_id, assigned_therapist=therapist)
+            count = clients_to_remove.update(assigned_therapist=None)
+            messages.success(request, f'✅ Removed {count} client(s) from {therapist.name}')
+
+        elif action == 'transfer':
+            client_ids = request.POST.getlist('client_ids')
+            new_therapist_id = request.POST.getlist('client_ids')
+            new_therapist = get_object_or_404(Therapist, id=new_therapist_id, registered_by_id=admin_id)
+            clients_to_transfer = Client.objects.filter(id__in=client_ids, registered_by_id=admin_id, assigned_therapist=therapist)
+            count = clients_to_transfer.update(assigned_therapist=None)
+            messages.success(request, f'✅ Transferred {count} client(s) from {therapist.name} to {new_therapist.name}')
+
+        return redirect('chat_analyzer:admin_assign_clients_to_therapist',therapist_id=therapist.id)
+
+    context = {
+        'therapist': therapist,
+        'unassigned_clients': unassigned_clients,
+        'assigned_clients': assigned_clients,
+        'other_therapists': other_therapists,
+        'total_assigned': assigned_clients.count(),
+        'total_unassigned': unassigned_clients.count(),
+    }
+
+    return render(request, 'chat_analyzer/admin/therapist/assign_client.html', context)
+   
+
+
+
+
+
+
+
+
+# ================ VIEWS FOR CONVERSATION ====================
+
+# 1. :: CONVERSATION LIST ::
+from django.core.paginator import Paginator
+
+def admin_conversation_list(request):
+    """display all conversations with pagination"""
+
+    # like we always do check admin session or not
+    if not (request.session.get('user_id') and request.session.get('user_role') == 'admin'):
+        messages.warning(request, 'Please login as admin')
+        return redirect('chat_analyzer:login')
+    
+    # get admin
+    admin_id = request.session.get('user_id')
+
+    # get all conversations for clients under this admin
+    conversations = Conversation.objects.filter(
+        client__registered_by_id=admin_id
+    ).select_related('client').order_by('-date','-time')
+
+    # pagination (20 per page)
+    paginator = Paginator(conversations, 20)
+    page_number = request.GET.get('page',1)
+    page_obj = paginator.get_page(page_number)
+
+    # Statistics
+    total_messages = conversations.count()
+    matched_messages = conversations.filter(client__isnull=False).count()
+    unmatched_messages = conversations.filter(client__isnull=True).count()
+
+    context = {
+        'page_obj': page_obj,
+        'total_messages': total_messages,
+        'matched_messages': matched_messages,
+        'unmatched_messages': unmatched_messages,
+    }
+
+    return render(request, 'chat_analyzer/admin/conversations/list.html', context)
+
+# 2. :: UPLOAD PAGE VIEWS ::
+from .forms import WhatsappUploadForm
+from .services.whatsapp_parser import parse_whatsapp_file
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+from datetime import datetime
+import os
+
+def admin_upload_whatsapp(request):
+    """Upload and process whatsapp chat file"""
+
+    # check admin sessionn
+    if not (request.session.get('user_id') and request.session.get('user_role') == 'admin'):
+        messages.warning(request, 'please login as admin')
+        return redirect('chat_analyzer:login')
+    
+    # get the admin id
+    admin_id = request.session.get('user_id')
+
+    if request.method == 'POST':
+        form = WhatsappUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            uploaded_file = request.FILES['file']
+
+            if not uploaded_file.name.endswith('.txt'):
+                messages.error(request, 'please upload a .txt file')
+                return render(request, 'chat_analyzer/admin/whatsapp/upload.html', {'form':form})
+            
+            # enhancement 1: save uploaded file (optional - for audit)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            saved_filename = f"uploads/whatsapp_{timestamp}_{uploaded_file.name}"
+            saved_path = default_storage.save(saved_filename, ContentFile(uploaded_file.read()))
+
+            # re-read the file (because we already read it)
+            file_content = default_storage.open(saved_path).read().decode('utf-8')
+
+            try:
+                # parse messages
+                messages_list = parse_whatsapp_file(file_content)
+
+                if not messages_list:
+                    messages.warning(request, 'No valid Whatsapp messages found')
+
+                    # clean up saved file
+                    default_storage.delete(saved_path)
+                    return render(request, 'chat_analyzer/admin/whatsapp/upload.html', {'form':form})
+                
+                # ENHANCEMENT 2: GET LATEST MESSAGE DATE FOR REPORTING
+                latest_message_date = max((msg['date'] for msg in messages_list), default=None)
+                earliest_message_date = min((msg['date'] for msg in messages_list), default=None)
+
+                # ENHANCEMENT 3: IMPROVED CLIENT MATCHING
+                clients = Client.objects.filter(registered_by_id=admin_id)
+
+                # create multiple lookup methods
+                phone_lookup = {}
+                name_lookup = {}
+                username_lookup = {}
+
+                for client in clients:
+                    # method 1: phone number
+                    if client.phone_number:
+                        phone_lookup[client.phone_number] = client.id
+                        # also store normalized version
+                        normalized = client.phone_number.replace(' ', '').replace('-','')
+                        phone_lookup[normalized] = client.id
+
+                    # method 2 : username 
+                    if client.username:
+                        username_lookup[client.username.lower()] = client.id
+
+                    # method 3: check using parent name
+                    if client.parent_name:
+                        name_lookup[client.parent_name.lower()] = client.id
+
+                # enhancement 4: we track stats
+                saved_count = 0
+                matched_count = 0
+                unmatched_senders = {}
+                duplicate_count = 0
+                unmatched_count = 0 # new : count of unmatched message
+
+                # enhancement 5: check for duplicates before saving
+                existing_messages = set(
+                    Conversation.objects.filter(
+                        client__registered_by_id=admin_id
+                    ).values_list('date', 'time', 'username', 'message')
+                )
+
+                #new enhancement : check existing unmatched messages
+                existing_unmatched = set(
+                    UnmatchedMessage.objects.filter().values_list('date', 'time', 'username', 'message')
+                )
+
+                for msg in messages_list:
+                    sender = msg['username']
+                    client_id = None
+
+                    # try matching in priority order
+                    if sender in phone_lookup:
+                        client_id = phone_lookup[sender]
+                        matched_count +=1
+                    elif sender.lower() in username_lookup:
+                        client_id = username_lookup[sender.lower()]
+                        matched_count +=1
+                    elif sender.lower() in name_lookup:
+                        client_id = name_lookup[sender.lower()]
+                        matched_count += 1
+                    else:
+                        unmatched_senders[sender] = unmatched_senders.get(sender, 0) + 1
+
+                    # check for duplicate message
+                    is_duplicate = (
+                        msg['date'],
+                        msg['time'],
+                        sender,
+                        msg['message'][:100]
+                    ) in existing_messages
+
+                    if is_duplicate:
+                        duplicate_count +=1
+                        continue
+                    #next improvement handles unmatched messages seperately
+                    # if matched we save into our Conversation models
+                    if client_id:
+                    # save message into Conversation 
+                        Conversation.objects.create(
+                            client_id=client_id,
+                            date=msg['date'],
+                            time=msg['time'],
+                            username=sender,
+                            message=msg['message'],
+                        )
+                        saved_count += 1
+                    # if not matched with our client numbers and username
+                    else:
+                        UnmatchedMessage.objects.create(
+                            date=msg['date'],
+                            time=msg['time'],
+                            username=sender,
+                            message=msg['message'],
+                        )
+                        unmatched_count += 1 # count unmatched
+
+                # ENHANCEMENT 6: DELETE SAVED FILE IF NO ERRORS
+                default_storage.delete(saved_path)
+
+                # ENHANCMENT 7: BETTER REPORTING
+                if duplicate_count > 0:
+                    messages.info(request, f' Skipped {duplicate_count} duplicate messages')
+
+                if unmatched_count > 0:
+                    messages.warning(
+                        request,
+                        f'⚠️ {unmatched_count} message(s) from unknown senders saved to "Unmatched Messages"'
+                    )
+
+                if unmatched_senders:
+                    # shows top 5 unmatched senders with counts
+                    top_unmatched = sorted(unmatched_senders.items(), key=lambda x: x[1], reverse=True)[:5]
+
+                    preview = ', '.join([f"{sender} ({count})" for sender, count in top_unmatched])
+                    
+                    if len(unmatched_senders) > 5:
+                        preview += f' and {len(unmatched_senders) - 5} more'
+
+                    messages.warning(request, f'⚠️ {len(unmatched_senders)} sender(s) not recognized: {preview}')
+
+                # ENHANCEMENT 8: SUMMARY FOR DATE RANGE
+                summary = f'✅ Imported {saved_count} messages! {matched_count} linked to clients.'
+                if unmatched_count > 0:
+                    summary += f'{unmatched_count} unmatched messages saved seperately.'
+
+                if earliest_message_date and latest_message_date:
+                    summary += f' (From {earliest_message_date} to {latest_message_date})'
+                    
+                    messages.success(request, summary)
+
+                    return redirect('chat_analyzer:admin_conversation_list')
+                
+            except Exception as e:
+                messages.error(request, f'Error processing file: {str(e)}')
+                # clean up saved file on error
+                default_storage.delete(saved_path)
+                return render(request, 'chat_analyzer/admin/conversations/upload.html', {'form':form})
+            
+    else:
+        form = WhatsappUploadForm()
+        return render(request, 'chat_analyzer/admin/conversations/upload.html', {'form': form})
+    
