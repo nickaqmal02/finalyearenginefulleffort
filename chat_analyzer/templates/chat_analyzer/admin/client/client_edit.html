@@ -6,11 +6,11 @@
 {% block content %}
 <div class="container mt-5">
     <div class="row justify-content-center">
-        <div class="col-md-6">
+        <div class="col-md-8">
             <div class="card">
                 <div class="card-header bg-warning text-white">
-                    <h3 class="mb-0"><i class="fas fa-edit"></i> Edit Client </h3>
-                    <small>Update Client Information</small>
+                    <h3 class="mb-0"><i class="fas fa-edit"></i> Edit Client</h3>
+                    <small>Update Client Information and Contacts</small>
                 </div>
 
                 <div class="card-body">
@@ -18,34 +18,55 @@
                         {% csrf_token %}
                         {{ form|crispy }}
                         
+                        <!-- Contacts Section -->
+                        <h5 class="mt-4 mb-3">
+                            <i class="fas fa-address-book"></i> Contacts
+                            <small class="text-muted">(Father, Mother, Guardian, etc.)</small>
+                        </h5>
+                        
+                        {{ contact_formset.management_form }}
+                        {% for contact_form in contact_formset %}
+                            <div class="card mb-2 {% if contact_form.instance.pk %}bg-light{% endif %}">
+                                <div class="card-body">
+                                    {{ contact_form|crispy }}
+                                    {% if contact_form.instance.pk %}
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" type="checkbox" name="{{ contact_form.prefix }}-DELETE" id="delete_{{ contact_form.prefix }}">
+                                            <label class="form-check-label text-danger" for="delete_{{ contact_form.prefix }}">
+                                                <i class="fas fa-trash"></i> Delete this contact
+                                            </label>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                        
                         <div class="d-flex gap-2 mt-3">
                             <button type="submit" class="btn btn-warning">
                                 <i class="fas fa-save"></i> Update Client
                             </button>
-                            <a href="{% url 'chat_analyzer:admin_client_list' %}" class="btn btn-secondary">
-                                <i class="fas fa-times"></i> Cancel 
+                            <a href="{% url 'chat_analyzer:admin_client_detail' client.id %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancel
                             </a>
                         </div>
                     </form>
                 </div>
             </div>
             
-            <div class="card mt-3">
+            <div class="card mt-3 mb-3">
                 <div class="card-body">
                     <small class="text-muted">
                         <i class="fas fa-info-circle"></i> Client Information
-                    
-                    <ul class="mb-0 mt-2">
-                        <li>Created: {{ client.created_at|date:"Y-m-dH:i" }} </li>
-                        <li>Client ID: {{ client.id }}</li>
-                        <li>Total Conversations: {{ client.conversations.count }} </li>
-
-                    </ul>
                     </small>
+                    <ul class="mb-0 mt-2">
+                        <li><strong>Created:</strong> {{ client.created_at|date:"Y-m-d H:i" }}</li>
+                        <li><strong>Client ID:</strong> {{ client.id }}</li>
+                        <li><strong>Total Conversations:</strong> {{ client.conversations.count }}</li>
+                        <li><strong>Total Contacts:</strong> {{ client.contacts.count }}</li>
+                    </ul>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
 {% endblock %}

@@ -1,0 +1,193 @@
+{% extends "chat_analyzer/base.html" %}
+{% load static %}
+{% load heroicons %}
+
+{% block title %}Sign Up - Chat Analyzer{% endblock %}
+
+{% block content %}
+<div
+  class="flex items-center justify-center min-h-screen py-12 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+  <div
+    class="w-full max-w-2xl p-8 space-y-6 bg-white rounded-2xl shadow-2xl dark:bg-gray-800 dark:border dark:border-gray-700">
+
+    <!-- Header -->
+    <div class="text-center">
+      <div class="flex justify-center mb-4">
+        <div class="p-3 bg-green-100 rounded-full dark:bg-green-900">
+          {% heroicon_outline "user-plus" class="w-12 h-12 text-green-600 dark:text-green-300" %}
+        </div>
+      </div>
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
+        Create Account
+      </h1>
+      <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+        Join us and start analyzing conversations
+      </p>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+    {% for message in messages %}
+    <div
+      class="p-4 mb-4 text-sm rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300{% elif message.tags == 'error' %}bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300{% else %}bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300{% endif %}">
+      <div class="flex items-center gap-2">
+        {% if message.tags == 'success' %}
+        {% heroicon_outline "check-circle" class="w-5 h-5" %}
+        {% elif message.tags == 'error' %}
+        {% heroicon_outline "x-circle" class="w-5 h-5" %}
+        {% else %}
+        {% heroicon_outline "information-circle" class="w-5 h-5" %}
+        {% endif %}
+        {{ message }}
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <!-- Signup Form -->
+    <form method="post" class="space-y-4 md:space-y-6">
+      {% csrf_token %}
+
+      <!-- Username -->
+      <div>
+        <label for="id_username" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+          Username
+        </label>
+        <div class="relative">
+          <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+            {% heroicon_outline "user" class="w-5 h-5 text-gray-500 dark:text-gray-400" %}
+          </div>
+          <input type="text" name="username"
+            class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 pl-10"
+            placeholder="Choose a username" id="id_username" value="{{ form.username.value|default:'' }}">
+        </div>
+        {% if form.username.errors %}
+        <p class="mt-1 text-sm text-red-600">{{ form.username.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Email -->
+      <div>
+        <label for="id_email" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+          Email
+        </label>
+        <div class="relative">
+          <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+            {% heroicon_outline "envelope" class="w-5 h-5 text-gray-500 dark:text-gray-400" %}
+          </div>
+          <input type="email" name="email"
+            class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 pl-10"
+            placeholder="Enter your email" id="id_email" value="{{ form.email.value|default:'' }}">
+        </div>
+        {% if form.email.errors %}
+        <p class="mt-1 text-sm text-red-600">{{ form.email.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <!-- First Name & Last Name -->
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div>
+          <label for="id_first_name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+            First Name
+          </label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+              {% heroicon_outline "user-circle" class="w-5 h-5 text-gray-500 dark:text-gray-400" %}
+            </div>
+            <input type="text" name="first_name"
+              class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 pl-10"
+              placeholder="First name" id="id_first_name" value="{{ form.first_name.value|default:'' }}">
+          </div>
+        </div>
+        <div>
+          <label for="id_last_name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+            Last Name
+          </label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+              {% heroicon_outline "user-circle" class="w-5 h-5 text-gray-500 dark:text-gray-400" %}
+            </div>
+            <input type="text" name="last_name"
+              class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 pl-10"
+              placeholder="Last name" id="id_last_name" value="{{ form.last_name.value|default:'' }}">
+          </div>
+        </div>
+      </div>
+
+      <!-- Role -->
+      <div>
+        <label for="id_role" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+          Role
+        </label>
+        <div class="relative">
+          <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+            {% heroicon_outline "user-group" class="w-5 h-5 text-gray-500 dark:text-gray-400" %}
+          </div>
+          <select name="role" id="id_role"
+            class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 pl-10">
+            <option value="client" {% if form.role.value == 'client' %}selected{% endif %}>Client</option>
+            <option value="therapist" {% if form.role.value == 'therapist' %}selected{% endif %}>Therapist</option>
+            <option value="doctor" {% if form.role.value == 'doctor' %}selected{% endif %}>Doctor</option>
+            <option value="admin" {% if form.role.value == 'admin' %}selected{% endif %}>Admin</option>
+          </select>
+        </div>
+        {% if form.role.errors %}
+        <p class="mt-1 text-sm text-red-600">{{ form.role.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Password -->
+      <div>
+        <label for="id_password1" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+          Password
+        </label>
+        <div class="relative">
+          <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+            {% heroicon_outline "lock-closed" class="w-5 h-5 text-gray-500 dark:text-gray-400" %}
+          </div>
+          <input type="password" name="password1"
+            class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 pl-10"
+            placeholder="Create a password" id="id_password1">
+        </div>
+        {% if form.password1.errors %}
+        <p class="mt-1 text-sm text-red-600">{{ form.password1.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Confirm Password -->
+      <div>
+        <label for="id_password2" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+          Confirm Password
+        </label>
+        <div class="relative">
+          <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+            {% heroicon_outline "lock-closed" class="w-5 h-5 text-gray-500 dark:text-gray-400" %}
+          </div>
+          <input type="password" name="password2"
+            class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 pl-10"
+            placeholder="Confirm your password" id="id_password2">
+        </div>
+        {% if form.password2.errors %}
+        <p class="mt-1 text-sm text-red-600">{{ form.password2.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Submit Button -->
+      <button type="submit"
+        class="flex items-center justify-center w-full gap-2 text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+        {% heroicon_outline "user-plus" class="w-5 h-5" %}
+        Create Account
+      </button>
+    </form>
+
+    <!-- Login Link -->
+    <div class="text-sm text-center text-gray-500 dark:text-gray-400">
+      Already have an account?
+      <a href="{% url 'chat_analyzer:login_view' %}"
+        class="font-medium text-blue-600 hover:underline dark:text-blue-500">
+        Log in
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}

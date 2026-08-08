@@ -1,0 +1,167 @@
+{% extends "chat_analyzer/base.html" %}
+
+{% block title %}Therapist Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- welcome section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-gradient-primary text-white border-0" style="background: linear-gradient(135deg,#20B2AA 0%, #008080 100%);">
+                <div class="card-body py-4">
+                    <h1 class="display-5 mb-2">Welcome back, {{ therapist.name }}! </h1>
+                    <p class="mb-0 opacity-75">Here's your client overview</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Stats Cards - FIXED -->
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card border-0 shadow-sm">  <!-- Added card -->
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted">My Clients</h6>
+                            <h2 class="mb-0">{{ total_clients }}</h2>
+                        </div>
+                        <i class="fas fa-user fa-3x text-primary opacity-50"></i>  <!-- Fixed opacity class -->
+                    </div>
+                </div>
+            </div>  <!-- Added closing -->
+        </div>
+
+        <div class="col-md-4 mb-3">  <!-- Fixed indentation -->
+            <div class="card border-0 shadow-sm">  <!-- Added card -->
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted">Total Messages</h6>
+                            <h2 class="mb-0">{{ total_messages }}</h2>
+                        </div>
+                        <i class="fas fa-comments fa-3x text-success opacity-50"></i>
+                    </div>
+                </div>
+            </div>  <!-- Added closing -->
+        </div>
+
+        <!-- Active clients section -->
+        <div class="col-md-4 mb-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted">Active Clients</h6>
+                            <h2 class="mb-0">{{ clients|length }}</h2>
+                        </div>
+                        <i class="fas fa-user-check fa-3x text-info opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>  <!-- Close the row -->
+
+    <!-- My Clients Table -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white">
+            <h5 class="mb-0"><i class="fas fa-users"></i> My Assigned Clients</h5>
+        </div>
+        <div class="card-body">
+            {% if clients %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Parent Name</th>
+                                <th>Child Name</th>
+                                <th>Phone</th>
+                                <th>Messages</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for client in clients %}
+                            <tr>
+                                <td>
+                                    {{ client.parent_name }}<br>
+                                    <small class="text-muted">{{ client.username }}</small>
+                                </td>
+                                <td>
+                                    {{ client.child_name }}<br>
+                                    <small class="text-muted">Since {{ client.created_at|date:"Y-m-d" }}</small>
+                                </td>
+                                <td>
+                                    {{ client.phone_number }}<br>
+                                    <small class="text-muted">{{ client.contacts.count }} contacts</small>  <!-- Added context -->
+                                </td>
+                                <td>
+                                    {{ client.conversations.count }}<br>
+                                    <small class="text-muted">messages</small>
+                                </td>
+                                <td>
+                                    {% if client.status == 'active' %}
+                                        <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'chat_analyzer:client_of_therapist_detail' client.id %}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-eye"></i> View  <!-- Fixed spacing -->
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                    <h5>No clients assigned yet</h5>
+                    <p class="text-muted">Admin will assign clients to you.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Recent Conversations - FIXED -->
+    {% if recent_conversations %}
+    <div class="card shadow-sm">
+        <div class="card-header bg-white">
+            <h5 class="mb-0"><i class="fas fa-clock"></i> Recent Conversations</h5>
+        </div>
+        <div class="card-body">
+            <div class="list-group">
+                {% for conv in recent_conversations %}  <!-- Fixed missing %} -->
+                    <div class="list-group-item list-group-item-action">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center mb-1">
+                                    <strong>{{ conv.client.parent_name }}</strong>
+                                    <span class="badge bg-secondary ms-2">{{ conv.date|date:"Y-m-d" }}</span>
+                                    {% if conv.sentiment == 'positive' %}
+                                        <span class="badge bg-success ms-2">😀 Positive</span>
+                                    {% elif conv.sentiment == 'negative' %}
+                                        <span class="badge bg-danger ms-2">😔 Negative</span>  <!-- Fixed typo: bg-dange to bg-danger -->
+                                    {% else %}
+                                        <span class="badge bg-secondary ms-2">😐 Neutral</span>
+                                    {% endif %}
+                                </div>
+                                <p class="mb-0 text-muted">{{ conv.message|truncatewords:20 }}</p>
+                            </div>  <!-- Close flex-grow-1 -->
+                            <a href="{% url 'chat_analyzer:therapist_client_detail' conv.client.id %}" 
+                               class="btn btn-sm btn-outline-info ms-2">  <!-- Added ms-2 for spacing -->
+                                <i class="fas fa-arrow-right"></i> View
+                            </a>
+                        </div>  <!-- Close d-flex -->
+                    </div>  <!-- Close list-group-item -->
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>  <!-- Close container-fluid -->
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends "chat_analyzer/base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}Admin Profile{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-user-circle"></i> Admin Profile </h4>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">Username</label>
+                            <input type="text" class="form-control" value="{{ admin.username }}" disabled>
+                            <small class="text-muted">Username cannot be changed</small>
+
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Full Name</label>
+                            <input type="text" name="name" class="form-control" value="{{ admin.name }}" required>
+                            
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Phone Number</label>
+                            <input type="tel" name="phone_number" class="form-control" value="{{ admin.phone_number }}" required>
+                            
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" value="{{ admin.email|default:'Not provided' }}" disabled>
+
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Member Since</label>
+                            <input type="text" class="form-control" value="{{ admin.created_at|date:'Y-m-d H:i' }}" disabled>
+
+                        </div>
+
+                        <hr>
+
+                        <div class="d-grip gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Update Profile
+                            </button>
+                            <a href="{% url 'chat_analyzer:admin_change_password' %}" class="btn btn-outliine-warning">
+                                <i class="fas fa-key"></i> Change Password
+                            </a>
+                            <a href="{% url 'chat_analyzer:admin_dashboard' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Back to Dasboard
+                            </a>
+                        </div>
+
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

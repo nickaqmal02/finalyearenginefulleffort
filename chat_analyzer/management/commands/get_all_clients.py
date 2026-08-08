@@ -29,7 +29,17 @@ class Command(BaseCommand):
             for index, client in enumerate(clients, start=1):
                 self.stdout.write(f"\n  Client #{index}")
                 self.stdout.write(f"  ├── Username    : {client.username}")
-                self.stdout.write(f"  ├── Phone Number: {client.phone_number}")
+                # self.stdout.write(f"  ├── Phone Number: {client.phone_number}")
+
+                # display all contacts that associate with 
+                contacts = client.contacts.all()
+                if contacts.exists():
+                    self.stdout.write(f"   |--- Contacts: ")
+                    for i, contact in enumerate(contacts):
+                        prefix = "  |. |-- " if i == contacts.count() - 1 else "  |   |-- "
+                        self.stdout.write(f"  │   {prefix} {contact.get_contact_type_display()}: {contact.name} ({contact.phone_number}){' ⭐' if contact.is_primary else ''}")
+                else:
+                    self.stdout.write(f"  ├── Contacts: None")
                 if hasattr(client, 'email'):  # If email field exists
                     self.stdout.write(f"  └── Email       : {client.email}")
                 else:

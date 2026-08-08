@@ -1,55 +1,197 @@
 {% extends "chat_analyzer/base.html" %}
 {% load crispy_forms_tags %}
 
-{% block title %}Upload Whatsapp | Admin{% endblock %}
+{% block title %}Upload WhatsApp | Admin{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
     <div class="row justify-content-center">
         <div class="col-md-8">
             <!-- UPLOAD CARD SECTION -->
-             <div class="card shadow-sm">
+            <div class="card shadow-sm">
                 <!-- CARD HEADER -->
                 <div class="card-header bg-primary text-white">
                     <h4 class="mb-0">
-                        <i class="fab fa-whatsapp"></i> Upload Whatsapp Chat
+                        <i class="fab fa-whatsapp"></i> Upload WhatsApp Chat
                     </h4>
-                    <small>Import Whatsapp Conversation history</small>
+                    <small>Import WhatsApp Conversation history</small>
                 </div>
                 <!-- CARD BODY -->
-                 <div class="card-body">
+                <div class="card-body">
                     <form method="post" enctype="multipart/form-data" id="uploadForm">
                         {% csrf_token %}
                         {{ form|crispy }}
 
                         <button type="submit" class="btn btn-primary w-100 mt-3" id="uploadBtn">
-                            <i class="fas fa-upload"></i>Upload and Process
+                            <i class="fas fa-upload"></i> Upload and Process
                         </button>
                     </form>
 
-                <!-- LOADING SPINNER JUST SOME INTERACTIVE ELEMENT (HIDDEN INITIALLY) -->
-                 <div id="loadingSpinner" class="text-center mt-3" style="display: none;">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Processing...</span>
+                    <!-- LOADING SPINNER (HIDDEN INITIALLY) -->
+                    <div id="loadingSpinner" class="text-center mt-3" style="display: none;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Processing...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Processing messages, please wait...</p>
                     </div>
-                    <p class="mt-2 text-muted">Processing messages, please wait...</p>
-                 </div>
-                 </div>
-             </div>
+                </div>
+            </div>
+
+            <!-- RECENT UPLOADS CARD (NEW) -->
+            <div class="card mt-4 shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history"></i> Recent Uploads
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_uploads %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Date/Time</th>
+                                        <th>File Name</th>
+                                        <th>Messages</th>
+                                        <th>Matched</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for upload in recent_uploads %}
+                                    <tr>
+                                        <td>{{ upload.uploaded_at|date:"Y-m-d H:i:s" }}</td>
+                                        <td><small>{{ upload.file_name|truncatechars:30 }}</small></td>
+                                        <td>{{ upload.message_count }}</td>
+                                        <td>{{ upload.matched_count }}</td>
+                                        <td>
+                                            {% if upload.status == 'success' %}
+                                                <span class="badge bg-success">Success</span>
+                                            {% else %}
+                                                <span class="badge bg-warning">Partial</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% if uploads_last_page %}
+                        <div class="text-center mt-2">
+                            <a href="{% url 'chat_analyzer:admin_upload_history' %}" class="btn btn-sm btn-link">
+                                View all uploads →
+                            </a>
+                        </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-cloud-upload-alt fa-2x text-muted mb-2"></i>
+                            <p class="text-muted mb-0">No uploads yet. Upload your first WhatsApp file.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- LAST UPLOAD INFO CARD (NEW) -->
+            <div class="card mt-3 shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-clock"></i> Upload Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <small class="text-muted">Last Upload</small>
+                            <p class="mb-0">
+                                {% if last_upload %}
+                                    <strong>{{ last_upload.uploaded_at|date:"Y-m-d H:i:s" }}</strong>
+                                {% else %}
+                                    <span class="text-muted">No uploads yet</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <small class="text-muted">Total Uploads</small>
+                            <p class="mb-0"><strong>{{ total_uploads }}</strong></p>
+                        </div>
+                    </div>
+                    {% if last_upload %}
+                    <hr class="my-2">
+                    <div class="row">
+                        <div class="col-12">
+                            <small class="text-muted">Last File</small>
+                            <p class="mb-0 text-truncate">{{ last_upload.file_name }}</p>
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-6">
+                            <small class="text-muted">Messages Imported</small>
+                            <p class="mb-0">{{ last_upload.message_count }}</p>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Linked to Clients</small>
+                            <p class="mb-0">{{ last_upload.matched_count }}</p>
+                        </div>
+
+                        <hr class="my-3">
+                        
+                        <div class="container-fluid">
+                        <div class="card mt-2">
+                            <div class="card-header bg-success text-white mb-0 mx-0">
+                                <h5 class="mb-0">
+                                    <i class="fa-solid fa-chart-pie"></i> Recent Upload Statistics
+                                </h5>
+                            </div>
+                            {% if last_upload %}
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4 text-center">
+                                        <small class="text-muted">Total Positive 😊 </small>
+                                        <h3 class="text-success">{{ last_upload.positive_count }}</h3>
+                                        <div class="progress mt-1" style="height: 8px;">
+                                        {% widthratio last_upload.positive_count last_upload.message_count 100 as pos_percent %}
+                                        <div class="progress-bar bg-success" style="width: {{ pos_percent }}%"></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 text-center">
+                                        <small class="text-muted">Total Negative  </small>
+                                        <h3 class="text-danger">{{ last_upload.negative_count }}</h3>
+                                        <div class="progress mt-1" style="height: 8px;">
+                                        {% widthratio last_upload.negative_count last_upload.message_count 100 as neg_percent %}
+                                        <div class="progress-bar bg-danger" style="width: {{ neg_percent }}%"></div>
+                                    </div>
+                                    </div>
+                                    <div class="col-md-4 text-center">
+                                        <small class="text-muted">Total Neutral </small>
+                                        <h3 class="text-secondary">{{ last_upload.neutral_count }}</h3>
+                                        <div class="progress mt-1" style="height: 8px;">
+                                        {% widthratio last_upload.neutral_count last_upload.message_count 100 as neu_percent %}
+                                        <div class="progress-bar bg-secondary" style="width: {{ neu_percent }}%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        </div>
+                    </div>
+                    
+                    {% endif %}
+                </div>
+            </div>
 
             <!-- INSTRUCTIONS CARD -->
             <div class="card mt-4 shadow-sm">
-                <!-- like always card header first -->
                 <div class="card-header bg-info text-white">
-                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> How to Export Whatsapp Chat</h5>
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> How to Export WhatsApp Chat</h5>
                 </div>
-                <!-- and then card body -->
                 <div class="card-body">
                     <ol class="mb-0">
                         <li>Open the WhatsApp chat you want to export</li>
                         <li>Tap the menu (three dots) or group name</li>
                         <li>Select "More" -> "Export Chat"</li>
-                        <li>Choose <strong> "Without Media"</strong></li>
+                        <li>Choose <strong>"Without Media"</strong></li>
                         <li>Save the .txt file to your device</li>
                         <li>Upload it using the form above</li>
                     </ol>
@@ -59,12 +201,12 @@
             <!-- Tips Card -->
             <div class="card mt-3 shadow-sm">
                 <div class="card-header bg-warning text-dark">
-                    <h5 class="mb-0"><i class="fas fa-lightbulb"></i> Tips for Best Results </h5>
+                    <h5 class="mb-0"><i class="fas fa-lightbulb"></i> Tips for Best Results</h5>
                 </div>
                 <div class="card-body">
                     <ul class="mb-0">
-                        <li>Messages are automatically linked to clients by <strong>phone number</strong> or <strong>username</strong> </li>
-                        <li>Make sure client phone numbers are correctly entered in their profile </li>
+                        <li>Messages are automatically linked to clients by <strong>phone number</strong> or <strong>username</strong></li>
+                        <li>Make sure client phone numbers are correctly entered in their profile</li>
                         <li>For saved contacts, the contact name must match the client's username</li>
                         <li>Supported format: <code>[13/10/2024, 23:23:42] Sender: Message</code></li>
                     </ul>
@@ -98,4 +240,16 @@
     });
 </script>
 
+<style>
+    .table-responsive {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    .text-truncate {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 200px;
+    }
+</style>
 {% endblock %}

@@ -1,157 +1,345 @@
 from django import forms
+from django.contrib.auth.forms import AuthenticationForm, UserCreationForm, UserChangeForm
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Layout, Submit, Field, Div, HTML, Fieldset
 from django.conf import settings
-from .models import Admin, Client, Therapist
+from django.forms import inlineformset_factory
+from .utils import normalize_phone_number
 
-class LoginForm(forms.Form):
-    username = forms.CharField(
-        max_length=100,
+User = get_user_model()
+# creating our own custom user creation form
+class CustomUserCreationForm(UserCreationForm):
+    """Custom form for creating new users in admin"""
+    ROLE_CHOICES = [
+        ('admin', 'Admin'),
+        ('therapist', 'Therapist'),
+        ('doctor', 'Doctor'),
+        ('client', 'Client'),
+    ]
+    
+    GENDER_CHOICES = [
+        ('male', 'Male'),
+        ('female', 'Female'),
+        ('other', 'Other')
+    ]
+    
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('pending', 'Pending'),
+    ]
+
+    # add our custom fields here ...
+    role = forms.ChoiceField(
+        choices=ROLE_CHOICES,
+        required=True,
+        label="Role"
+    )
+    phone = forms.CharField(
+        max_length=20,
+        required=False,
+        label="Phone"
+    )
+    date_of_birth = forms.DateField(
+        required=False,
+        label="Date of Birth",
+        widget=forms.DateInput(attrs={'type':'date'})
+    )
+    gender = forms.ChoiceField(
+        choices=GENDER_CHOICES,
+        required=False,
+        label="Gender"
+    )
+    address = forms.CharField(
+        widget=forms.Textarea(attrs={'rows': 3}),
+        required=False,
+        label="Address"
+    )
+    license_number = forms.CharField(
+        max_length=255,
+        required=False,
+        label="license Number"
+    )
+    license_state = forms.CharField(
+        max_length=255,
+        required=False,
+        label="License State"
+    )
+    years_of_experience = forms.IntegerField(
+        required=False,
+        label="Years of Experience"
+    )
+    hire_date = forms.DateField(
+        required=False,
+        label="Hire Date",
+        widget=forms.DateInput(attrs={'type': 'date'})
+    )
+    specialization = forms.CharField(
+        max_length=200,
+        required=False,
+        label="Specialization"
+    )
+    client_status = forms.ChoiceField(
+        choices=STATUS_CHOICES,
+        required=False,
+        label="Client Status"
+    )
+    registered_by = forms.ModelChoiceField(
+        queryset=User.objects.none(),
+        required=False,
+        label="Registered By"
+    )
+    assigned_therapist = forms.ModelChoiceField(
+        queryset=User.objects.none(),
+        required=False,
+        label="Assigned Therapist"
+    )
+
+    class Meta:
+        model = User
+        fields = [
+            'username',
+            'password1',
+            'password2',
+            'role',
+            'first_name',
+            'last_name',
+            'email',
+            'phone',
+            'date_of_birth',
+            'gender',
+            'address',
+            'license_number',
+            'license_state',
+            'years_of_experience',
+            'hire_date',
+            'specialization',
+            'client_status',
+            'registered_by',
+            'assigned_therapist',
+            'is_active',
+            'is_staff',
+            'is_superuser',
+        ]
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # ✅ Populate querysets at runtime, not import time
+        self.fields['registered_by'].queryset = User.objects.filter(role='admin')
+        self.fields['assigned_therapist'].queryset = User.objects.filter(role='therapist')
+
+
+class CustomUserChangeForm(UserChangeForm):
+    """Custom form for editing users in admin."""
+    ROLE_CHOICES = [
+        ('admin', 'Admin'),
+        ('therapist', 'Therapist'),
+        ('doctor', 'Doctor'),
+        ('client', 'Client'),
+    ]
+    
+    GENDER_CHOICES = [
+        ('male', 'Male'),
+        ('female', 'Female'),
+        ('other', 'Other')
+    ]
+    
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('pending', 'Pending'),
+    ]
+    
+    role = forms.ChoiceField(
+        choices=ROLE_CHOICES,
+        required=True,
+        label="Role"
+    )
+    phone = forms.CharField(
+        max_length=20,
+        required=False,
+        label="Phone"
+    )
+    date_of_birth = forms.DateField(
+        required=False,
+        label="Date of Birth",
+        widget=forms.DateInput(attrs={'type': 'date'})
+    )
+    gender = forms.ChoiceField(
+        choices=GENDER_CHOICES,
+        required=False,
+        label="Gender"
+    )
+    address = forms.CharField(
+        widget=forms.Textarea(attrs={'rows': 3}),
+        required=False,
+        label="Address"
+    )
+    license_number = forms.CharField(
+        max_length=255,
+        required=False,
+        label="License Number"
+    )
+    license_state = forms.CharField(
+        max_length=255,
+        required=False,
+        label="License State"
+    )
+    years_of_experience = forms.IntegerField(
+        required=False,
+        label="Years of Experience"
+    )
+    hire_date = forms.DateField(
+        required=False,
+        label="Hire Date",
+        widget=forms.DateInput(attrs={'type': 'date'})
+    )
+    specialization = forms.CharField(
+        max_length=200,
+        required=False,
+        label="Specialization"
+    )
+    client_status = forms.ChoiceField(
+        choices=STATUS_CHOICES,
+        required=False,
+        label="Client Status"
+    )
+    registered_by = forms.ModelChoiceField(
+        queryset=User.objects.none(),
+        required=False,
+        label="Registered By"
+    )
+    assigned_therapist = forms.ModelChoiceField(
+        queryset=User.objects.none(),
+        required=False,
+        label="Assigned Therapist"
+    )
+
+    class Meta:
+        model = User
+        fields = [
+            'username',
+            'password',
+            'role',
+            'first_name',
+            'last_name',
+            'email',
+            'phone',
+            'date_of_birth',
+            'gender',
+            'address',
+            'license_number',
+            'license_state',
+            'years_of_experience',
+'hire_date',
+            'specialization',
+            'client_status',
+            'registered_by',
+            'assigned_therapist',
+            'is_active',
+            'is_staff',
+            'is_superuser',
+        ]
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # ✅ Populate querysets at runtime, not import time
+        self.fields['registered_by'].queryset = User.objects.filter(role='admin')
+        self.fields['assigned_therapist'].queryset = User.objects.filter(role='therapist')
+
+# ╔════════════════════════════════════════════╗ 
+# ║AUTHENTICATION FORMS 'LOGIN', 'LOGOUT', SIGN║ 
+# ╚════════════════════════════════════════════╝ 
+class CustomLoginForm(AuthenticationForm):
+    """
+    We use custom login form with crispy forms layout
+    """
+    def init(self, *args, **kwargs):
+        super().init(args, **kwargs)
+
+        # add placeholder to the fields
+        self.fields['username'].widget.attrs.update({
+            'class': 'w-full bg-gray-50 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5',
+            'placeholder': 'Enter your username'
+        })
+
+        self.fields['password'].widget.attrs.update({
+            'class': 'w-full bg-gray-50 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5',
+            'placeholder': '••••••••'
+        })
+
+
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Sign Up Section :)                        
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+class CustomSignUpForm(UserCreationForm):
+    """Custom signup form with Tailwind styling - No Crispy"""
+    
+    email = forms.EmailField(
+        required=True,
+        widget=forms.EmailInput(attrs={
+            'class': 'w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 pl-10',
+            'placeholder': 'Enter your email'
+        })
+    )
+    
+    role = forms.ChoiceField(
+        choices=User.ROLE_CHOICES,
+        required=True,
+        widget=forms.Select(attrs={
+            'class': 'w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 pl-10'
+        })
+    )
+    
+    first_name = forms.CharField(
+        required=True,
         widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Enter your username',
-            'autofocus': True
+            'class': 'w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 pl-10',
+            'placeholder': 'Enter your first name'
         })
     )
-    password = forms.CharField(
-        widget=forms.PasswordInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Enter your password'
+    
+    last_name = forms.CharField(
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 pl-10',
+            'placeholder': 'Enter your last name'
         })
     )
-
-class AdminRegisterationForm(forms.ModelForm):
-    # Explicitly define password with PasswordInput because crispy forms will override it
-    password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control'}))
-
-    confirm_password = forms.CharField(
-        widget=forms.PasswordInput()
-        )
-    invite_code = forms.CharField(
-        max_length=100,
-        help_text = 'you need an invite code to register as admin'
-    )
-
+    
     class Meta:
-        model = Admin
-        fields = ['username', 'name', 'phone_number', 'password']
-        widget = {
-            
-        }
-
-    def clean_invite_code(self):
-        code = self.cleaned_data.get('invite_code')
-        if code != settings.ADMIN_INVITE_CODE:
-            raise forms.ValidationError('Invalid invite code. Please contact system administrator')
-        return code
-    
-    def clean_username(self):
-        username = self.cleaned_data.get('username')
-        if Admin.objects.filter(username=username).exists():
-            raise forms.ValidationError('username already exixts')
-        return username
-    
-    def clean(self):
-        cleaned_data = super().clean()
-        password = cleaned_data.get('password')
-        confirm_password = cleaned_data.get('confirm_password')
-
-        if password and confirm_password and password != confirm_password:
-            raise forms.ValidationError('Passwords do not match')
-        
-        return cleaned_data
-    
-    def save(self, commit=True):
-        admin = super().save(commit=False)
-        admin.set_password(self.cleaned_data['password'])
-        if commit:
-            admin.save()
-        return admin
-    
-
-
-# adding client forms
-class ClientRegisterationForm(forms.ModelForm):
-
-    class Meta:
-        model = Client
-        fields = ['username','parent_name','child_name','phone_number','address','status','assigned_therapist']
-        widgets = {
-            'address': forms.Textarea(attrs={
-                'rows': 3
-            }),
-
-        }
+        model = User
+        fields = ('username', 'email', 'password1', 'password2', 'role', 'first_name', 'last_name')
     
     def __init__(self, *args, **kwargs):
-        admin_id = kwargs.pop('admin_id', None)
         super().__init__(*args, **kwargs)
-        if admin_id:
-            self.fields['assigned_therapist'].queryset = Therapist.objects.filter(registered_by_id=admin_id)
         
-# client sections done
-
-# ================== THERAPIST SECTION ================== #
-class TherapistRegistrationForm(forms.ModelForm):
-
-    class Meta:
-        model = Therapist
-        fields = ['username', 'password', 'name', 'phone_number', 'specialization', 'registered_by', 'is_active']
-        widget = {
-            'password': forms.PasswordInput(),
-        }
-    # here we wa
-    def clean_username(self):
-        username = self.cleaned_data.get('username')
-        if Therapist.objects.filter(username=username).exists():
-            raise forms.ValidationError('Username already exists')
-        return username
-    
-    def clean(self):
-        cleaned_data = super().clean()
-        password = cleaned_data.get('password')
-        confirm_password = cleaned_data.get('confirm_password')
-
-        if password and confirm_password and password != confirm_password:
-            raise forms.ValidationError('password do not match')
-        
-        return cleaned_data
-    
-    # segment for saving
-    def save(self, commit=True, admin_id=None):
-        therapist = super().save(commit=False)
-        therapist.set_password(self.cleaned_data['password'])
-        if admin_id:
-            therapist.registered_by_id = admin_id
-        if commit:
-            therapist.save()
-        return therapist
-    
-
-
-# =============== FORM FOR WHATSAPP UPLOAD FORM ====================="""
-
-
-# :: 1. WHATSAPP UPLOAD FORMS
-class WhatsappUploadForm(forms.Form):
-    """ form for uploading whatsapp chat files """
-    file = forms.FileField(
-        label='Whatsapp Chat File',
-        help_text='Upload .txt file exported from Whatsapp',
-        widget=forms.FileInput(attrs={
-            'class': 'form-control',
-            'accept':'.txt',
-            'id': 'whatsappFile'
+        # Add Tailwind classes to default fields
+        self.fields['username'].widget.attrs.update({
+            'class': 'w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 pl-10',
+            'placeholder': 'Choose a username'
         })
-    )
-
-    def clean_file(self):
-        file = self.cleaned_data.get('file')
-
-        if not file:
-            raise forms.ValidationError('No File Selected')
-
-        if not file.name.endswith('.txt'):
-            raise forms.ValidationError('Please Upload a .txt file')
-
-        return file
-
+        self.fields['password1'].widget.attrs.update({
+            'class': 'w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 pl-10',
+            'placeholder': 'Create a password'
+        })
+        self.fields['password2'].widget.attrs.update({
+            'class': 'w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 pl-10',
+            'placeholder': 'Confirm your password'
+        })
     
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if User.objects.filter(email=email).exists():
+            raise ValidationError("This email is already registered.")
+        return email
+    
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.email = self.cleaned_data['email']
+        user.role = self.cleaned_data['role']
+        user.first_name = self.cleaned_data['first_name']
+        user.last_name = self.cleaned_data['last_name']
+        if commit:
+            user.save()
+        return user

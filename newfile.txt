@@ -1,0 +1,26 @@
+[27/05/2026, 09:00:00] +60 16-935 4580: Good morning! My daughter Alia is making good progress with her exercises
+[27/05/2026, 09:05:00] Admin: That's wonderful to hear! Keep up the good work
+[27/05/2026, 09:10:00] +60 16-935 4580: Thank you for your help. She seems more confident now
+[27/05/2026, 09:15:00] Admin: You're welcome! We're here to help
+
+[27/05/2026, 10:00:00] +60 12-345 6789: Hello, this is Sarah Tan (mother). Adam is feeling better today
+[27/05/2026, 10:05:00] Admin: Glad to hear that! Shall we continue with the session?
+[27/05/2026, 10:10:00] +60 12-345 6789: Yes please. He's ready for his session
+
+[27/05/2026, 11:00:00] +60 19-888 7777: Makcik Kiah here. Alia had a good day at school
+[27/05/2026, 11:05:00] Admin: That's great! How was her behavior?
+[27/05/2026, 11:10:00] +60 19-888 7777: Much better than before. She's calmer now
+
+[27/05/2026, 14:00:00] +60 17-666 5555: Raj Kumar here. Arjun needs to reschedule tomorrow's session
+[27/05/2026, 14:05:00] Admin: No problem. What time works for you?
+[27/05/2026, 14:10:00] +60 17-666 5555: How about Thursday at the same time?
+
+[27/05/2026, 15:00:00] +60 18-444 9999: This is Raj's mother. How is Arjun's progress?
+[27/05/2026, 15:05:00] Admin: He's showing improvement in communication skills
+[27/05/2026, 15:10:00] +60 18-444 9999: That's encouraging. Thank you
+
+[27/05/2026, 16:00:00] +60 11-222 3333: Sarah Tan again. Can I get the invoice for this month?
+[27/05/2026, 16:05:00] Admin: Yes, I'll email it to you by tomorrow
+
+[27/05/2026, 17:00:00] UNKNOWN_NUMBER: I'm interested in your therapy services
+[27/05/2026, 17:05:00] Admin: Thank you for your interest. Please call our office at 03-12345678

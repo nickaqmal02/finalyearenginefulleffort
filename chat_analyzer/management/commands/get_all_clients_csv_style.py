@@ -1,24 +1,29 @@
 from django.core.management.base import BaseCommand
-from chat_analyzer.models import Admin, Client
+from chat_analyzer.models import Client
 
 class Command(BaseCommand):
-    help = 'import client information in csv style'
+    help = 'Export clients in CSV format'
 
     def handle(self, *args, **options):
-
-        try:
-            admin = Admin.objects.get(username='admin')
-            clients = Client.objects.filter(
-                registered_by=admin
-                # why registered by not 'admin'
+        clients = Client.objects.all()
+        
+        # CSV Header
+        self.stdout.write("ID,Parent Name,Child Name,Primary Phone,All Phones,Status,Created At")
+        
+        for client in clients:
+            # Get primary phone
+            primary_contact = client.get_primary_contact()
+            primary_phone = primary_contact.phone_number if primary_contact else ""
+            
+            # Get all phones
+            all_phones = ", ".join(client.get_all_phones())
+            
+            self.stdout.write(
+                f"{client.id},"
+                f"{client.parent_name},"
+                f"{client.child_name},"
+                f"{primary_phone},"
+                f"{all_phones},"
+                f"{client.status},"
+                f"{client.created_at.strftime('%Y-%m-%d')}"
             )
-
-            # csv style printing
-            self.stdout.write(self.style.MIGRATE_HEADING("Username, Phone Number"))
-            for client in clients:
-                self.stdout.write(f"{client.username},{client.phone_number}")
-        except Admin.DoesNotExist:
-            self.stdout.write(self.style.MIGRATE_HEADING("admin does not found"))
-            return
-        # what does it mean by return here ?
-        # noted that we SUCCESS, ERROR, WARNING, MIGRATE_HEADING: colour biru

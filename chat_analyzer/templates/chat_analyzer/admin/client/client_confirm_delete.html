@@ -21,7 +21,7 @@
                     <strong> Client Details: </strong><br>
                     Parent: {{ client.parent_name }}<br>
                     Child: {{ client.child_name }}<br>
-                    Phone: {{ client.phone_number }}<br>
+                    Phone: {% for contact in client.contacts.all %}{{ contact.phone_number }}{% if not forloop.last %}, {% endif %}{% endfor %}<br>
                     Status: {{ client.status }}<br>
                     Conversations: {{ client.conversation.count }}
                 </div>

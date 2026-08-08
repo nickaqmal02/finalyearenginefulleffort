@@ -152,7 +152,11 @@
                                             <td>{{ client.id }}</td>
                                             <td>{{ client.parent_name }}</td>
                                             <td>{{ client.child_name }}</td>
-                                            <td>{{ client.phone_number }}</td>
+                                            <td>
+                                                {% for contact in client.contacts.all %}
+                                                    {{ contact.phone_number }}{% if not forloop.last %}, {% endif %}
+                                                {% endfor %}
+                                            </td>
                                             <td>
                                                 {% if client.status == 'active' %}
                                                     <span class="badge bg-success">Active</span>

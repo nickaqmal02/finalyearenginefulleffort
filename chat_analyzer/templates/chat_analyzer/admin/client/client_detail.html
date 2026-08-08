@@ -1,33 +1,33 @@
 {% extends "chat_analyzer/base.html" %}
 
-{% block title %}{{ client.parent_name}} | Client Details{% endblock %}
+{% block title %}{{ client.parent_name }} | Client Details{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
     <!-- header -->
-     <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h1 class="display-6">
-                <i class="fas fa-user-circle"></i>{{ client.parent_name }}
+                <i class="fas fa-user-circle"></i> {{ client.parent_name }}
             </h1>
             <p class="text-muted">Client details and conversation history</p>
         </div>
-        <div>
-            <a href="{% url 'chat_analyzer:admin_client_edit' client.id %}">
-                <i class="fas fa-edit"></i>Edit Client
+        <div class="btn-group">
+            <a href="{% url 'chat_analyzer:admin_client_edit' client.id %}" class="btn btn-warning btn-sm">
+                <i class="fas fa-edit"></i> Edit Client
             </a>
-            <a href="{% url 'chat_analyzer:admin_client_list' %}">
-                <i class="fas fa-arrow-left"></i>Back to List
+            <a href="{% url 'chat_analyzer:admin_client_list' %}" class="btn btn-secondary btn-sm">
+                <i class="fas fa-arrow-left"></i> Back to List
             </a>
         </div>
-     </div>
+    </div>
 
-     <div class="row">
+    <div class="row">
         <!-- Client Information Card -->
-        <div class="col-md-4">
-            <div class="card shadows-sm">
+        <div class="col-md-5 mb-3">
+            <div class="card shadow-sm">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="fas fa-info-circle"></i>Client Information</h5>
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> Client Information</h5>
                 </div>
                 <div class="card-body">
                     <table class="table table-borderless">
@@ -44,12 +44,24 @@
                             <td>{{ client.child_name }}</td>
                         </tr>
                         <tr>
-                            <th>Phone Number:</th>
-                            <td>{{ client.phone_number}}</td>
+                            <th>Phone Numbers:</th>
+                            <td>
+                                {% for contact in client.contacts.all %}
+                                    <div class="mb-1">
+                                        <span class="badge bg-secondary">{{ contact.get_contact_type_display }}</span>
+                                        <strong>{{ contact.name }}</strong>: {{ contact.phone_number }}
+                                        {% if contact.is_primary %}
+                                            <span class="badge bg-primary">Primary</span>
+                                        {% endif %}
+                                    </div>
+                                {% empty %}
+                                    <span class="text-muted">No phone numbers</span>
+                                {% endfor %}
+                            </td>
                         </tr>
                         <tr>
                             <th>Address:</th>
-                            <td>{{ client.address|default:"Not provided"}} </td>
+                            <td>{{ client.address|default:"Not provided" }}</td>
                         </tr>
                         <tr>
                             <th>Status:</th>
@@ -63,12 +75,94 @@
                                 {% endif %}
                             </td>
                         </tr>
+                        <tr>
+                            <th>Assigned Therapist:</th>
+                            <td>
+                                {% if client.assigned_therapist %}
+                                    {{ client.assigned_therapist.name }}
+                                {% else %}
+                                    <span class="text-muted">Not assigned</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Registered:</th>
+                            <td>{{ client.created_at|date:"Y-m-d H:i" }}</td>
+                        </tr>
                     </table>
                 </div>
             </div>
         </div>
-     </div>
 
+        <!-- Contacts Card (Detailed) -->
+        <div class="col-md-7">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-address-book"></i> Contact List</h5>
+                </div>
+                <div class="card-body">
+                    {% if client.contacts.all %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Type</th>
+                                        <th>Name</th>
+                                        <th>Phone Number</th>
+                                        <th>Primary</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for contact in client.contacts.all %}
+                                    <tr>
+                                        <td>
+                                            <span class="badge bg-secondary">{{ contact.get_contact_type_display }}</span>
+                                        </td>
+                                        <td>{{ contact.name }}</td>
+                                        <td>{{ contact.phone_number }}</td>
+                                        <td>
+                                            {% if contact.is_primary %}
+                                                <i class="fas fa-star text-warning"></i> Yes
+                                            {% else %}
+                                                <span class="text-muted">No</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-address-book fa-3x text-muted mb-2"></i>
+                            <p>No contacts added for this client.</p>
+                            <a href="{% url 'chat_analyzer:admin_client_edit' client.id %}" class="btn btn-sm btn-primary">
+                                <i class="fas fa-plus"></i> Add Contact
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Statistics Card -->
+            <div class="card shadow-sm mt-3">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Statistics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <h3>{{ client.conversations.count }}</h3>
+                            <small class="text-muted">Total Messages</small>
+                        </div>
+                        <div class="col-6">
+                            <h3>{{ client.conversations.dates|length }}</h3>
+                            <small class="text-muted">Active Days</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
-
 {% endblock %}
