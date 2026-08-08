@@ -1,0 +1,65 @@
+{% extends 'chat_analyzer/base.html' %}
+{% load static %}
+{% block title %}{{ client.parent_name }} | Client Details {% endblock %}
+
+{% block content %}
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 p-8 max-w-7xl mx-auto">
+  
+  <!-- Card 1 -->
+  <div class="hover-3d group">
+    <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+      <figure class="w-full">
+        <img src="{% static 'chat_analyzer/images/nicky.jpeg' %}" 
+             alt="Mountain" 
+             class="w-full h-48 object-cover" />
+      </figure>
+      <div class="p-4">
+        <h3 class="font-bold text-xl">Nicky</h3>
+        <p class="text-gray-600 mt-2">Beautiful mountain landscape</p>
+        <button class="btn btn-primary btn-sm mt-4">View Details</button>
+      </div>
+    </div>
+    <div></div><div></div><div></div><div></div>
+    <div></div><div></div><div></div><div></div>
+  </div>
+  
+  <!-- Card 2 -->
+  <div class="hover-3d group">
+    <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+      <figure class="w-full">
+        <img src="{% static 'chat_analyzer/images/ainur.jpeg' %}" 
+             alt="Ocean" 
+             class="w-full h-48 object-cover" />
+      </figure>
+      <div class="p-4">
+        <h3 class="font-bold text-xl">Ainur</h3>
+        <p class="text-gray-600 mt-2">Serene ocean waves</p>
+        <button class="btn btn-primary btn-sm mt-4">View Details</button>
+      </div>
+    </div>
+    <div></div><div></div><div></div><div></div>
+    <div></div><div></div><div></div><div></div>
+  </div>
+  
+  <!-- Card 3 -->
+  <div class="hover-3d group">
+    <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+      <figure class="w-full">
+        <img src="https://img.daisyui.com/images/stock/card-3.webp" 
+             alt="Forest" 
+             class="w-full h-48 object-cover" />
+      </figure>
+      <div class="p-4">
+        <h3 class="font-bold text-xl">Forest View</h3>
+        <p class="text-gray-600 mt-2">Peaceful forest trail</p>
+        <button class="btn btn-primary btn-sm mt-4">View Details</button>
+      </div>
+    </div>
+    <div></div><div></div><div></div><div></div>
+    <div></div><div></div><div></div><div></div>
+  </div>
+  
+</div>
+
+{% endblock %}

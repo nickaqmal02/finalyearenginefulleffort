@@ -1,0 +1,51 @@
+{% load heroicons %}
+
+{% block content %}
+
+<div class="w-70 backdrop-blur-md outline-cyan-200 p-4 flex flex-col gap-2 rounded-xl m-2.5 border-2 ">
+
+  <div id="admin_small_profile" class=" backdrop-blur-lg pt-5 px-6 justify-center items-center mb-3 rounded-xl text-center ">
+    
+    <div id="company_logo" class="justify-items-center" class="h35 w-45">
+      <div class="w-20 h-20 rounded-full glass flex items-center justify-center">
+      {% heroicon_outline "building-storefront" class="w-10 h-10" %}
+      </div>
+    </div>
+    <div class="mb-4">
+      <p class="font-bold text-2xl">username</p>
+    </div>
+
+  </div>
+
+  <a class="flex flex-row glass rounded-xl h-15 w-60 pl-5 pr-5 hover:text-pink-400 ">
+    <div class="justify-self-start focus:text-shadow-pink-400 hover:text-shadow-pink-400">
+      {% heroicon_outline "home" class="w-10 h-15" %}
+    </div>
+    <div class=" pl-2 text-2xl pt-3.5">
+      <p> Home </p>
+    </div>
+  </a>
+
+  <a class="flex flex-row glass rounded-xl h-15 w-60 pl-5 pr-5 hover:text-pink-400 ">
+    <div class="justify-self-start text-shadow-pink-400 focus:text-shadow-pink-400 hover:text-shadow-pink-400">
+      {% heroicon_outline "home" class="w-10 h-15 text-black" %}
+    </div>
+    <div class=" pl-2 text-2xl text-black pt-3.5">
+      <p> Home </p>
+    </div>
+  </a>
+
+  <a class="flex flex-row glass rounded-xl h-15 w-60 pl-5 pr-5 hover:text-pink-400 ">
+    <div class="justify-self-start focus:text-shadow-pink-400 hover:text-shadow-pink-400">
+      {% heroicon_outline "home" class="w-10 h-15 text-white" %}
+    </div>
+    <div class=" pl-2 text-2xl text-shadow-pink-400 pt-3.5">
+      <p> Home </p>
+    </div>
+  </a>
+
+
+
+
+  
+{% endblock %}

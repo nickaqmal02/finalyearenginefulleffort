@@ -88,8 +88,13 @@
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item" href="#">
+                                <a class="dropdown-item" href="{% url 'chat_analyzer:admin_upload_whatsapp' %}">
                                     <i class="fab fa-whatsapp"></i> Upload WhatsApp
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'chat_analyzer:admin_upload_history' %}">
+                                    <i class="fas fa-history"></i> Upload History
                                 </a>
                             </li>
                         </ul>
@@ -121,12 +126,12 @@
                         </a>
                         <ul class="dropdown-menu dropdown-menu-dark">
                             <li>
-                                <a class="dropdown-item" href="#">
+                                <a class="dropdown-item" href="{% url 'chat_analyzer:admin_profile' %}">
                                     <i class="fas fa-user"></i> Profile
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item" href="#">
+                                <a class="dropdown-item" href="{% url 'chat_analyzer:admin_change_password' %}">
                                     <i class="fas fa-key"></i> Change Password
                                 </a>
                             </li>

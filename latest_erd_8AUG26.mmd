@@ -1,0 +1,301 @@
+erDiagram
+    %% ============================================
+    %% 1. USER & AUTHENTICATION
+    %% ============================================
+    USER {
+        int id PK
+        string username UK
+        string password
+        string email UK
+        string first_name
+        string last_name
+        string role
+        boolean is_active
+        boolean is_staff
+        boolean is_superuser
+        string phone
+        date date_of_birth
+        string gender
+        text address
+        string license_number UK
+        string license_state
+        int years_of_experience
+        date hire_date
+        string specialization
+        string client_status
+        datetime last_visit
+        datetime last_login
+        datetime date_joined
+        datetime created_at
+        datetime updated_at
+        int registered_by_id FK
+        int assigned_therapist_id FK
+    }
+
+    %% ============================================
+    %% 2. CLIENT CONTACT
+    %% ============================================
+    CLIENT_CONTACT {
+        int id PK
+        int client_id FK
+        string contact_type
+        string name
+        string phone_number
+        boolean is_primary
+        text notes
+        datetime created_at
+        datetime updated_at
+    }
+
+    %% ============================================
+    %% 3. DOCTOR SPECIALTY (Master Data)
+    %% ============================================
+    MASTER_SPECIALTY_CATEGORY {
+        int id PK
+        string category_name
+        string category_code
+        text category_description
+        int display_order
+        boolean is_active
+        datetime created_at
+        datetime updated_at
+    }
+
+    MASTER_SPECIALTY {
+        int id PK
+        string specialty_name
+        string specialty_code
+        int category_id FK
+        boolean is_active
+        datetime created_at
+        datetime updated_at
+    }
+
+    DOCTOR_SPECIALTY {
+        int id PK
+        int doctor_id FK
+        int specialty_id FK
+        boolean is_board_certified
+        date certification_date
+        date certification_expires
+        boolean is_primary_specialty
+        datetime created_at
+        datetime updated_at
+    }
+
+    %% ============================================
+    %% 4. AUTISM DIAGNOSIS
+    %% ============================================
+    AUTISM_DIAGNOSIS {
+        int id PK
+        int client_id FK
+        int diagnosed_by_id FK
+        int support_level
+        date diagnosis_date
+        boolean is_active
+        text clinical_notes
+        datetime created_at
+        datetime updated_at
+    }
+
+    %% ============================================
+    %% 5. SPECIFIERS (Master + Bridge)
+    %% ============================================
+    MASTER_SPECIFIER {
+        int id PK
+        string specifier_name UK
+        string specifier_category
+        boolean is_positive_specifier
+        string dsm_code
+        boolean is_active
+        datetime created_at
+        datetime updated_at
+    }
+
+    CLIENT_SPECIFIER {
+        int id PK
+        int autism_diagnosis_id FK
+        int specifier_id FK
+        string severity
+        boolean is_present
+        text clinical_notes
+        int stated_by_id FK
+        date stated_date
+        int proposed_by_id FK
+        int approved_by_id FK
+        boolean is_pending_approval
+        boolean is_approved
+        datetime created_at
+        datetime updated_at
+    }
+
+    %% ============================================
+    %% 6. DIAGNOSIS DOCUMENT
+    %% ============================================
+    DIAGNOSIS_DOCUMENT {
+        int id PK
+        int client_id FK
+        int uploaded_by_id FK
+        string document_type
+        string file_name
+        string file_path
+        int file_size
+        datetime upload_date
+        boolean is_approved
+        int approved_by_id FK
+        datetime approval_date
+        boolean is_active
+        datetime created_at
+        datetime updated_at
+    }
+
+    %% ============================================
+    %% 7. CONVERSATION (WhatsApp Messages)
+    %% ============================================
+    CONVERSATION {
+        int id PK
+        int client_id FK
+        date date
+        time time
+        string username
+        text message
+        text cleaned_text
+        string sentiment
+        datetime uploaded_at
+        string upload_batch
+        datetime created_at
+        datetime updated_at
+    }
+
+    %% ============================================
+    %% 8. UNMATCHED MESSAGE
+    %% ============================================
+    UNMATCHED_MESSAGE {
+        int id PK
+        date date
+        time time
+        string username
+        text message
+        datetime uploaded_at
+        string upload_batch
+        datetime created_at
+        datetime updated_at
+    }
+
+    %% ============================================
+    %% 9. UPLOAD HISTORY
+    %% ============================================
+    UPLOAD_HISTORY {
+        int id PK
+        int admin_id FK
+        string file_name
+        string batch_id UK
+        int message_count
+        int matched_count
+        int unmatched_count
+        string status
+        datetime uploaded_at
+        int positive_count
+        int negative_count
+        int neutral_count
+        datetime created_at
+        datetime updated_at
+    }
+
+    %% ============================================
+    %% 10. TOPIC MODELING
+    %% ============================================
+    TOPIC {
+        int id PK
+        string name UK
+        string description
+        json keywords
+        boolean is_active
+        datetime created_at
+        datetime updated_at
+    }
+
+    CLIENT_TOPIC_SCORE {
+        int id PK
+        int client_id FK
+        int topic_id FK
+        float score
+        datetime last_updated
+        datetime created_at
+    }
+
+    TOPIC_TREND {
+        int id PK
+        int client_id FK
+        int topic_id FK
+        date date
+        float score
+        float trend
+        datetime created_at
+    }
+
+    MESSAGE_TOPIC {
+        int id PK
+        int conversation_id FK
+        int topic_id FK
+        float score
+        float confidence
+        datetime analyzed_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    %% ============================================
+    %% RELATIONSHIPS
+    %% ============================================
+
+    %% ----- USER SELF-REFERENCES -----
+    USER ||--o{ USER : "registered_by"
+    USER ||--o{ USER : "assigned_therapist"
+
+    %% ----- USER -> CLIENT CONTACT -----
+    USER ||--o{ CLIENT_CONTACT : "has"
+
+    %% ----- USER -> DOCTOR SPECIALTY -----
+    USER ||--o{ DOCTOR_SPECIALTY : "has"
+    MASTER_SPECIALTY_CATEGORY ||--o{ MASTER_SPECIALTY : "contains"
+    MASTER_SPECIALTY ||--o{ DOCTOR_SPECIALTY : "assigned_to"
+
+    %% ----- USER -> AUTISM DIAGNOSIS -----
+    USER ||--o{ AUTISM_DIAGNOSIS : "has (as client)"
+    USER ||--o{ AUTISM_DIAGNOSIS : "diagnoses (as doctor)"
+
+    %% ----- SPECIFIERS -----
+    AUTISM_DIAGNOSIS ||--o{ CLIENT_SPECIFIER : "has"
+    MASTER_SPECIFIER ||--o{ CLIENT_SPECIFIER : "assigned_to"
+    USER ||--o{ CLIENT_SPECIFIER : "states (as doctor)"
+    USER ||--o{ CLIENT_SPECIFIER : "proposes (as therapist)"
+    USER ||--o{ CLIENT_SPECIFIER : "approves (as doctor)"
+
+    %% ----- DIAGNOSIS DOCUMENT -----
+    USER ||--o{ DIAGNOSIS_DOCUMENT : "has (as client)"
+    USER ||--o{ DIAGNOSIS_DOCUMENT : "uploads (as admin/therapist)"
+    USER ||--o{ DIAGNOSIS_DOCUMENT : "approves (as doctor)"
+
+    %% ----- CONVERSATION & UPLOAD -----
+    USER ||--o{ CONVERSATION : "has (as client)"
+    UPLOAD_HISTORY ||--o{ CONVERSATION : "contains"
+    USER ||--o{ UPLOAD_HISTORY : "uploads (as admin)"
+    UPLOAD_HISTORY ||--o{ UNMATCHED_MESSAGE : "contains"
+
+    %% ----- TOPIC MODELING -----
+    TOPIC ||--o{ CLIENT_TOPIC_SCORE : "has"
+    TOPIC ||--o{ TOPIC_TREND : "tracked_daily"
+    TOPIC ||--o{ MESSAGE_TOPIC : "appears_in"
+
+    USER ||--o{ CLIENT_TOPIC_SCORE : "has_scores"
+    CLIENT_TOPIC_SCORE }o--|| USER : "belongs_to"
+    CLIENT_TOPIC_SCORE }o--|| TOPIC : "for"
+
+    USER ||--o{ TOPIC_TREND : "has_trends"
+    TOPIC_TREND }o--|| USER : "belongs_to"
+    TOPIC_TREND }o--|| TOPIC : "for"
+
+    CONVERSATION ||--o{ MESSAGE_TOPIC : "has"
+    MESSAGE_TOPIC }o--|| CONVERSATION : "belongs_to"
+    MESSAGE_TOPIC }o--|| TOPIC : "for"

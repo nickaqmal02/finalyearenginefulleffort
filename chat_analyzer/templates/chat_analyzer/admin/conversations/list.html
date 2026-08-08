@@ -90,7 +90,7 @@
     </div>
     
     <!-- Messages Table -->
-    <div class="card shadow-sm">
+    <div class="card shadow-sm mb-4">
         <div class="card-header bg-white">
             <h5 class="mb-0"><i class="fas fa-list"></i> Conversation History</h5>
         </div>
@@ -110,53 +110,64 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for conv in page_obj %}
-                            <tr>
-                                <td>{{ conv.date|date:"Y-m-d" }}</td>
-                                <td>{{ conv.time|time:"H:i" }}</td>
-                                <td>
-                                    <strong>{{ conv.username|truncatechars:25 }}</strong>
-                                    {% if not conv.client %}
-                                        <span class="badge bg-warning ms-1">Unmatched</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if conv.client %}
-                                        <span class="badge bg-success">{{ conv.client.parent_name }}</span>
-                                        <br>
-                                        <small class="text-muted">{{ conv.client.child_name }}</small>
-                                    {% else %}
-                                        <span class="badge bg-secondary">Unknown</span>
-                                        <br>
-                                        <small class="text-muted">Not linked to any client</small>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <div style="max-width: 300px;">
-                                        {{ conv.message|truncatewords:15 }}
-                                    </div>
-                                </td>
-                                <td>
-                                    {% if conv.sentiment_analysis %}
-                                        {% if conv.sentiment_analysis == 'positive' %}
-                                            <span class="badge bg-success">😊 Positive</span>
-                                        {% elif conv.sentiment_analysis == 'negative' %}
-                                            <span class="badge bg-danger">😞 Negative</span>
-                                        {% else %}
-                                            <span class="badge bg-secondary">Neutral</span>
-                                        {% endif %}
-                                    {% else %}
-                                        <span class="badge bg-secondary">Pending</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <a href="#" class="btn btn-sm btn-outline-info" title="View Details">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                </td>
-                             </tr>
-                            {% endfor %}
-                        </tbody>
+    {% for conv in page_obj %} <!-- so if ada conv in page_obj-->
+    <tr>
+        <td>{{ conv.date|date:"Y-m-d" }}</td>
+        <td>{{ conv.time|time:"H:i" }}</td>
+        <td>
+            <strong>{{ conv.username|truncatechars:25 }}</strong>
+            {% if not conv.client and not conv.get_client %}
+                <span class="badge bg-warning ms-1">Unmatched</span>
+            {% endif %}
+        </td>
+        <td>
+            {% if conv.client %}
+                <span class="badge bg-success">{{ conv.client.parent_name }}</span>
+                <br>
+                <small class="text-muted">{{ conv.client.child_name }}</small>
+            {% elif conv.get_client %}
+                {# For UnmatchedMessage objects, they don't have client #}
+                <span class="badge bg-secondary">Unknown</span>
+                <br>
+                <small class="text-muted">Not linked to any client</small>
+            {% else %}
+                <span class="badge bg-secondary">Unknown</span>
+                <br>
+                <small class="text-muted">Not linked to any client</small>
+            {% endif %}
+        </td>
+        <td>
+            <div style="max-width: 300px;">
+                {{ conv.message|truncatewords:15 }}
+            </div>
+        </td>
+        <td>
+            {% if conv.sentiment %}
+                {% if conv.sentiment == 'positive' %}
+                    <span class="badge bg-success">😊 Positive</span>
+                {% elif conv.sentiment == 'negative' %}
+                    <span class="badge bg-danger">😞 Negative</span>
+                {% else %}
+                    <span class="badge bg-secondary">Neutral</span>
+                {% endif %}
+            {% else %}
+                <span class="badge bg-secondary">Pending</span>
+            {% endif %}
+        </td>
+        <td>
+            {% if conv.client %}
+                <a href="{% url 'chat_analyzer:admin_client_detail' conv.client.id %}" class="btn btn-sm btn-outline-info">
+                    <i class="fas fa-eye"></i>
+                </a>
+            {% else %}
+                <button class="btn btn-sm btn-outline-warning" onclick="alert('Link to client feature coming soon')">
+                    <i class="fas fa-link"></i> Link
+                </button>
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+</tbody>
                     </table>
                 </div>
                 

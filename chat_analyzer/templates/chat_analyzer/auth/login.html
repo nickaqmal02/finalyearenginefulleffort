@@ -1,57 +1,108 @@
 {% extends "chat_analyzer/base.html" %}
-{% load crispy_forms_tags %}
+{% load static %}
+{% load heroicons %}
 
-{% block title %}Login | Autism Center {% endblock %}
+{% block title %}Login - Chat Analyzer{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-5 ">
-        <div class="card shadow-lg border-0">
-            <div class="card-header bg-primary text-white text-center py-4">
-
-                <i class="fas fa-chart-line fa-3x mb-2"></i>
-                <h3 class="mb-0">Welcome Back</h3>
-                <small>Autism Center Analytics System</small>
-
+<div class="flex items-center justify-center min-h-screen  dark:from-gray-900 dark:to-gray-800">
+    <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-2xl shadow-2xl dark:bg-gray-800 dark:border dark:border-gray-700">
+        
+        <!-- Header -->
+        <div class="text-center">
+            <div class="flex justify-center mb-4">
+                <div class="p-3 bg-blue-100 rounded-full dark:bg-blue-900">
+                    {% heroicon_outline "chat-bubble-left-right" class="w-12 h-12 text-blue-600 dark:text-blue-300" %}
+                </div>
             </div>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
+                Welcome Back
+            </h1>
+            <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                Sign in to your account to continue
+            </p>
+        </div>
 
-            <div class="card-body p-4">
-                <form method="post">
-                    {% csrf_token %}
-                    {{ form|crispy }}
-                    <button type="submit" class="btn btn-primary w-100 py-2 mt-3">
-                        <i class="fas fa-sign-in-alt"></i> Login 
-                    </button>
-                </form>
+        <!-- Messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="p-4 mb-4 text-sm rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300{% elif message.tags == 'error' %}bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300{% else %}bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300{% endif %}">
+                    <div class="flex items-center gap-2">
+                        {% if message.tags == 'success' %}
+                            {% heroicon_outline "check-circle" class="w-5 h-5" %}
+                        {% elif message.tags == 'error' %}
+                            {% heroicon_outline "x-circle" class="w-5 h-5" %}
+                        {% else %}
+                            {% heroicon_outline "information-circle" class="w-5 h-5" %}
+                        {% endif %}
+                        {{ message }}
+                    </div>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <!-- Login Form -->
+        <form method="post" class="space-y-4 md:space-y-6">
+            {% csrf_token %}
+            
+            <!-- Username Field -->
+            <div>
+                <label for="id_username" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                    Username
+                </label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        {% heroicon_outline "user" class="w-5 h-5 text-gray-500 dark:text-gray-400" %}
+                    </div>
+                    <input type="text" name="username" 
+                           class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 pl-10" 
+                           placeholder="Enter your username" 
+                           id="id_username"
+                           value="{{ form.username.value|default:'' }}">
+                </div>
+                {% if form.username.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.username.errors.0 }}</p>
+                {% endif %}
             </div>
-
-            <hr class="my-4">
-
-            <div class="text-center">
-                <p class="mb-2"> Don't have an account </p>
-                <a href="{% url 'chat_analyzer:admin_register' %}" class="btn btn-outline-primary btn-sm">
-                    <i class="fas fa-user-shield"> Register as Admin </i>
-                </a>
-                <a href="#" class="btn btn-outline-info btn-sm">
-                    <i class="fas fa-user-md"></i> Register as Therapist
-                </a>
+            
+            <!-- Password Field -->
+            <div>
+                <div class="flex items-center justify-between">
+                    <label for="id_password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                        Password
+                    </label>
+                    <a href="#" class="text-sm font-medium text-blue-600 hover:underline dark:text-blue-500">
+                        Forgot password?
+                    </a>
+                </div>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        {% heroicon_outline "lock-closed" class="w-5 h-5 text-gray-500 dark:text-gray-400" %}
+                    </div>
+                    <input type="password" name="password" 
+                           class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 pl-10" 
+                           placeholder="••••••••" 
+                           id="id_password">
+                </div>
+                {% if form.password.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.password.errors.0 }}</p>
+                {% endif %}
             </div>
+            
+            <!-- Submit Button -->
+            <button type="submit" class="flex items-center justify-center w-full gap-2 text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+                {% heroicon_outline "arrow-right-on-rectangle" class="w-5 h-5" %}
+                Log in
+            </button>
+        </form>
 
-            <hr class="my-4">
-
-            <div class="text-center mb-4">
-                <small class="text-muted">
-                    <i class="bi bi-apple"></i> Demo Credentials: <br>
-                    <strong>Admin:</strong> admin / admin123 <br>
-                    <strong>Therapist:</strong> therapist1 / therapist123 (if created)
-
-                </small>
-                
-            </div>
-
-
+        <!-- Footer Links -->
+        <div class="text-sm text-center text-gray-500 dark:text-gray-400">
+            Don't have an account? 
+            <a href="{% url 'chat_analyzer:signup_view' %}" class="font-medium text-blue-600 hover:underline dark:text-blue-500">
+                Sign up
+            </a>
         </div>
     </div>
 </div>
-
 {% endblock %}

@@ -16,6 +16,9 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+CSRF_COOKIE_SECURE = False 
+CSRF_COOKIE_HTTPONLY = False
+CSRF_TRUSTED_ORIGINS = []
 
 # Application definition
 
@@ -26,14 +29,16 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'crispy_forms',
-    'crispy_bootstrap5',
+    'heroicons',
+    #'crispy_forms',
+    #'crispy_tailwind',
+    'django_tailwind_cli',
     'chat_analyzer'
 ]
 
-# crispy forms configuration
-CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
-CRISPY_TEMPLATE_PACK = "bootstrap5"
+# crispy forms configuration TAILWIND
+#CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"
+#CRISPY_TEMPLATE_PACK = "crispy_tailwind"
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -110,11 +115,22 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+# Static files (CSS, JavaScript, Images)
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [
+    BASE_DIR / "assets",
+]
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Enable DaisyUI (optional but you wanted it)
+TAILWIND_CLI_USE_DAISY_UI = True
 
 # admin registeration invite code (change this to something more secure )
 ADMIN_INVITE_CODE = 'AutismCenter2024!Secure123'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+AUTH_USER_MODEL = 'chat_analyzer.User'
+
 

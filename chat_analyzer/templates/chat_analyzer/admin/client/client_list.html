@@ -73,7 +73,13 @@
                                 <small class="text-muted">{{ client.username }}</small>
                             </td>
                             <td>{{ client.child_name }}</td>
-                            <td>{{ client.phone_number }}</td>
+
+                            <!-- <td>{{ client.phone_number }}</td> -->
+                             <!-- replace with -->
+                            <td> {% with client.contacts.first as contact %}
+                                    {{ contact.phone_number|default:"No phone" }}
+                                 {% endwith %}
+                            </td>
                             <td>
                                 {% if client.assigned_therapist %}
                                     <span class="badge bg-info">
