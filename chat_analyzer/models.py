@@ -153,8 +153,6 @@ class User(AbstractUser):
         verbose_name_plural = 'Users'
         ordering = ['last_name', 'first_name']
         permissions = [
-            ('can_generate_invite_code', 'Can generate admin invite codes'),
-            ('can_revoke_invite_code', 'Can revoke admin invite codes'),
             ('can_manage_therapist', 'Can manage therapist'),
             ('can_manage_doctors', 'Can manage doctors'),
             ('can_manage_clients', 'Can manage clients'),
@@ -770,28 +768,7 @@ class Conversation(models.Model):
         client_name = self.client.get_full_name() if self.client else "Uknown"
         return f"{self.date} - {client_name}: {self.message[:50]}"
     
-# ========================================================================
-# =================== UNMATCHED MESSAGE MODEL 5 ============================
-# ========================================================================
-class UnmatchedMessage(models.Model):
-    """Messages that couldnt be linked to any client"""
-    date = models.DateField()
-    time = models.TimeField()
-    username = models.CharField(max_length=200)
-    message = models.TextField()
-    uploaded_at = models.DateTimeField(auto_now_add=True)
-    upload_batch = models.CharField(max_length=100, blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
-    class Meta:
-        ordering = ['-date', '-time']
-        verbose_name = 'Unmatched Message'
-        verbose_name_plural = 'Unmatched Messages ❌ '
-
-    def __str__(self):
-        return f"{self.date} - {self.username} : {self.message[:50]}"
-    
 # ========================================================================
 # =================== UPLOAD HISTORY MODEL 6 ============================
 # ========================================================================
@@ -848,90 +825,124 @@ class UploadHistory(models.Model):
         return f"{self.file_name} - {self.uploaded_at.strftime('%Y-%m-%d %H:%M')}"
 
 # ========================================================================
-# =================== ADMIN INVITE CODE MODEL 7  =========================
+# =================== UNMATCHED MESSAGE MODEL 5 ============================
 # ========================================================================
-class AdminInviteCode(models.Model):
-    """setup admin invite code for better security"""
-    code = models.CharField(
-        max_length=100,
-        unique=True,
-        db_index=True,
-        help_text="The invitation code"
-    )
-    created_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
+class UnmatchedMessage(models.Model):
+    """Messages that couldnt be linked to any client"""
+    upload_history = models.ForeignKey(
+        UploadHistory,
+        on_delete=models.CASCADE,
+        related_name='unmatched_messages',
         null=True,
         blank=True,
-        related_name='created_invites',
-        limit_choices_to={'role': 'admin'},
-        help_text="Who created this invite",
+        help_text="The upload batch this message came from"
     )
-    created_at=models.DateTimeField(auto_now_add=True)
-    expires_at = models.DateTimeField(
-        help_text="When this code expires"
-    )
-    used_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='used_invites',
-        help_text="who used this code"
-    )
-    used_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="When this code was used"
-    )
-    PURPOSE_CHOICES = [
-        ('admin_registeration', 'Admin Registeration'),
-        ('therapist_invite', 'Therapist Invite'),
-        ('doctor_invite', 'Doctor Invite'),
-    ]
-    purpose = models.CharField(
-        max_length=50,
-        choices=PURPOSE_CHOICES,
-        default='admin_registeration'
-    )
-    notes = models.TextField(blank=True, null=True)
-    is_active = models.BooleanField(default=True)
+
+    date = models.DateField()
+    time = models.TimeField()
+    username = models.CharField(max_length=200)
+    message = models.TextField()
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    upload_batch = models.CharField(max_length=100, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    update_at = models.DateTimeField(auto_now=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['created_at']
-        verbose_name = 'Admin Invite Code'
-        verbose_name_plural = 'Admin Invite Codes 🧑🏽‍💻 '
-    
+        ordering = ['-date', '-time']
+        verbose_name = 'Unmatched Message'
+        verbose_name_plural = 'Unmatched Messages ❌ '
+
     def __str__(self):
-        status = "Used" if self.used_by else "Active"
-        return f"{self.code[:8]}... ({status})"
+        return f"{self.date} - {self.username} : {self.message[:50]}"
 
-    @property
-    def is_expired(self):
-        """Check wether the code already expired ?"""
-        from django.utils import timezone
-        return timezone.now() > self.expires_at
+# ╔════════════════════════════════════════════╗ 
+# ║           TOPIC MODELING SECTION           ║ 
+# ╚════════════════════════════════════════════╝ 
 
-    @property
-    def is_usable(self):
-        """Check if the code can still be used"""
-        return self.is_active and not self.is_expired and not self.used_by
+class Topic(models.Model):
+    """Master list of all possible topics that will be generated"""
+    name = models.CharField(
+        max_length=100,
+        unique=True,
+        help_text="Topic name (e.g., 'Kebimbangan')"
+    )
+    description = models.TextField(
+        blank=True,
+        help_text="Description of the topic"
+    )
+    keywords = models.JSONField(
+        default=list,
+        help_text="List of keywords for this topic (Malay words)"
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
-    @property
-    def use(self, user):
-        """Mark the code as used by a user."""
-        if not self.is_usable:
-            raise ValueError("this invite code is no longer usable")
-        self.used_by = user
-        self.used_at = timezone.now()
-        self.save()
- 
-    # what does it means ? by SET_NULL ? 
-    # refer to CurrentProgress.md as a notes taking place 
+    class Meta:
+        verbose_name = 'Topic'
+        verbose_name_plural = 'Topics 🧠'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
     
-    
+class ClientTopicScore(models.Model):
+    """Current topic scores for each client"""
 
+    client = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='topic_scores',
+        limit_choices_to={'role': 'client'}
+    )
+    topic = models.ForeignKey(
+        Topic,
+        on_delete=models.PROTECT,
+        related_name='client_scores'
+    )
+    score = models.FloatField(
+        default=0.0,
+        help_text="Current score for this topic (0.0 to 1.0)"
+    )
+    last_updated = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        unique_together = ('client', 'topic')
+        verbose_name = 'Client Topic Score'
+        verbose_name_plural = 'Client Topic Scores 📊'
+        ordering = ['client', '-score']
 
+    def __str__(self):
+        return f"{self.client.get_full_name()} - {self.topic.name}: {self.score:.2f}"
+
+class TopicTrend(models.Model):
+    """Daily topic trend data for each client"""
+
+    client = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='topic_trends',
+        limit_choices_to={'role': 'client'}
+    )
+    topic = models.ForeignKey(
+        Topic,
+        on_delete=models.PROTECT,
+        related_name='trends',
+    )
+    date = models.DateField(auto_now_add=True)
+    score = models.FloatField(
+        default=0.0,
+        help_text="Score for this topic on this date"
+    )
+    trend = models.FloatField(
+        default=0.0,
+        help_text="Trend direction: positive = increasing, negative = decreasing"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('client', 'topic', 'date')
+        verbose_name = 'Topic Trend'
+        verbose_name_plural = 'Topic Trends 🫀'

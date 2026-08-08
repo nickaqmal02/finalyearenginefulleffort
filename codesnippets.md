@@ -1,764 +1,950 @@
-## using decorators approach for cleaner one
+from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
+from django.db import models
+import uuid
+from django.utils import timezone
+from datetime import datetime
 
-from django.urls import path
-from . import views
 
-app_name = 'chat_analyzer'
-
-urlpatterns = [
-    # ================================
-    # 1. WELCOMING PAGE 😊
-    # ================================
-    path('', views.welcome_view, name='welcome_view'),
+# ============================================
+# 1. USER (UNIFIED)
+# ============================================
+class User(AbstractUser):
+    """Unified User model for all roles."""
     
-    # ================================
-    # 2. AUTHENTICATION 🔑
-    # ================================
-    path('login/', views.login_view, name='login_view'),
-    path('logout/', views.logout_view, name='logout_view'),
-    path('signup/', views.signup_view, name='signup_view'),
+    ROLE_CHOICES = [
+        ('admin', 'Admin'),
+        ('therapist', 'Therapist'),
+        ('doctor', 'Doctor'),
+        ('client', 'Client'),
+    ]
     
-    # ================================
-    # 3. DASHBOARDS FOR EACH ROLE 🔒
-    # ================================
-    # Admin Dashboard
-    path('admin-dashboard/', views.admin_dashboard, name='admin_dashboard'),
+    groups = models.ManyToManyField(
+        'auth.Group',
+        related_name='chat_analyzer_user_set',
+        blank=True,
+        help_text='The groups this user belongs to.',
+        verbose_name='groups',
+    )
+    user_permissions = models.ManyToManyField(
+        'auth.Permission',
+        related_name='chat_analyzer_user_set',
+        blank=True,
+        help_text='Specific permissions for this user.',
+        verbose_name='user permissions',
+    )
     
-    # Therapist Dashboard
-    path('therapist-dashboard/', views.therapist_dashboard, name='therapist_dashboard'),
+    role = models.CharField(
+        max_length=20,
+        choices=ROLE_CHOICES,
+        default='client',
+        help_text="User's roles in the system"
+    )
     
-    # Doctor Dashboard
-    path('doctor-dashboard/', views.doctor_dashboard, name='doctor_dashboard'),
+    # ---------- Common Fields ----------
+    phone_regex = RegexValidator(
+        regex=r'^(\+?60|0)[1-9][0-9]{7,9}$',
+        message="Phone number must be entered in Malaysian format: 0123456789 or +60123456789"
+    )
+    phone = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        validators=[phone_regex],
+        help_text="Enter without spaces (e.g., 0123456789 or +60123456789)"
+    )
+    date_of_birth = models.DateField(
+        blank=True,
+        null=True,
+        help_text="Date of Birth"
+    )
     
-    # Client Dashboard
-    path('client-dashboard/', views.client_dashboard, name='client_dashboard'),
+    GENDER_CHOICES = [
+        ('male', 'Male'),
+        ('female', 'Female'),
+        ('other', 'Other')
+    ]
+    gender = models.CharField(
+        max_length=20,
+        choices=GENDER_CHOICES,
+        blank=True,
+        null=True,
+        help_text="Gender Identity"
+    )
+    address = models.TextField(
+        blank=True,
+        null=True,
+        help_text='Home address'
+    )
     
-    # ================================
-    # 4. USER MANAGEMENT (Admin Only) 👥
-    # ================================
-    path('users/', views.user_list, name='user_list'),
-    path('users/<int:user_id>/', views.user_detail, name='user_detail'),
-    path('users/<int:user_id>/edit/', views.user_edit, name='user_edit'),
-    path('users/<int:user_id>/delete/', views.user_delete, name='user_delete'),
+    # ---------- Professional Fields ----------
+    license_number = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        unique=True,
+        help_text="Professional license number for doctor and therapist"
+    )
+    license_state = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="State where license is issued"
+    )
+    years_of_experience = models.IntegerField(
+        blank=True,
+        null=True,
+        help_text="Years of professional experience"
+    )
+    hire_date = models.DateField(
+        blank=True,
+        null=True,
+        help_text="Date of hire"
+    )
+    specialization = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Primary specialization"
+    )
     
-    # ================================
-    # 5. THERAPIST MANAGEMENT (Admin & Therapist) 👨‍⚕️
-    # ================================
-    path('therapists/', views.therapist_list, name='therapist_list'),
-    path('therapists/<int:therapist_id>/', views.therapist_detail, name='therapist_detail'),
-    path('therapists/<int:therapist_id>/assign/', views.assign_client, name='assign_client'),
+    # ---------- Client Specific Fields ----------
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('pending', 'Pending'),
+    ]
+    client_status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        blank=True,
+        null=True,
+        help_text="Client's status (only for clients fields)"
+    )
+    last_visit = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text="Date of last visit (only for clients)"
+    )
     
-    # ================================
-    # 6. CLIENT MANAGEMENT (Admin, Therapist, Doctor) 👤
-    # ================================
-    path('clients/', views.client_list, name='client_list'),
-    path('clients/<int:client_id>/', views.client_detail, name='client_detail'),
-    path('clients/<int:client_id>/edit/', views.client_edit, name='client_edit'),
+    # ---------- Self-Referential Relationships ----------
+    registered_by = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='registered_users',
+        limit_choices_to={'role': 'admin'},
+        help_text="Admin who registered this user"
+    )
+    assigned_therapist = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_clients',
+        limit_choices_to={'role': 'therapist'},
+        help_text="Therapist assigned to this client"
+    )
     
-    # ================================
-    # 7. APPOINTMENT MANAGEMENT 📅
-    # ================================
-    path('appointments/', views.appointment_list, name='appointment_list'),
-    path('appointments/create/', views.appointment_create, name='appointment_create'),
-    path('appointments/<int:appointment_id>/', views.appointment_detail, name='appointment_detail'),
-    path('appointments/<int:appointment_id>/edit/', views.appointment_edit, name='appointment_edit'),
-    path('appointments/<int:appointment_id>/delete/', views.appointment_delete, name='appointment_delete'),
+    # ---------- Audit Fields ----------
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
-    # ================================
-    # 8. MESSAGING SYSTEM 💬
-    # ================================
-    path('messages/', views.message_list, name='message_list'),
-    path('messages/create/', views.message_create, name='message_create'),
-    path('messages/<int:message_id>/', views.message_detail, name='message_detail'),
-    path('messages/<int:message_id>/reply/',iewsessage_reply, name='message_reply'),
+    class Meta:
+        verbose_name = 'User'
+        verbose_name_plural = 'Users'
+        ordering = ['last_name', 'first_name']
+        permissions = [
+            ('can_manage_therapist', 'Can manage therapist'),
+            ('can_manage_doctors', 'Can manage doctors'),
+            ('can_manage_clients', 'Can manage clients'),
+            ('can_approve_documents', 'Can approve documents'),
+        ]
     
-    # ================================
-    # 9. REPORTING & ANALYTICS 📊
-    # ================================
-    path('reports/', views.report_list, name='report_list'),
-    path('reports/create/', views.report_create, name='report_create'),
-    path('reports/<int:report_id>/', views.report_detail, name='report_detail'),
-    path('reports/<int:report_id>/download/', views.report_download, name='report_download'),
+    def __str__(self):
+        if self.role == 'doctor' and self.first_name:
+            return f"Dr. {self.get_full_name()}"
+        return self.get_full_name() or self.username
     
-    # ================================
-    # 10. API ENDPOINTS (Optional) 🔌
-    # ================================
-    # path('api/users/', views.api_user_list, name='api_user_list'),
-    # path('api/appointments/', views.api_appointment_list, name='api_appointment_list'),
-]
-
-
-
-
-#### ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-#### ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-#### ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-#### ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-#### ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-#### ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-#### ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-#### ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-#### ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-#### ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-#### ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-##### ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-##### ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-##### ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-##### ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-from django.shortcuts import render, redirect
-from django.contrib.auth import login, authenticate, logout
-from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied
-from .decorators import admin_required, therapist_required, doctor_required, client_required
-from .models import User
-from .forms import CustomLoginForm, CustomSignUpForm
-
-#========================
-# 1. WELCOMING PAGE VIEWS 😊
-# =======================
-def welcome_view(request):
-    return render(request, 'chat_analyzer/welcome.html')
-
-# ================================
-# 2. AUTHENTICATION SECTION VIEWS 🔑
-# ================================
-
-def login_view(request):
-    """Custom login view with role-based redirect"""
+    @property
+    def is_admin(self):
+        return self.role == 'admin'
     
-    # If user is already logged in, redirect to their dashboard
-    if request.user.is_authenticated:
-        if request.user.is_admin:
-            return redirect('chat_analyzer:admin_dashboard')
-        elif request.user.is_therapist:
-            return redirect('chat_analyzer:therapist_dashboard')
-        elif request.user.is_doctor:
-            return redirect('chat_analyzer:doctor_dashboard')
-        elif request.user.is_client:
-            return redirect('chat_analyzer:client_dashboard')
-        else:
-            return redirect('chat_analyzer:welcome_view')
+    @property
+    def is_therapist(self):
+        return self.role == 'therapist'
     
-    if request.method == "POST":
-        form = CustomLoginForm(request, data=request.POST)
-        
-        if form.is_valid():
-            username = form.cleaned_data.get('username')
-            password = form.cleaned_data.get('password')
-            user = authenticate(username=username, password=password)
-
-            if user is not None:
-                login(request, user)
-                messages.success(request, f"Welcome back, {username}!")
-                
-                # Check for 'next' parameter first
-                next_url = request.GET.get('next')
-                if next_url:
-                    return redirect(next_url)
-                
-                # Role-based redirect
-                if user.is_admin:
-                    return redirect('chat_analyzer:admin_dashboard')
-                elif user.is_therapist:
-                    return redirect('chat_analyzer:therapist_dashboard')
-                elif user.is_doctor:
-                    return redirect('chat_analyzer:doctor_dashboard')
-                elif user.is_client:
-                    return redirect('chat_analyzer:client_dashboard')
-                else:
-                    return redirect('chat_analyzer:welcome_view')
-            else:
-                messages.error(request, "Invalid username or password.")
-        else:
-            messages.error(request, "Invalid username or password.")
-    else:
-        form = CustomLoginForm()
-
-    return render(request, 'chat_analyzer/login.html', {'form': form})
-
-
-def logout_view(request):
-    """Custom logout view"""
-    logout(request)
-    messages.info(request, "You have been logged out successfully.")
-    return redirect('chat_analyzer:login_view')
-
-
-def signup_view(request):
-    """Custom signup view with role-based registration"""
+    @property
+    def is_doctor(self):
+        return self.role == 'doctor'
     
-    # If user is already logged in, redirect to dashboard
-    if request.user.is_authenticated:
-        if request.user.is_admin:
-            return redirect('chat_analyzer:admin_dashboard')
-        elif request.user.is_therapist:
-            return redirect('chat_analyzer:therapist_dashboard')
-        elif request.user.is_doctor:
-            return redirect('chat_analyzer:doctor_dashboard')
-        elif request.user.is_client:
-            return redirect('chat_analyzer:client_dashboard')
-        else:
-            return redirect('chat_analyzer:welcome_view')
+    @property
+    def is_client(self):
+        return self.role == 'client'
     
-    if request.method == 'POST':
-        form = CustomSignUpForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            
-            # Log the user in after registration
-            login(request, user)
-            messages.success(request, f"Account created successfully! Welcome, {user.username}!")
-            
-            # Redirect based on role
-            if user.is_admin:
-                return redirect('chat_analyzer:admin_dashboard')
-            elif user.is_therapist:
-                return redirect('chat_analyzer:therapist_dashboard')
-            elif user.is_doctor:
-                return redirect('chat_analyzer:doctor_dashboard')
-            elif user.is_client:
-                return redirect('chat_analyzer:client_dashboard')
-            else:
-                return redirect('chat_analyzer:welcome_view')
-        else:
-            # Display form errors
-            for field, errors in form.errors.items():
-                for error in errors:
-                    messages.error(request, f"{field}: {error}")
-    else:
-        form = CustomSignUpForm()
+    @property
+    def is_clinical_staff(self):
+        return self.role in ['therapist', 'doctor']
     
-    return render(request, 'chat_analyzer/signup.html', {'form': form})
-
-# ===========================
-# 3. DASHBOARD FOR EACH ROLE 🔒 using decorators
-# ===========================
-
-@admin_required
-def admin_dashboard(request):
-    """Admin dashboard : only accessible to admin"""
-    context = {
-        'total_users': User.objects.count(),
-        'total_therapists': User.objects.filter(role='therapist').count(),
-        'total_doctors': User.objects.filter(role='doctor').count(),
-        'total_clients': User.objects.filter(role='client').count(),
-    }
-    return render(request, 'chat_analyzer/admin_dashboard.html', context)
-
-@therapist_required
-def therapist_dashboard(request):
-    """Only Therapist can access this section"""
-    context = {
-        'assigned_clients': request.user.assigned_clients.all(),
-        'total_clients': request.user.assigned_clients.count(),
-    }
-    return render(request, 'chat_analyzer/therapist_dashboard.html', context)
-
-@doctor_required
-def doctor_dashboard(request):
-    """Doctor dashboard - only accessible to doctors"""
-    context = {
-        'patients': [],  # Add your logic here
-    }
-    return render(request, 'chat_analyzer/doctor_dashboard.html', context)
-
-@client_required
-def client_dashboard(request):
-    """Client dashboard"""
-    context = {
-        'assigned_therapist': request.user.assigned_therapist,
-        'last_visit': request.user.last_visit,
-    }
-    return render(request, 'chat_analyzer/client_dashboard.html', context)
-
-
-
-###### ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-###### ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-###### ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-### ADMIN SECTION SNIPPETS AND STUCTURE :::::::::::::::::::::::::::
-### ADMIN SECTION SNIPPETS AND STUCTURE :::::::::::::::::::::::::::
-### ADMIN SECTION SNIPPETS AND STUCTURE :::::::::::::::::::::::::::
-### ADMIN SECTION SNIPPETS AND STUCTURE :::::::::::::::::::::::::::
-### ADMIN SECTION SNIPPETS AND STUCTURE :::::::::::::::::::::::::::
-### ADMIN SECTION SNIPPETS AND STUCTURE :::::::::::::::::::::::::::
-### ADMIN SECTION SNIPPETS AND STUCTURE :::::::::::::::::::::::::::
-### ADMIN SECTION SNIPPETS AND STUCTURE :::::::::::::::::::::::::::
-### ADMIN SECTION SNIPPETS AND STUCTURE :::::::::::::::::::::::::::
-### ADMIN SECTION SNIPPETS AND STUCTURE :::::::::::::::::::::::::::
-### ADMIN SECTION SNIPPETS AND STUCTURE :::::::::::::::::::::::::::
-#### ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-#### ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-#### ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-
-> started at: 06 AUG 2026 1907H 
-
-## THE STUCTURE
-templates/chat_analyzer/
-├── base.html                    # Main base template
-├── admin/
-│   ├── base_admin.html         # Admin base with sidebar
-│   ├── partials/
-│   │   ├── admin_sidebar.html  # Sidebar component
-│   │   └── admin_header.html   # Header component
-│   └── pages/
-│       ├── dashboard.html
-│       ├── users.html
-│       └── settings.html
-└── auth/
-    ├── login.html
-    └── signup.html
-
-### CODE SNIPPETS
-
-> BASE.html
-<!-- Admin Base Template with Sidebar -->
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Admin Dashboard{% endblock %} - Chat Analyzer</title>
+    @property
+    def get_display_name(self):
+        if self.role == 'doctor' and self.first_name:
+            return f"Dr. {self.first_name} {self.last_name}"
+        return self.get_full_name() or self.username
     
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    @property
+    def get_primary_contact(self):
+        if hasattr(self, 'contacts'):
+            primary = self.contacts.filter(is_primary=True).first()
+            if primary:
+                return primary
+            return self.contacts.first()
+        return None
     
-    <!-- DaisyUI -->
-    <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
+    @property
+    def get_primary_phone(self):
+        primary = self.get_primary_contact
+        if primary:
+            return primary.phone_number
+        return self.phone
     
-    <!-- Tailwind Browser -->
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    @property
+    def get_all_phone(self):
+        phones = []
+        if self.phone:
+            phones.append(self.phone)
+        if hasattr(self, 'contacts'):
+            for contact in self.contacts.all():
+                if contact.phone_number not in phones:
+                    phones.append(contact.phone_number)
+        return phones
     
-    {% load heroicons %}
+    def clean(self):
+        super().clean()
+        if self.is_superuser:
+            return
+        if self.role in ['doctor', 'therapist']:
+            if not self.license_number:
+                raise ValidationError({
+                    'license_number': 'License number is required for doctors and therapists.'
+                })
+            if not self.license_state:
+                raise ValidationError({
+                    'license_state': 'License state is required for doctors and therapists.'
+                })
+        if self.role == 'client':
+            if not self.first_name:
+                raise ValidationError({
+                    'first_name': "Parent's name is required for clients."
+                })
+            if not self.last_name:
+                raise ValidationError({
+                    'last_name': "Child's name is required for clients."
+                })
     
-    <!-- Custom CSS -->
-    {% block extra_css %}{% endblock %}
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        if self.role not in ['doctor', 'therapist']:
+            self.license_number = None
+            self.license_state = None
+            self.years_of_experience = None
+            self.hire_date = None
+            self.specialization = ''
+        if self.role != 'client':
+            self.client_status = None
+            self.last_visit = None
+            self.assigned_therapist = None
+        super().save(*args, **kwargs)
+
+
+# ============================================
+# 2. CLIENT CONTACT
+# ============================================
+class ClientContact(models.Model):
+    """Multiple contacts for a single client (father, mother, guardian)"""
     
-    <style>
-        .sidebar {
-            transition: all 0.3s ease;
-        }
-        .sidebar.collapsed {
-            width: 64px !important;
-        }
-        .sidebar.collapsed .sidebar-text {
-            display: none;
-        }
-        .sidebar.collapsed .sidebar-icon {
-            margin-right: 0;
-        }
-        .main-content {
-            transition: all 0.3s ease;
-        }
-        .main-content.expanded {
-            margin-left: 64px;
-        }
-        @media (max-width: 768px) {
-            .sidebar {
-                transform: translateX(-100%);
-                position: fixed;
-                z-index: 50;
-                height: 100vh;
-            }
-            .sidebar.open {
-                transform: translateX(0);
-            }
-        }
-    </style>
-</head>
-
-<body class="bg-gray-100 dark:bg-gray-900">
-    <div class="flex h-screen overflow-hidden">
-        <!-- Sidebar -->
-        {% include "chat_analyzer/admin/partials/admin_sidebar.html" %}
-        
-        <!-- Main Content -->
-        <div class="flex-1 flex flex-col overflow-hidden">
-            <!-- Header -->
-            {% include "chat_analyzer/admin/partials/admin_header.html" %}
-            
-            <!-- Page Content -->
-            <main class="flex-1 overflow-y-auto p-4 md:p-6">
-                {% block content %}
-                {% endblock %}
-            </main>
-        </div>
-    </div>
+    CONTACT_TYPES = [
+        ('father', 'Father'),
+        ('mother', 'Mother'),
+        ('guardian', 'Guardian'),
+        ('other', 'Other'),
+    ]
     
-    <!-- Mobile Menu Overlay -->
-    <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden lg:hidden" onclick="toggleSidebar()"></div>
+    client = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='contacts',
+        limit_choices_to={'role': 'client'},
+        help_text="The client this contact belongs to"
+    )
+    contact_type = models.CharField(
+        max_length=20,
+        choices=CONTACT_TYPES,
+        help_text="Type of contact (father, mother, guardian)"
+    )
+    name = models.CharField(
+        max_length=200,
+        help_text="Full name of the contact"
+    )
+    phone_number = models.CharField(
+        max_length=20,
+        help_text="Contact phone number"
+    )
+    is_primary = models.BooleanField(
+        default=False,
+        help_text="Is this the primary contact"
+    )
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Additional notes about this contact"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
-    <script>
-        // Toggle sidebar on mobile
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebar-overlay');
-            sidebar.classList.toggle('open');
-            overlay.classList.toggle('hidden');
-        }
-        
-        // Toggle sidebar collapse
-        function toggleCollapse() {
-            const sidebar = document.getElementById('sidebar');
-            sidebar.classList.toggle('collapsed');
-        }
-        
-        // Close sidebar on resize
-        window.addEventListener('resize', function() {
-            if (window.innerWidth > 1024) {
-                const sidebar = document.getElementById('sidebar');
-                const overlay = document.getElementById('sidebar-overlay');
-                sidebar.classList.remove('open');
-                overlay.classList.add('hidden');
-            }
-        });
-    </script>
+    class Meta:
+        verbose_name = 'Client Contact'
+        verbose_name_plural = 'Client Contacts 📇'
+        ordering = ['-is_primary', 'contact_type']
     
-    {% block extra_js %}{% endblock %}
-</body>
-</html>
+    def __str__(self):
+        return f"{self.name} ({self.get_contact_type_display()}) - {self.phone_number}"
 
-> SIDEBAR.html
 
-<!-- Admin Base Template with Sidebar -->
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Admin Dashboard{% endblock %} - Chat Analyzer</title>
+# ============================================
+# 3. AUTISM DIAGNOSIS
+# ============================================
+class AutismDiagnosis(models.Model):
+    """Autism diagnosis for a client"""
     
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    SUPPORT_LEVEL_CHOICES = [
+        (1, 'Level 1 - Requiring Support'),
+        (2, 'Level 2 - Requiring Substantial Support'),
+        (3, 'Level 3 - Requiring Very Substantial Support'),
+    ]
     
-    <!-- DaisyUI -->
-    <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
+    client = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='autism_diagnoses',
+        limit_choices_to={'role': 'client'},
+        help_text="The client with this diagnosis"
+    )
+    diagnosed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name='diagnoses_made',
+        null=True,
+        blank=True,
+        limit_choices_to={'role': 'doctor'},
+        help_text="The doctor who made the diagnosis"
+    )
+    support_level = models.IntegerField(
+        choices=SUPPORT_LEVEL_CHOICES,
+        help_text="DSM-5 support level (1, 2, or 3)"
+    )
+    diagnosis_date = models.DateField(
+        help_text="Date of diagnosis"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Is this the active diagnosis"
+    )
+    clinical_notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Additional clinical notes"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
-    <!-- Tailwind Browser -->
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    class Meta:
+        verbose_name = 'Autism Diagnosis'
+        verbose_name_plural = 'Autism Diagnoses 💊'
+        ordering = ['-diagnosis_date']
     
-    {% load heroicons %}
+    def __str__(self):
+        return f"{self.client.get_full_name()} - Level {self.support_level}"
+
+
+# ============================================
+# 4. MASTER SPECIFIER
+# ============================================
+class MasterSpecifier(models.Model):
+    """Master list of all possible DSM-5 specifiers"""
     
-    <!-- Custom CSS -->
-    {% block extra_css %}{% endblock %}
+    specifier_name = models.CharField(
+        max_length=150,
+        unique=True,
+        help_text="Name of the specifier (e.g., 'With language impairment')"
+    )
+    specifier_category = models.CharField(
+        max_length=100,
+        help_text="Category: Language, Intellectual, Medical, Behavioral, etc."
+    )
+    is_positive_specifier = models.BooleanField(
+        default=True,
+        help_text="TRUE = 'with' (positive), FALSE = 'without' (negative)"
+    )
+    dsm_code = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        help_text="DSM-5 reference code (e.g., 'DSM-5-01')"
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
-    <style>
-        .sidebar {
-            transition: all 0.3s ease;
-        }
-        .sidebar.collapsed {
-            width: 64px !important;
-        }
-        .sidebar.collapsed .sidebar-text {
-            display: none;
-        }
-        .sidebar.collapsed .sidebar-icon {
-            margin-right: 0;
-        }
-        .main-content {
-            transition: all 0.3s ease;
-        }
-        .main-content.expanded {
-            margin-left: 64px;
-        }
-        @media (max-width: 768px) {
-            .sidebar {
-                transform: translateX(-100%);
-                position: fixed;
-                z-index: 50;
-                height: 100vh;
-            }
-            .sidebar.open {
-                transform: translateX(0);
-            }
-        }
-    </style>
-</head>
-
-<body class="bg-gray-100 dark:bg-gray-900">
-    <div class="flex h-screen overflow-hidden">
-        <!-- Sidebar -->
-        {% include "chat_analyzer/admin/partials/admin_sidebar.html" %}
-        
-        <!-- Main Content -->
-        <div class="flex-1 flex flex-col overflow-hidden">
-            <!-- Header -->
-            {% include "chat_analyzer/admin/partials/admin_header.html" %}
-            
-            <!-- Page Content -->
-            <main class="flex-1 overflow-y-auto p-4 md:p-6">
-                {% block content %}
-                {% endblock %}
-            </main>
-        </div>
-    </div>
+    class Meta:
+        verbose_name = 'Master Specifier'
+        verbose_name_plural = 'Master Specifiers'
+        ordering = ['specifier_category', 'specifier_name']
     
-    <!-- Mobile Menu Overlay -->
-    <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden lg:hidden" onclick="toggleSidebar()"></div>
+    def __str__(self):
+        return self.specifier_name
+
+
+# ============================================
+# 5. CLIENT SPECIFIER (Bridge)
+# ============================================
+class ClientSpecifier(models.Model):
+    """Bridge table linking clients to specifiers"""
     
-    <script>
-        // Toggle sidebar on mobile
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebar-overlay');
-            sidebar.classList.toggle('open');
-            overlay.classList.toggle('hidden');
-        }
-        
-        // Toggle sidebar collapse
-        function toggleCollapse() {
-            const sidebar = document.getElementById('sidebar');
-            sidebar.classList.toggle('collapsed');
-        }
-        
-        // Close sidebar on resize
-        window.addEventListener('resize', function() {
-            if (window.innerWidth > 1024) {
-                const sidebar = document.getElementById('sidebar');
-                const overlay = document.getElementByI
-                sidebar.classList.remove('open');
-                overlay.classList.add('hidden');
-            }
-        });
-    </script>
+    SEVERITY_CHOICES = [
+        ('mild', 'Mild'),
+        ('moderate', 'Moderate'),
+        ('severe', 'Severe'),
+        ('n/a', 'N/A'),
+    ]
     
-    {% block extra_js %}{% endblock %}
-</body>
-</html>
+    autism_diagnosis = models.ForeignKey(
+        AutismDiagnosis,
+        on_delete=models.CASCADE,
+        related_name='specifiers',
+        help_text="The autism diagnosis this specifier belongs to"
+    )
+    specifier = models.ForeignKey(
+        MasterSpecifier,
+        on_delete=models.PROTECT,
+        related_name='client_specifiers',
+        help_text="The specifier from the master list"
+    )
+    severity = models.CharField(
+        max_length=20,
+        choices=SEVERITY_CHOICES,
+        blank=True,
+        null=True,
+        help_text="Severity level"
+    )
+    is_present = models.BooleanField(
+        default=True,
+        help_text="True if client has this specifier, false if client does not have it"
+    )
+    clinical_notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Clinical description of how this specifier presents"
+    )
+    
+    # Workflow fields
+    stated_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name='stated_specifiers',
+        null=True,
+        blank=True,
+        limit_choices_to={'role': 'doctor'},
+        help_text="Clinician who stated this specifier"
+    )
+    stated_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="When this specifier was stated"
+    )
+    proposed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name='proposed_specifiers',
+        null=True,
+        blank=True,
+        limit_choices_to={'role': 'therapist'},
+        help_text="Therapist who proposed this specifier"
+    )
+    approved_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name='approved_specifiers',
+        null=True,
+        blank=True,
+        limit_choices_to={'role': 'doctor'},
+        help_text="Clinician who approved this specifier"
+    )
+    is_pending_approval = models.BooleanField(
+        default=False,
+        help_text="Is this specifier waiting for approval"
+    )
+    is_approved = models.BooleanField(
+        default=False,
+        help_text="If doctor directly states this it is already approved"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Client Specifier'
+        verbose_name_plural = 'Client Specifiers'
+        unique_together = ('autism_diagnosis', 'specifier')
+        ordering = ['-is_present', 'specifier__specifier_category']
+    
+    def __str__(self):
+        status = "Present" if self.is_present else "Absent"
+        return f"{self.autism_diagnosis.client.get_full_name()} - {self.specifier.specifier_name} ({status})"
+    
+    def clean(self):
+        if not self.is_present and self.severity not in [None, 'n/a']:
+            raise ValidationError({
+                'severity': 'Severity must be N/A when specifier is not present.'
+            })
+    
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
-> ADMIN_SIDEBAR.html
-{% load heroicons %}
-
-<!-- Sidebar -->
-<aside id="sidebar" class="sidebar bg-gray-900 dark:bg-gray-800 text-white w-64 flex-shrink-0">
-    <div class="flex flex-col h-full">
-        <!-- Logo -->
-        <div class="flex items-center justify-between p-4 border-b border-gray-700">
-            <a href="{% url 'chat_analyzer:admin_dashboard' %}" class="flex items-center space-x-2">
-                {% heroicon_outline "chat-bubble-left-right" class="w-8 h-8 text-blue-400" %}
-                <span class="sidebar-text text-xl font-bold">ChatAnalyzer</span>
-            </a>
-            <!-- Collapse Button -->
-            <button onclick="toggleCollapse()" class="hidden lg:block hover:bg-gray-700 p-1 rounded">
-                {% heroicon_outline "chevron-left" class="w-5 h-5" %}
-            </button>
-        </div>
-        
-        <!-- Navigation -->
-        <nav class="flex-1 overflow-y-auto p-4 space-y-1">
-            <!-- Dashboard -->
-            <a href="{% url 'chat_analyzer:admin_dashboard' %}" 
-               class="flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors duration-200 hover:bg-gray-700 {% if request.resolver_match.url_name == 'admin_dashboard' %}bg-gray-700{% endif %}">
-                {% heroicon_outline "home" class="sidebar-icon w-5 h-5 flex-shrink-0" %}
-                <span class="sidebar-text">Dashboard</span>
-            </a>
-            
-            <!-- Users -->
-            <a href="{% url 'chat_analyzer:user_list' %}" 
-               class="flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors duration-200 hover:bg-gray-700 {% if 'user' in request.resolver_match.url_name %}bg-gray-700{% endif %}">
-                {% heroicon_outline "users" class="sidebar-icon w-5 h-5 flex-shrink-0" %}
-                <span class="sidebar-text">Users</span>
-            </a>
-            
-            <!-- Therapists -->
-            <a href="{% url 'chat_analyzer:therapist_list' %}" 
-               class="flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors duration-200 hover:bg-gray-700 {% if 'therapist' in request.resolver_match.url_name %}bg-gray-700{% endif %}">
-                {% heroicon_outline "user-circle" class="sidebar-icon w-5 h-5 flex-shrink-0" %}
-                <span class="sidebar-text">Therapists</span>
-            </a>
-            
-            <!-- Doctors -->
-            <a href="{% url 'chat_analyzer:doctor_list' %}" 
-               class="flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors duration-200 hover:bg-gray-700 {% if 'doctor' in request.resolver_match.url_name %}bg-gray-700{% endif %}">
-                {% heroicon_outline "briefcase" class="sidebar-icon w-5 h-5 flex-shrink-0" %}
-                <span class="sidebar-text">Doctors</span>
-            </a>
-            
-            <!-- Clients -->
-            <a href="{% url 'chat_analyzer:client_list' %}" 
-               class="flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors duration-200 hover:bg-gray-700 {% if 'client' in request.resolver_match.url_name %}bg-gray-700{% endif %}">
-                {% heroicon_outline "user" class="sidebar-icon w-5 h-5 flex-shrink-0" %}
-                <span class="sidebar-text">Clients</span>
-            </a>
-            
-            <!-- Divider -->
-            <hr class="my-4 border-gray-700">
-            
-            <!-- Appointments -->
-            <a href="{% url 'chat_analyzer:appointment_list' %}" 
-               class="flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors duration-200 hover:bg-gray-700 {% if 'appointment' in request.resolver_match.url_name %}bg-gray-700{% endif %}">
-                {% heroicon_outline "calendar" class="sidebar-icon w-5 h-5 flex-shrink-0" %}
-                <span class="sidebar-text">Appointments</span>
-            </a>
-            
-            <!-- Messages -->
-            <a href="{% url 'chat_analyzer:message_list' %}" 
-               class="flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors duration-200 hover:bg-gray-700 {% if 'message' in request.resolver_match.url_name %}bg-gray-700{% endif %}">
-                {% heroicon_outline "chat-bubble-left-right" class="sidebar-icon w-5 h-5 flex-shrink-0" %}
-                <span class="sidebar-text">Messages</span>
-                <span class="sidebar-text ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">3</span>
-            </a>
-            
-            <!-- Reports -->
-            <a href="{% url 'chat_analyzer:report_list' %}" 
-               class="flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors duration-200 hover:bg-gray-700 {% if 'report' in request.resolver_match.url_name %}bg-gray-700{% endif %}">
-                {% heroicon_outline "chart-bar" class="sidebar-icon w-5 h-5 flex-shrink-0" %}
-                <span class="sidebar-text">Reports</span>
-            </a>
-            
-            <!-- Settings -->
-            <hr class="my-4 border-gray-700">
-            <a href="{% url 'chat_analyzer:settings' %}" 
-               class="flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors duration-200 hover:bg-gray-700 {% if 'settings' in request.resolver_match.url_name %}bg-gray-700{% endif %}">
-                {% heroicon_outline "cog-6-tooth" class="sidebar-icon w-5 h-5 flex-shrink-0" %}
-                <span class="sidebar-text">Settings</span>
-            </a>
-        </nav>
-        
-        <!-- User Footer -->
-        <div class="p-4 border-t border-gray-700">
-            <div class="flex items-center space-x-3 px-2 py-2 rounded-lg hover:bg-gray-700 cursor-pointer">
-                <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold">
-                    {{ user.username|first|upper }}
-                </div>
-                <div class="sidebar-text flex-1">
-                    <p class="text-sm font-medium">{{ user.get_full_name|default:user.username }}</p>
-                    <p class="text-xs text-gray-400">{{ user.role|title }}</p>
-                </div>
-                <a href="{% url 'chat_analyzer:logout_view' %}" class="sidebar-text hover:text-red-400">
-                    {% heroicon_outline "arrow-right-on-rectangle" class="w-5 h-5" %}
-                </a>
-            </div>
-        </div>
-    </div>
-</aside>
+# ============================================
+# 6. DIAGNOSIS DOCUMENT
+# ============================================
+class DiagnosisDocument(models.Model):
+    """Uploaded diagnostic documents"""
+    
+    DOCUMENT_TYPES = [
+        ('diagnostic_report', 'Diagnostic Report'),
+        ('psychological_eval', 'Psychological Evaluation'),
+        ('medical_history', 'Medical History'),
+        ('school_report', 'School Report'),
+        ('therapy_notes', 'Therapy Notes'),
+        ('other', 'Other'),
+    ]
+    
+    client = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='diagnosis_documents',
+        limit_choices_to={'role': 'client'},
+        help_text="The client this document belongs to"
+    )
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name='uploaded_documents',
+        null=True,
+        blank=True,
+        help_text="Who uploaded this document"
+    )
+    document_type = models.CharField(
+        max_length=50,
+        choices=DOCUMENT_TYPES,
+        default='diagnostic_report',
+        help_text="Type of document"
+    )
+    file_name = models.CharField(
+        max_length=255,
+        help_text="Original file name"
+    )
+    file_path = models.CharField(
+        max_length=500,
+        help_text="Cloud/S3 path or server path"
+    )
+    file_size = models.IntegerField(
+        blank=True,
+        null=True,
+        help_text="Size in KB"
+    )
+    upload_date = models.DateTimeField(auto_now_add=True)
+    is_approved = models.BooleanField(
+        default=False,
+        help_text="Has this document been approved"
+    )
+    approved_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name='approved_documents',
+        null=True,
+        blank=True,
+        limit_choices_to={'role': 'doctor'},
+        help_text="Doctor who approved this document"
+    )
+    approval_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the document was approved"
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Diagnosis Document'
+        verbose_name_plural = 'Diagnosis Documents'
+        ordering = ['-upload_date']
+    
+    def __str__(self):
+        return f"{self.client.get_full_name()} - {self.file_name}"
 
 
+# ============================================
+# 7. DOCTOR SPECIALTY (Master Data)
+# ============================================
+class MasterSpecialtyCategory(models.Model):
+    """Categories for doctor specialties"""
+    
+    category_name = models.CharField(max_length=100, blank=True, null=True)
+    category_code = models.CharField(max_length=20, blank=True, null=True)
+    category_description = models.TextField(blank=True, null=True)
+    display_order = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Doctor Specialty Category'
+        verbose_name_plural = 'Doctor Specialty Categories'
+        ordering = ['display_order', 'category_name']
+    
+    def __str__(self):
+        return self.category_name or "Unnamed Category"
 
-# ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-{% load heroicons %}
+class MasterSpecialty(models.Model):
+    """Master list of doctor specialties"""
+    
+    specialty_name = models.CharField(max_length=100, blank=True, null=True)
+    specialty_code = models.CharField(max_length=20, blank=True, null=True)
+    category = models.ForeignKey(
+        MasterSpecialtyCategory,
+        on_delete=models.PROTECT,
+        related_name='specialties',
+        null=True,
+        blank=True,
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Doctor Specialty'
+        verbose_name_plural = 'All Doctor Specialties Available 🩺'
+        ordering = ['specialty_name']
+    
+    def __str__(self):
+        return self.specialty_name or "Unnamed Specialty"
 
-{% block content %}
-<div class="flex h-screen bg-gray-900 text-white">
 
-  <!-- Sidebar with daisyUI glass -->
-  <div class="w-72 glass p-4 flex flex-col border-r border-white/10">
+class DoctorSpecialty(models.Model):
+    """Bridge table linking doctors to their specialties"""
+    
+    doctor = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='doctor_specialties',
+        limit_choices_to={'role': 'doctor'},
+    )
+    specialty = models.ForeignKey(
+        MasterSpecialty,
+        on_delete=models.PROTECT,
+        related_name='doctor_specialties',
+    )
+    is_board_certified = models.BooleanField(default=False)
+    certification_date = models.DateField(null=True, blank=True)
+    certification_expires = models.DateField(null=True, blank=True)
+    is_primary_specialty = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ('doctor', 'specialty')
+        verbose_name = 'Doctor Specialty'
+        verbose_name_plural = 'Each Doctor Specialties 🥼'
+    
+    def __str__(self):
+        return f"{self.doctor} - {self.specialty}"
 
-    <!-- Logo / Brand -->
-    <div class="flex items-center gap-3 mb-6 px-2">
-      <div class="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg flex items-center justify-center">
-        {% heroicon_solid "musical-note" class="w-5 h-5 text-white" %}
-      </div>
-      <span class="text-xl font-bold">MusicApp</span>
-    </div>
 
-    <!-- Search Bar -->
-    <div class="relative mb-6">
-      <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-        {% heroicon_outline "magnifying-glass" class="w-5 h-5 text-gray-400" %}
-      </div>
-      <input 
-        type="text" 
-        placeholder="Search" 
-        class="w-full bg-white/5 rounded-lg pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-400 border border-white/10 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
-      >
-    </div>
+# ============================================
+# 8. CONVERSATION (WhatsApp Messages)
+# ============================================
+class Conversation(models.Model):
+    """WhatsApp chat messages"""
+    
+    client = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="conversations",
+        limit_choices_to={'role': 'client'},
+        help_text="The client this conversation belongs to"
+    )
+    date = models.DateField(help_text="Date of message from WhatsApp")
+    time = models.TimeField(help_text="Time of the message from WhatsApp")
+    username = models.CharField(
+        max_length=200,
+        help_text="Original sender name/number from WhatsApp"
+    )
+    message = models.TextField(help_text="Original message text")
+    cleaned_text = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Cleaned version (after preprocessing)"
+    )
+    sentiment = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        choices=[
+            ('positive', 'Positive'),
+            ('negative', 'Negative'),
+            ('neutral', 'Neutral')
+        ],
+        help_text="Sentiment analysis result"
+    )
+    uploaded_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When this was imported"
+    )
+    upload_batch = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text="Batch ID for grouping uploads"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-date', '-time']
+        verbose_name = "Conversation"
+        verbose_name_plural = "Conversations 💬"
+    
+    def __str__(self):
+        client_name = self.client.get_full_name() if self.client else "Unknown"
+        return f"{self.date} - {client_name}: {self.message[:50]}"
 
-    <!-- Navigation -->
-    <nav class="space-y-1 mb-6">
-      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/10 transition group">
-        <span class="text-gray-400 group-hover:text-white">{% heroicon_outline "home" class="w-5 h-5" %}</span>
-        <span class="text-sm font-medium">Home</span>
-      </a>
-      
-      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/10 transition group">
-        <span class="text-gray-400 group-hover:text-white">{% heroicon_outline "plus-circle" class="w-5 h-5" %}</span>
-        <span class="text-sm font-medium">New</span>
-      </a>
-      
-      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/10 transition group">
-        <span class="text-white">{% heroicon_outline "radio" class="w-5 h-5" %}</span>
-        <span class="text-sm font-medium text-white">Radio</span>
-      </a>
-    </nav>
 
-    <!-- Divider -->
-    <div class="h-px bg-white/10 mb-4"></div>
+# ============================================
+# 9. UNMATCHED MESSAGE
+# ============================================
+class UnmatchedMessage(models.Model):
+    """Messages that couldn't be linked to any client"""
+    
+    upload_history = models.ForeignKey(
+        'UploadHistory',
+        on_delete=models.CASCADE,
+        related_name='unmatched_messages',
+        null=True,
+        blank=True,
+        help_text="The upload batch this message came from"
+    )
+    date = models.DateField()
+    time = models.TimeField()
+    username = models.CharField(max_length=200)
+    message = models.TextField()
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    upload_batch = models.CharField(max_length=100, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-date', '-time']
+        verbose_name = 'Unmatched Message'
+        verbose_name_plural = 'Unmatched Messages ❌'
+    
+    def __str__(self):
+        return f"{self.date} - {self.username}: {self.message[:50]}"
 
-    <!-- Library Section -->
-    <div class="flex-1 overflow-y-auto">
-      <div class="flex items-center justify-between px-2 mb-3">
-        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Library</span>
-        <button class="text-gray-400 hover:text-white">
-          {% heroicon_outline "plus" class="w-4 h-4" %}
-        </button>
-      </div>
 
-      <div class="space-y-0.5">
-        <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition group">
-          <span class="text-gray-400 group-hover:text-white">{% heroicon_outline "clock" class="w-5 h-5" %}</span>
-          <span class="text-sm">Recently Added</span>
-        </a>
-        
-        <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition group">
-          <span class="text-gray-400 group-hover:text-white">{% heroicon_outline "user" class="w-5 h-5" %}</span>
-          <span class="text-sm">Artists</span>
-        </a>
-        
-        <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition group">
-          <span class="text-gray-400 group-hover:text-white">{% heroicon_outline "folder" class="w-5 h-5" %}</span>
-          <span class="text-sm">Albums</span>
-        </a>
-        
-        <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition group">
-          <span class="text-gray-400 group-hover:text-white">{% heroicon_outline "musical-note" class="w-5 h-5" %}</span>
-          <span class="text-sm">Songs</span>
-        </a>
-      </div>
+# ============================================
+# 10. UPLOAD HISTORY
+# ============================================
+class UploadHistory(models.Model):
+    """Track file upload history for audit and reminders"""
+    
+    admin = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='uploads',
+        limit_choices_to={'role': 'admin'}
+    )
+    file_name = models.CharField(max_length=255)
+    batch_id = models.CharField(
+        max_length=100,
+        unique=True,
+        blank=True,
+        null=True,
+        db_index=True
+    )
+    message_count = models.IntegerField(default=0)
+    matched_count = models.IntegerField(default=0)
+    unmatched_count = models.IntegerField(default=0)
+    
+    STATUS_CHOICES = [
+        ('success', 'Success'),
+        ('partial', 'Partial'),
+        ('failed', 'Failed'),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='success')
+    
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    positive_count = models.IntegerField(default=0)
+    negative_count = models.IntegerField(default=0)
+    neutral_count = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-uploaded_at']
+        verbose_name = 'Upload History'
+        verbose_name_plural = 'Upload Histories 📅'
+    
+    def save(self, *args, **kwargs):
+        if not self.batch_id:
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
+            random_part = uuid.uuid4().hex[:8].upper()
+            self.batch_id = f"BATCH_{timestamp}_{random_part}"
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return f"{self.file_name} - {self.uploaded_at.strftime('%Y-%m-%d %H:%M')}"
 
-      <!-- Divider -->
-      <div class="h-px bg-white/10 my-4"></div>
 
-      <!-- Playlists Section -->
-      <div class="flex items-center justify-between px-2 mb-3">
-        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Playlists</span>
-        <button class="text-gray-400 hover:text-white">
-          {% heroicon_outline "plus" class="w-4 h-4" %}
-        </button>
-      </div>
+# ============================================
+# 11. TOPIC MODELING
+# ============================================
+class Topic(models.Model):
+    """Master list of all possible topics"""
+    
+    name = models.CharField(
+        max_length=100,
+        unique=True,
+        help_text="Topic name (e.g., 'Kebimbangan')"
+    )
+    description = models.TextField(
+        blank=True,
+        help_text="Description of the topic"
+    )
+    keywords = models.JSONField(
+        default=list,
+        help_text="List of keywords for this topic (Malay words)"
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Topic'
+        verbose_name_plural = 'Topics 🧠'
+        ordering = ['name']
+    
+    def __str__(self):
+        return self.name
 
-      <div class="space-y-0.5">
-        <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition group">
-          <span class="text-gray-400 group-hover:text-white">{% heroicon_outline "play-circle" class="w-5 h-5" %}</span>
-          <span class="text-sm">All Playlists</span>
-        </a>
-      </div>
-    </div>
 
-    <!-- User Profile at Bottom -->
-    <div class="border-t border-white/10 pt-3 mt-3">
-      <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition group">
-        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-xs font-bold">
-          NA
-        </div>
-        <div class="flex-1">
-          <p class="text-sm font-medium">nicki aqmal</p>
-          <p class="text-xs text-gray-400">View Profile</p>
-        </div>
-        <span class="text-gray-400">{% heroicon_outline "chevron-down" class="w-4 h-4" %}</span>
-      </a>
-    </div>
+class ClientTopicScore(models.Model):
+    """Current topic scores for each client"""
+    
+    client = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='topic_scores',
+        limit_choices_to={'role': 'client'}
+    )
+    topic = models.ForeignKey(
+        Topic,
+        on_delete=models.PROTECT,
+        related_name='client_scores'
+    )
+    score = models.FloatField(
+        default=0.0,
+        help_text="Current score for this topic (0.0 to 1.0)"
+    )
+    last_updated = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ('client', 'topic')
+        verbose_name = 'Client Topic Score'
+        verbose_name_plural = 'Client Topic Scores 📊'
+        ordering = ['client', '-score']
+    
+    def __str__(self):
+        return f"{self.client.get_full_name()} - {self.topic.name}: {self.score:.2f}"
 
-  </div>
 
-  <!-- Main Content Area -->
-  <div class="flex-1 p-6 overflow-y-auto">
-    <h1 class="text-2xl font-bold">Welcome back!</h1>
-    <p class="text-gray-400 mt-2">Select a playlist or start exploring</p>
-  </div>
+class TopicTrend(models.Model):
+    """Daily topic trend data for each client"""
+    
+    client = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='topic_trends',
+        limit_choices_to={'role': 'client'}
+    )
+    topic = models.ForeignKey(
+        Topic,
+        on_delete=models.PROTECT,
+        related_name='trends'
+    )
+    date = models.DateField(auto_now_add=True)
+    score = models.FloatField(
+        default=0.0,
+        help_text="Score for this topic on this date (0.0 to 1.0)"
+    )
+    trend = models.FloatField(
+        default=0.0,
+        help_text="Trend direction: positive = increasing, negative = decreasing"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ('client', 'topic', 'date')
+        verbose_name = 'Topic Trend'
+        verbose_name_plural = 'Topic Trends 📈'
+        ordering = ['client', 'topic', '-date']
+    
+    def __str__(self):
+        return f"{self.client.get_full_name()} - {self.topic.name} ({self.date}): {self.score:.2f}"
 
-</div>
-{% endblock %}
+
+class MessageTopic(models.Model):
+    """Which topics appear in which messages"""
+    
+    conversation = models.ForeignKey(
+        Conversation,
+        on_delete=models.CASCADE,
+        related_name='topics'
+    )
+    topic = models.ForeignKey(
+        Topic,
+        on_delete=models.PROTECT,
+        related_name='message_topics'
+    )
+    score = models.FloatField(
+        help_text="Relevance score for this topic (0.0 to 1.0)"
+    )
+    confidence = models.FloatField(
+        default=0.0,
+        help_text="Model confidence (0.0 to 1.0)"
+    )
+    analyzed_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ('conversation', 'topic')
+        verbose_name = 'Message Topic'
+        verbose_name_plural = 'Message Topics 📝'
+        ordering = ['-score']
+    
+    def __str__(self):
+        return f"{self.conversation.client.get_full_name()} - {self.topic.name}: {self.score:.2f}"

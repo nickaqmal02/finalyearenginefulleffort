@@ -15,8 +15,7 @@ from .models import(
     DoctorSpecialty,
     Conversation,
     UnmatchedMessage,
-    UploadHistory,
-    AdminInviteCode,
+    UploadHistory
 )
 
 
@@ -54,7 +53,7 @@ class CustomUserAdmin(UserAdmin):
     search_fields = ['username', 'email', 'first_name', 'last_name']
     ordering = ['-date_joined']
     
-    # Fields for viewing/editing
+    # Fields for vieing/editing
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
         ('Personal Information', {
@@ -270,15 +269,4 @@ class UploadHistoryAdmin(admin.ModelAdmin):
     date_hierarchy = 'uploaded_at'
     raw_id_fields = ['admin']
 
-# ========================
-# 12. ADMIN INVITE CODE
-# ========================
-#
-@admin.register(AdminInviteCode)
-class AdminInviteCodeAdmin(admin.ModelAdmin):
-    list_display = ['code', 'created_by', 'created_at', 'expires_at', 'used_by', 'is_active']
-    list_filter = ['is_active', 'purpose', 'created_at']
-    search_fields = ['code', 'created_by__username', 'used_by__username']
-    raw_id_fields = ['created_by', 'used_by']
 
-# ========================
