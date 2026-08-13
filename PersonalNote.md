@@ -23,6 +23,14 @@
 - "h-screen": such a very important element
 
 
+## what are the differences between opts and config
+
+use opts when simple 
+use config when need to customize authentication
+
+
+
+
 
 ## ===============================================================================
 ### ==============================================================================

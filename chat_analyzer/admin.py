@@ -10,24 +10,27 @@ from .models import(
     AutismDiagnosis,
     MasterSpecifier,
     ClientSpecifier,
+    DiagnosisDocument,
     MasterSpecialtyCategory,
     MasterSpecialty,
     DoctorSpecialty,
     Conversation,
     UnmatchedMessage,
-    UploadHistory
+    UploadHistory,
+    Topic,
+    ClientTopicScore,
+    TopicTrend,
+    MessageTopic,
 )
 
-
 User = get_user_model()
-
 
 try:
     admin.site.unregister(User)
 except admin.sites.NotRegistered:
     pass
 # ===================
-# USER ADMIN (CUSTOM)
+# 1. USER ADMIN (CUSTOM)
 # ===================
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
@@ -144,6 +147,11 @@ class CustomUserAdmin(UserAdmin):
 
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
+
+# ╔════════════════════════════════════════════╗ 
+# ║             2. CLIENT CONTACT              ║ 
+# ╚════════════════════════════════════════════╝ 
+
 @admin.register(ClientContact)
 class ClientContactAdmin(admin.ModelAdmin):
     list_display = ['name', 'client', 'contact_type', 'phone_number', 'is_primary']
@@ -151,10 +159,11 @@ class ClientContactAdmin(admin.ModelAdmin):
     search_fields = ['name', 'phone_number', 'client__first_name', 'client__last_name']
     raw_id_fields = ['client']
 
-# ============================
-# 3. AUTISM DIAGNOSIS ADMIN
-# ============================
-#
+
+# ╔════════════════════════════════════════════╗ 
+# ║            3. AUTISM DIAGNOSIS             ║ 
+# ╚════════════════════════════════════════════╝ 
+
 @admin.register(AutismDiagnosis)
 class AutismDiagnosisAdmin(admin.ModelAdmin):
     list_display = ['client', 'support_level', 'diagnosis_date', 'diagnosed_by', 'is_active']
@@ -163,10 +172,11 @@ class AutismDiagnosisAdmin(admin.ModelAdmin):
     raw_id_fields = ['client', 'diagnosed_by']
     data_hierarchy = 'diagnosis_date'
 
-# ============================
-# 4. MASTER SPECIFIER ADMIN
-# ============================
-#
+
+# ╔════════════════════════════════════════════╗ 
+# ║    4.  MASTER SPECIFIER : SLEEP ISSUES     ║ 
+# ╚════════════════════════════════════════════╝ 
+
 @admin.register(MasterSpecifier)
 class MasterSpecifierAdmin(admin.ModelAdmin):
     list_display = ['specifier_name', 'specifier_category', 'is_positive_specifier', 'is_active']
@@ -174,9 +184,10 @@ class MasterSpecifierAdmin(admin.ModelAdmin):
     search_fields = ['specifier_name', 'dsm_code']
     ordering = ['specifier_category', 'specifier_name']
 
-# ============================
-# 5. CLIENT SPECIFIER ADMIN
-# ============================
+
+# ╔════════════════════════════════════════════╗ 
+# ║    5. CLIENT DETAIL SPECIFIER ASSOCIATE    ║ 
+# ╚════════════════════════════════════════════╝ 
 #
 @admin.register(ClientSpecifier)
 class ClientSpecifierAdmin(admin.ModelAdmin):
@@ -192,9 +203,21 @@ class ClientSpecifierAdmin(admin.ModelAdmin):
     search_fields = ['autism_diagnosis__client__first_name', 'specifier__specifier_name']
     raw_id_fields = ['autism_diagnosis', 'specifier', 'stated_by', 'proposed_by', 'approved_by']
 
-# ============================
-# 6. MASTER SPECIALTY CATEGORY ADMIN
-# ============================
+
+# ╔════════════════════════════════════════════╗ 
+# ║         6. DIAGNOSIS DOCUMENT ✨          ║ 
+# ╚════════════════════════════════════════════╝ 
+
+@admin.register(DiagnosisDocument)
+class DiagnosisDocumentAdmin(admin.ModelAdmin):
+    list_display = ['client', 'file_name', 'document_type', 'is_approved', 'upload_date']
+    list_filter = ['document_type', 'is_approved']
+    search_fields = ['client__first_name', 'client__last_name', 'file_name']
+    raw_id_fields = ['client', 'uploaded_by', 'approved_by']
+
+# ╔════════════════════════════════════════════╗ 
+# ║      7. DOCTOR SPECIALTY ADMINS 🤠       ║ 
+# ╚════════════════════════════════════════════╝ 
 #
 @admin.register(MasterSpecialtyCategory)
 class MasterSpecialtyCategory(admin.ModelAdmin):
@@ -202,10 +225,6 @@ class MasterSpecialtyCategory(admin.ModelAdmin):
     list_filter = ['is_active']
     search_fields = ['category_name', 'category_code']
 
-# ============================
-# 7. MASTER SPECIALTY ADMIN
-# ============================
-#
 @admin.register(MasterSpecialty)
 class MasterSpecialtyAdmin(admin.ModelAdmin):
     list_display = ['specialty_name', 'category', 'specialty_code', 'is_active']
@@ -214,9 +233,6 @@ class MasterSpecialtyAdmin(admin.ModelAdmin):
     raw_id_fields = ['category']
     # raw id fields for what actually ?? 
     #
-
-# ===========================
-# 8. DOCTOR SPECIALTY ADMIN 
 # = adding the specialty to doctor =
 @admin.register(DoctorSpecialty)
 class DoctorSpecialty(admin.ModelAdmin):
@@ -225,9 +241,9 @@ class DoctorSpecialty(admin.ModelAdmin):
     search_fields = ['doctor__first_name', 'doctor__last_name', 'specialty__specialty_name']
     raw_id_fields = ['doctor', 'specialty']
 
-# ==========================
-# 9. CONVERSATION ADMIN
-# ==========================
+# ╔════════════════════════════════════════════╗ 
+# ║        8. CONVERSATION SECTON 💬         ║ 
+# ╚════════════════════════════════════════════╝ 
 # 
 @admin.register(Conversation)
 class ConversationAdmin(admin.ModelAdmin):
@@ -237,9 +253,9 @@ class ConversationAdmin(admin.ModelAdmin):
     raw_id_fields = ['client']
     date_hierarchy = 'date'
 
-# ==========================
-# 10. UNMATCHED MESSAGE ADMIN
-# ==========================
+# ╔════════════════════════════════════════════╗ 
+# ║        9. UNMATCHED MESSAGE ADMIN          ║ 
+# ╚════════════════════════════════════════════╝ 
 #
 @admin.register(UnmatchedMessage)
 class UnmatchedMessageAdmin(admin.ModelAdmin):
@@ -248,15 +264,16 @@ class UnmatchedMessageAdmin(admin.ModelAdmin):
     search_fields = ['username', 'message']
     date_hierarchy = 'date'
 
-# ===========================
-# 11. UPLOAD HISTORY ADMIN 
-# ===========================
+
+# ╔════════════════════════════════════════════╗ 
+# ║         10. UPLOAD HISTORY ADMIN           ║ 
+# ╚════════════════════════════════════════════╝ 
 # 
 @admin.register(UploadHistory)
 class UploadHistoryAdmin(admin.ModelAdmin):
     list_display = [
         'file_name',
-        'admin',
+        'uploaded_by',
         'uploaded_at',
         'message_count',
         'status',
@@ -265,8 +282,40 @@ class UploadHistoryAdmin(admin.ModelAdmin):
         'neutral_count'
     ]
     list_filter = ['status', 'uploaded_at']
-    search_fields = ['file_name', 'batch_id', 'admin__username']
+    search_fields = ['file_name', 'batch_id', 'uploaded_by__username']
     date_hierarchy = 'uploaded_at'
-    raw_id_fields = ['admin']
+    raw_id_fields = ['uploaded_by']
+
+
+# ╔════════════════════════════════════════════╗ 
+# ║     11. TOPIC MODELING SECTIONS ADMIN      ║ 
+# ╚════════════════════════════════════════════╝ 
+@admin.register(Topic)
+class TopicAdmin(admin.ModelAdmin):
+    list_display = ['name', 'is_active', 'created_at']
+    list_filter = ['is_active']
+    search_fields = ['name', 'description']
+
+@admin.register(ClientTopicScore)
+class ClientTopicScoreAdmin(admin.ModelAdmin):
+    list_display = ['client', 'topic', 'score', 'last_updated']
+    list_filter = ['topic']
+    search_fields = ['client__first_name', 'client__last_name', 'topic__name']
+    raw_id_fields = ['client', 'topic']
+
+@admin.register(MessageTopic)
+class MessageTopicAdmin(admin.ModelAdmin):
+    list_display = ['conversation', 'topic', 'score', 'confidence', 'analyzed_at']
+    list_filter = ['topic', 'analyzed_at']
+    search_fields = ['conversation__client__first_name', 'topic__name']
+    raw_id_fields = ['conversation', 'topic']
+
+
+# ╔════════════════════════════════════════════╗ 
+# ║ADMIN CONFIGURATION SITE OVERRIDE THE DEFAUL║ 
+# ╚════════════════════════════════════════════╝ 
+admin.site.site_header = 'Sentiri - Autism Therapy System 🏥'
+admin.site.site_title = 'Sentiri Admin'
+admin.site.index_title = 'Welcome to Sentiri Administration'
 
 
