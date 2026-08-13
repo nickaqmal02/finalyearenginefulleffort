@@ -627,8 +627,8 @@ class DiagnosisDocument(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name='Diagnosis Document',
-        verbose_name_plural = 'Diagnosis Documents',
+        verbose_name='Diagnosis Document'
+        verbose_name_plural = 'Diagnosis Documents 📑'
         ordering = ['-upload_date']
 
     def __str__(self):
@@ -712,6 +712,12 @@ class DoctorSpecialty(models.Model):
 # MODEL NUMB. 4 CONVERSATION
 class Conversation(models.Model):
 
+    CHAT_TYPES = [
+        ('group', 'Group Chat'),
+        ('individual', '1-on-1 Chat'),
+        ('admin', 'Admin Chat'),
+    ]
+    
     client = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -732,6 +738,14 @@ class Conversation(models.Model):
         blank=True,
         null=True,
         help_text='cleaned version (after preprocessing)'
+    )
+    message_hash = models.CharField(
+        max_length=64,
+        db_index=True,
+        unique=True,
+        blank=True,
+        null=True,
+        help_text="use SHA-256 hash for deduplication"
     )
     # analysis result
     sentiment = models.CharField (
@@ -757,12 +771,56 @@ class Conversation(models.Model):
         null=True,
         help_text='Batch ID for grouping uploads'
     )
+    upload_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='uploaded_messages',
+        help_text="Who uploaded this message"
+    )
+
+    # linking with the upload history model
+    upload_history = models.ForeignKey(
+        'UploadHistory',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='uploaded_messages',
+        help_text="The upload batch this message came from"
+    )
+
+    # tracking the processing status
+    is_processed = models.BooleanField(
+        default=False,
+        help_text="Has this message has benn processed for analysis"
+    )
+
+    chat_type = models.CharField(
+        max_length=20,
+        choices=CHAT_TYPES,
+        default='individual',
+        help_text="Type of chat this message came from"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
     # upload batch needed for better algorithm
     class Meta:
         # kegunaaan verbose name adalah name dkt admin page
         ordering = ['-date', '-time'] # newest first
         verbose_name = "Conversation"
         verbose_name_plural = "Conversations 💬 "
+
+    # we override the current message save to save it in hash format
+    def save(self, *args, **kwargs):
+        # auto we hash the message if not present
+        if not self.message_hash:
+            import hashlib
+            text = f"{self.client_id}{self.date}{self.username}{self.message}"
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
         client_name = self.client.get_full_name() if self.client else "Uknown"
@@ -775,11 +833,11 @@ class Conversation(models.Model):
 class UploadHistory(models.Model):
     """ Track file upload history for audit and reminders"""
     # link to admin who uploaded
-    admin = models.ForeignKey(
+    uploaded_by = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name='uploads',
-        limit_choices_to = {'role': 'admin'}
+        help_text="Who uploaded this file"
     )
 
     # file information
@@ -795,13 +853,17 @@ class UploadHistory(models.Model):
     message_count = models.IntegerField(default=0)
     matched_count = models.IntegerField(default=0)
     unmatched_count = models.IntegerField(default=0)
+    duplicate_count = models.IntegerField(default=0)
+
     # Status for today mate 
     STATUS_CHOICES = [
         ('success', 'Success'),
         ('partial', 'Partial'),
         ('failed', 'Failed'),
+        ('processing', 'Processing'),
     ]
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='success')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='processing')
+    
     # the most important is timestamps
     uploaded_at = models.DateTimeField(auto_now_add=True)
     # 1/6/26 : adding positive_count, negative and neutral count
@@ -836,6 +898,16 @@ class UnmatchedMessage(models.Model):
         null=True,
         blank=True,
         help_text="The upload batch this message came from"
+    )
+
+    # track who uploaded this
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='unmatched_messages',
+        help_text="Who uploaded this message"
     )
 
     date = models.DateField()
@@ -946,3 +1018,38 @@ class TopicTrend(models.Model):
         unique_together = ('client', 'topic', 'date')
         verbose_name = 'Topic Trend'
         verbose_name_plural = 'Topic Trends 🫀'
+
+class MessageTopic(models.Model):
+    """Which topics appear in which messages"""
+
+    conversation = models.ForeignKey(
+        Conversation,
+        on_delete=models.CASCADE,
+        related_name='topics'
+    )
+    topic = models.ForeignKey(
+        Topic,
+        on_delete=models.PROTECT,
+        related_name='message_topics'
+    )
+    score = models.FloatField(
+        help_text="Relevance score this topic"
+    )
+    confidence = models.FloatField(
+        default=0.0,
+        help_text="Model confidence (0.0 to 1.0)"
+    )
+    analyzed_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('conversation', 'topic')
+        verbose_name = 'Message Topic'
+        verbose_name_plural = 'Message Topics 📜'
+        ordering = ['-score']
+
+    def __str__(self):
+        return f"{self.conversation.client.get_full_name()} - {self.topic.name}: {self.score:.2f}"
+
+
