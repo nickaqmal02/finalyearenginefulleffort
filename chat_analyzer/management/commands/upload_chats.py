@@ -1,300 +1,303 @@
-from django.core.management.base import BaseCommand
-from django.contrib.auth import get_user_model
-from django.db.models import Max
-from django.utils import timezone
-from chat_analyzer.models import Conversation, UnmatchedMessage, UploadHistory
-from chat_analyzer.services.text_cleaner import clean_text
-import re
-import os
+# chat_analyzer/management/commands/upload_chats.py
+import hashlib
+import logging
 from datetime import datetime
+from django.core.management.base import BaseCommand
+from django.db import transaction
+from chat_analyzer.models import Conversation, UploadHistory, UnmatchedMessage, User
+from chat_analyzer.services.text_cleaner import get_cleaner
+from chat_analyzer.services.whatsapp_parser import parse_whatsapp_file
 
-User = get_user_model()
+logger = logging.getLogger(__name__)
 
 class Command(BaseCommand):
-    help = 'Upload Whatsapp chat files and process them'
+    help = 'Upload chat messages from a file'
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--dir',
+            '--file',
             type=str,
-            default='chat_analyzer/fixtures/sample_chats/',
-            help='Directory containing .txt chat files'
+            required=True,
+            help='Path to the chat file'
         )
         parser.add_argument(
-            '--uploader',
-            type=str,
-            default='admin1',
-            help='Username of the person uploading it can be wether (admin or therapist)'
-        )
-        parser.add_argument(
-            '--verbose',
-            action='store_true',
-            help='Show detailed output'
-        )
-        parser.add_argument(
-            '--files',
-            nargs='+',
-            help='Specific files to upload (e.g., --files file1.txt file2.txt)'
-        )
-        parser.add_argument(
-            '--limit',
+            '--client-id',
             type=int,
-            help='Limit number of files to process'
+            required=True,
+            help='Client ID to associate messages with'
+        )
+        parser.add_argument(
+            '--uploader-id',
+            type=int,
+            help='User ID of the person uploading (default: admin)'
+        )
+        parser.add_argument(
+            '--batch-id',
+            type=str,
+            help='Custom batch ID (optional)'
+        )
+        parser.add_argument(
+            '--dry-run',
+            action='store_true',
+            help='Parse file without saving to database'
+        )
+        parser.add_argument(
+            '--clean-only',
+            action='store_true',
+            help='Only clean messages without uploading'
         )
 
-        def handle(self, *args, **options):
-            chat_dir = options['dir']
-            uploader_username = options['uploader']
-            verbose = options.get('verbose', False)
-            specific_files = options.get('files')
-            limit = options.get('limit')
+    def handle(self, *args, **options):
+        file_path = options['file']
+        client_id = options['client_id']
+        uploader_id = options.get('uploader_id')
+        batch_id = options.get('batch_id')
+        dry_run = options.get('dry_run', False)
+        clean_only = options.get('clean_only', False)
 
-            # get the uploader user (Admin or Therapist)
+        self.stdout.write(self.style.SUCCESS('\n📤 UPLOADING CHATS\n'))
+        self.stdout.write('=' * 60)
+
+        # Get the client
+        try:
+            client = User.objects.get(id=client_id, role='client')
+        except User.DoesNotExist:
+            self.stdout.write(self.style.ERROR(f'❌ Client with ID {client_id} not found'))
+            return
+
+        # Get uploader
+        uploader = None
+        if uploader_id:
             try:
-                uploader = User.objects.get(username=uploader_username)
+                uploader = User.objects.get(id=uploader_id)
+            except User.DoesNotExist:
+                self.stdout.write(self.style.WARNING(f'⚠️ Uploader with ID {uploader_id} not found, using admin'))
 
-            excepts User.DoesNotExist:
-                self.stdout.write(self.style.ERROR(f'User "{uploader_username}" not found !'))
-                for user in User.objects.all():
-                    self.stdout.write(f'   - {user.username} ({user.role})')
-                return
+        # Get cleaner
+        cleaner = get_cleaner()
 
-            self.stdout.write(self.style.SUCCESS('\n WHATSAPP CHAT UPLOAD \n'))
-            self.stdout.write('=' * 70)
-            self.stdout.write(f'\n Uploader: {uploader.username} ({uploader.role})')
+        # Parse the chat file using our whatsapp parser services
+        try:
+            messages = parse_whatsapp_file(file_path)
+        except FileNotFoundError:
+            self.stdout.write(self.style.ERROR(f'❌ File not found: {file_path}'))
+            return
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f'❌ Error parsing file: {e}'))
+            return
 
-            # check if Directory exist or not we use os libaries to do it
-            if not os.path.exists(chat_dir):
-                self.stdout.write(self.style.ERROR(f'❌ Directory not found: {chat_dir}'))
-                return
+        if not messages:
+            self.stdout.write(self.style.ERROR('❌ No messages found in file'))
+            return
 
-            # get all .txt files if specific_files exist
-            if specific_files:
-                txt_files = [f for f in specific_files if f.endswith('.txt')]
+        self.stdout.write(f'📊 Found {len(messages)} messages in file')
 
-                if not txt_files:
-                    self.stdout.write(self.style.ERROR('❌ No .txt files specified! '))
+        # If clean-only, just clean and show sample
+        if clean_only:
+            self.stdout.write('\n🧹 Cleaning messages...')
+            cleaned_messages = []
+            for msg in messages:
+                cleaned_sentiment = cleaner.clean_for_sentiment(msg['message'])
+                cleaned_topic = cleaner.clean_for_topic_modeling(msg['message'])
+                cleaned_messages.append({
+                    **msg,
+                    'cleaned_sentiment': cleaned_sentiment,
+                    'cleaned_topic': cleaned_topic
+                })
+            
+            # Show sample
+            self.stdout.write('\n📝 Sample cleaning:')
+            for i, msg in enumerate(cleaned_messages[:3]):
+                self.stdout.write(f'\n{i+1}. Original: {msg["message"][:80]}...')
+                self.stdout.write(f'   Sentiment: {msg["cleaned_sentiment"][:80]}...')
+                self.stdout.write(f'   Topic:     {msg["cleaned_topic"][:80]}...')
+            
+            self.stdout.write(self.style.SUCCESS('\n✅ Cleaning preview complete'))
+            return
 
-                    return
+        if dry_run:
+            self.stdout.write(self.style.WARNING('\n⚠️ DRY RUN - No data will be saved'))
+            self.stdout.write('📝 First 5 messages:')
+            for msg in messages[:5]:
+                self.stdout.write(f'   {msg["date"]} - {msg["username"]}: {msg["message"][:50]}...')
+            return
 
-            else:
-                txt_files = [f for f in os.listdir(chat_dir) if f.endswith('.txt')]
+        # Process and save messages
+        with transaction.atomic():
+            # Create upload history
+            upload_history = UploadHistory.objects.create(
+                uploaded_by=uploader,
+                file_name=file_path.split('/')[-1],
+                batch_id=batch_id,
+                status='processing'
+            )
 
-            if not txt_files:
-                self.stdout.write(self.style.ERROR('❌ No .txt files found !'))
+            self.stdout.write('\n💾 Saving messages to database...')
 
-            # apply da limit if specified
-            if limit and len(txt_files) > limit:
-                txt_files = txt_files[:limit]
+            saved_count = 0
+            duplicate_count = 0
+            unmatched_count = 0
+            positive_count = 0
+            negative_count = 0
+            neutral_count = 0
 
-            self.stdout.write(f'\n Found {len(txt_files)} chat files:\n')
-            for f in text_files:
-                self.stdout.write(f' {f}')
+            for msg in messages:
+                # Create message hash for deduplication
+                text = f"{client_id}{msg['date']}{msg['username']}{msg['message']}"
+                message_hash = hashlib.sha256(text.encode()).hexdigest()
 
-            # declaring the temporary variable
-            total_matched = 0
-            total_unmatched = 0
-            total_messages = 0
-            total_duplicates = 0
-
-            # get latest dates per client + chat type for deduplication
-            latest_dates = self.get_latest_dates_per_client_per_type()
-
-            for filename in txt_files:
-                filepath = os.path.join(chat_dir, filename)
-                self.stdout.write(f'\n 🧲 Processing: {filename}')
-
-                try: 
-                    with open(filepath, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                except Exception as e:
-                    self.stdout.write(self.style.ERROR(f'❌Error reading file: {e}'))
+                # Check for duplicate
+                if Conversation.objects.filter(message_hash=message_hash).exists():
+                    duplicate_count += 1
                     continue
 
-                # create upload history
-                upload = UploadHistory.objects.create(
-                    uploaded_by = uploader,
-                    file_name=filename,
-                    status='processing'
-)
+                # Clean the message for both purposes
+                cleaned_sentiment = cleaner.clean_for_sentiment(msg['message'])
+                cleaned_topic = cleaner.clean_for_topic_modeling(msg['message'])
 
-                lines = content.split('\n')
-                matched_count = 0
-                unmatched_count = 0
-                duplicate_count = 0
-
-                for line in lines:
-                    if not line.strip():
-                        continue
-
-                    # parse Whatsapp format: [12/08/24, 10:30:45] +
-                    match = re.match(r'\[(.*?)\]s(.*?):\s(.*)', line)
-                    if not match:
-                        if verbose:
-                            self.stdout.write(f'❌ Skipped: {line[:30]}...')
-                        continue
-
-                    timestamp = match.group(1).strip()
-                    sender = match.group(2).strip()
-                    message = match.group(3).strip()
-
-                    # clean the message import the method from services
-                    cleaned = clean_text(message)
-
-                    # try to match sender to a client, extract_phone ? 
-                    phone = self.extract_phone(sender)
-                    client = None
-                    
-                    if phone:
-                        client = User.objects.filter(phone=phone, role='client').first()
-                        if not client:
-                            # try without country code
-                            local_phone = phone.replace('+60', '0')
-                            # then we find wether it have that number phone or not 
-                            client = User.objects.filter(phone=local_phone, role='client').first()
-
-                        if client:
-                            # ✅ matched 
-                            date = self.parse_date(timestamp)
-                            time = self.parse_time(timestamp)
-
-                            # ✅ detect chat type from filename
-                            chat_type = self.detect_chat_type(filename)
-
-                            # ✅ Check if this is a new message ( per client per chat type )
-                            latest_date = latest_dates.get((client.id, chat_type))
-
-                            if latest_date and date <= latest_date:
-                                # here we skip old message to avoid the duplicates
-                                duplicate_count += 1
-                                if verbose:
-                                    self.stdout.write(f'    ⏭️ Skipping old {chat_type} chat for {client.username}({date} <= {latest_date})'
-                                continue
-                            
-                            # ✅ Generate message hash for deduplication
-                            import hashlib
-                            text_hash = f"{client.id}{date}{time}{sender}{message}"
-                            message_hash = hashlib.sha256(text_hash.encode()).hexdigest()
-
-                            # ✅ Check exact duplicate just in case to make it super accurate
-                            existing = Conversation.objects.filter(
-                             client=client,
-                                message_hash=message_hash
-                            ).first()
-
-                            if existing:
-                                duplicate_count += 1
-                                if verbose:
-                                    self.stdout.write(f'  duplicate message for {client.username}')
-                                continue
-
-                            # than we can create the conversation
-                            Conversation.objects.create(
-                                client=client,
-                                date=date,
-                                time=time,
-                                username=sender,
-                                message=message,
-                                cleaned_text=cleaned,
-                                chat_type=chat_type,
-                                uploaded_by=uploader,
-                                upload_history=upload,
-                                upload_batch=upload.batch_id,
-                                message_hash=message_hash
-                            )
-                            matched_count += 1
-
-                            # then we can update the latest date for this client
-                            latest_dates[(client.id, chat_type)] = date
-
-                            if verbose:
-                                self.stdout.write(f'    {chat_type} chat: {client.username} ({date})')
-
-                        else:
-                            # UNMATCHED
-                            UnmatchedMessage.objects.create(
-                                upload_history=upload,
-                                date=self.parse_date(timestamp),
-                                time=self.parse_time(timestamp),
-                                username=sender,
-                                message=message,
-                                upload_batch=upload.batch_id
-                            )
-                            unmatched_count += 1
-                            if verbose:
-                                self.stdout.write(f'   Unmatched: {sender})
-                                
-                    # update uploadhistory
-                    upload.message_count = matched_count + unmatched_count + duplicate_count
-                    upload.matched_count = matched_count
-                    upload.unmatched_count = unmatched_count
-                    upload.duplicate_count = duplicate_count
-                    upload.status = 'success' if matched_count > 0 else 'partial'
-                    upload.save()
-
-                    total_matched += matched_count
-                    total_unmatched += unmatched_count
-                    total_messages += matched_count + unmatched_count + duplicate_count
-                    total_duplicates += duplicate_count
-
-                    self.stdout.write(f'    {filename}: {matched_count} matched, {unmatched_count} unmatched, {duplicate_count} duplicates')
-
-                # and then we can shows the summary
-                # Show summary
-self.stdout.write(self.style.SUCCESS('\n📊 UPLOAD SUMMARY\n'))
-                self.stdout.write('=' * 60)
-                self.stdout.write(f'\n👤 Uploaded by: {uploader.username} ({uploader.role})')
-                self.stdout.write(f'📁 Total Files: {len(txt_files)}')
-                self.stdout.write(f'📝 Total Messages: {total_messages}')
-                self.stdout.write(f'✅ Matched: {total_matched}')
-                self.stdout.write(f'❌ Unmatched: {total_unmatched}')
-                self.stdout.write(f'⏭️ Duplicates Skipped: {total_duplicates}')
-                if total_messages > 0:
-                    self.stdout.write(f'📊 Match Rate: {total_matched/total_messages*100:.1f}%')
-
-                self.stdout.write(self.style.SUCCESS('\n✅ Upload complete!'))
-
-            # ===============================================
-            # HELPER METHODS SECTION
-            # ===============================================
-
-            def extract_phone(self, text):
-                """extract phone number from sender"""
-                match = re.search(r'(\+?\d{10,15})', text)
-                return match.group(0) if match else None
-
-            def parse_date(self, timestamp):
-                """parse the date from the timestamp"""
-                try:
-                    date_part = timestamp.split(',')[0].strip()
-                    return datetime.strptime(date_part, '%d/%m/%y').date()
-                except:
-                    return datetime.now().date()
-
-            def detect_chat_type(self, filename):
-                """detect chat type from filename"""
-                filename_lower = filename.lower()
-                if 'group' in filename_lower:
-                    return 'group'
-                elif 'admin' in filename_lower:
-                    return 'admin'
-                else:
-                    return 'individual'
-
-            def get_latest_dates_per_client_per_type(self):
-                latest = Conversation.objects.values('client', 'chat_type').annotate(
-                    latest_date=Max('date')
+                # Create conversation
+                conversation = Conversation(
+                    client=client,
+                    date=msg['date'],
+                    time=msg['time'],
+                    username=msg['username'],
+                    message=msg['message'],
+                    cleaned_text=cleaned_sentiment,          # For sentiment analysis
+                    cleaned_text_topic=cleaned_topic,        # For topic modeling
+                    is_cleaned_sentiment=True,               # Mark as cleaned for sentiment
+                    is_cleaned_topic=True,                   # Mark as cleaned for topic modeling
+                    message_hash=message_hash,
+                    upload_batch=upload_history.batch_id,
+                    upload_history=upload_history,
+                    uploaded_by=uploader,
+                    uploaded_at=datetime.now(),
+                    is_processed=False,
+                    chat_type='individual'
                 )
-                return {
-                    (item['client'], item['chat_type']): item['latest_date']
-                    for item in latest
-                    if item['client'] is not None and item['chat_type'] is not None
-                }
 
-                        
+                # Try to find sender (could be client or therapist)
+                # For now, set sender as client if username matches client name
+                # Otherwise try to find therapist by name
+                sender = self.find_sender(msg['username'], client)
+                if sender:
+                    conversation.sender = sender
+                    conversation.is_from_client = (sender.id == client.id)
+                else:
+                    # If sender not found, this is an unmatched message
+                    unmatched_count += 1
+                    # We'll still save the conversation but without sender
 
+                try:
+                    conversation.save()
+                    saved_count += 1
 
+                    # Update sentiment counts (placeholder - will be updated by sentiment analyzer)
+                    # For now, just count neutral
+                    neutral_count += 1
 
+                except Exception as e:
+                    self.stdout.write(self.style.ERROR(f'❌ Error saving message: {e}'))
+                    continue
 
+                # Progress indicator
+                if saved_count % 100 == 0:
+                    self.stdout.write(f'   Saved {saved_count} messages...')
 
+            # Update upload history
+            upload_history.message_count = saved_count + duplicate_count
+            upload_history.matched_count = saved_count
+            upload_history.unmatched_count = unmatched_count
+            upload_history.duplicate_count = duplicate_count
+            upload_history.positive_count = positive_count
+            upload_history.negative_count = negative_count
+            upload_history.neutral_count = neutral_count
+            upload_history.status = 'success'
+            upload_history.save()
+
+        # Final summary
+        self.stdout.write('\n' + '=' * 60)
+        self.stdout.write(self.style.SUCCESS('✅ UPLOAD COMPLETE'))
+        self.stdout.write('=' * 60)
+        self.stdout.write(f'📊 Total messages processed: {len(messages)}')
+        self.stdout.write(f'   ✅ Saved: {saved_count}')
+        self.stdout.write(f'   🔄 Duplicates: {duplicate_count}')
+        self.stdout.write(f'   ❌ Unmatched senders: {unmatched_count}')
+        self.stdout.write(f'   📁 Batch ID: {upload_history.batch_id}')
+        self.stdout.write('\n📝 Cleaning statistics:')
+        self.stdout.write(f'   🧹 All messages cleaned for sentiment analysis')
+        self.stdout.write(f'   🧹 All messages cleaned for topic modeling')
+        self.stdout.write('\n💡 Next steps:')
+        self.stdout.write('   1. Run sentiment analysis: python manage.py analyze_sentiment')
+        self.stdout.write('   2. Train topic model: python manage.py train_topics')
+        self.stdout.write('=' * 60)
+
+    def _normalize(self, value):
+        """Normalize a name/phone for comparison: lowercase, strip ~, emoji, symbols."""
+        if not value:
+            return ""
+        value = value.lower()
+        # keep only letters and digit
+        value = "".join(ch for ch in value if ch.isalnum())
+        return value
+
+    def find_sender(self, username, client):
+        """
+        Match a WhatsApp sender to User, in priority order:
+        1. Phone number (can come from User.phone or any ClientContact.phone_number)
+        2. Full name (client's names or any parent contact name)
+        3. Substring (Sender name appears inside a user's full name)
+        """
+        from chat_analyzer.models import User, ClientContact
+
+        sender_key = self._normalize(username)
+        if not sender_key:
+            return None
+
+        # 1. kito match by phone number 
+        phone_to_user = {}
+        for u in User.objects.filter(phone__isnull=False).exclude(phone=""):
+            key = self._normalize(u.phone)
+            if key:
+                phone_to_user[key] = u
         
+        # also collect clientcontact phone 
+        for contact in ClientContact.objects.select_related("client"):
+            key = self._normalize(contact.phone_number)
+            if key:
+                phone_to_user[key] = contact.client
+
+        if sender_key in phone_to_user:
+            return phone_to_user[sender_key]
+
+        # 2. we check by full name
+        client_key = self._normalize(
+            (client.first_name or "") + (client.last_name or "")
+        )
+        if client_key and sender_key == client_key:
+            return client
+
+        # we also check parent contact name
+        contacts = ClientContact.objects.filter(client=client)
+        for contact in contacts:
+            if sender_key == self._normalize(contact.name):
+                return client
+
+        # 3. -- we match by substring -- (sender name inside a full name )
+        # e.g. sender ~Fauzi should match client Fauzi Amirah
+        if client_key and (sender_key in client_key or client_key in sender_key):
+            return client
+        for contact in contacts:
+            ckey = self._normalize(contact.name)
+            if ckey and (sender_key in ckey or ckey in sender_key):
+                return client
+
+        # therapist / doctor by full name
+        for staff in User.objects.filter(role__in=["therapist", "doctor"]):
+            staff_key = self._normalize(
+                (staff.first_name or "") + (staff.last_name or "")
+            )
+            if staff_key and (sender_key == staff_key or sender_key in staff_key):
+                return staff 
+        # if no match
+        return None
+

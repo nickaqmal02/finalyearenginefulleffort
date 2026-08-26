@@ -65,11 +65,21 @@ class MalaySentimentAnalyzer:
     def analyze(self, text):
         """Analyze sentiment of a single text"""
         if not text or not text.strip():
-            return 'neutral'
+            return {
+                'label': 'neutral',
+                'score': 0.0,
+                'confidence': 1.0
+            }
         
         # Fallback if model not loaded
         if not self.is_loaded:
             return self._rule_based_sentiment(text)
+
+            return {
+                'label': label,
+                'score': 0.0 if label == 'neutral' else (0.5 if label == 'positive' else -0.5),
+                'confidence': 0.5
+            }
         
         try:
             # Tokenize
@@ -87,14 +97,40 @@ class MalaySentimentAnalyzer:
             # Predict
             with torch.no_grad():
                 outputs = self.model(**inputs)
+                probabilities = torch.softmax(outputs.logits, dim=-1)
                 predictions = torch.softmax(outputs.logits, dim=-1)
+                # Get predicted class and confidence
                 predicted_class = torch.argmax(predictions, dim=-1).item()
-            
-            return self.labels.get(predicted_class, 'neutral')
-            
+                confidence = torch.max(probabilities, dim=-1).values.item()
+                
+                prob_negative = probabilities[0][0].item()
+                prob_neutral = probabilities[0][1].item()
+                prob_positive = probabilities[0][2].item()
+
+            label = self.labels.get(predicted_class, 'neutral')
+
+            # calculate weighted score (-1 to +1)
+            # negative = -1, neutral =0, positive = +1
+            sentiment_score = (-1 * prob_negative) + (0 * prob_neutral) + (1 * prob_positive)
+
+            return {
+                'label': label,
+                'score': sentiment_score,
+                'confidence': confidence,
+                'probabilities': {
+                    'negative': prob_negative,
+                    'neutral': prob_neutral,
+                    'positive': prob_positive
+                }
+            }
+
         except Exception as e:
             logger.error(f"Sentiment analysis error: {e}")
-            return 'neutral'
+            return {
+                'label': 'neutral',
+                'score': 0.0,
+                'confidence': 0.0
+            }
     
     def analyze_batch(self, texts):
         """Analyze sentiment for multiple texts"""
@@ -140,17 +176,19 @@ def analyze_sentiment(text):
 
 def batch_analyze_conversations():
     """Analyze sentiment for all conversations without sentiment"""
-    from ..models import Conversation
+    from .models import Conversation
     
     conversations = Conversation.objects.filter(
-        sentiment_analysis__isnull=True
+        sentiment__isnull=True
     ).exclude(cleaned_text__isnull=True)
     
     count = 0
     for conv in conversations:
         text = conv.cleaned_text or conv.message
         sentiment = analyze_sentiment(text)
-        conv.sentiment_analysis = sentiment
+        conv.sentiment = result.get('label')
+        conv.sentiment_score = result.get('score')
+        conv.sentiment_confidence = result.get('confidence')
         conv.save()
         count += 1
     

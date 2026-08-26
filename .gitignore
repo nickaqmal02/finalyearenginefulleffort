@@ -1,1 +1,34 @@
-chat_analyzer/ml_models/xlm_roberta_malay/model.safetensors
+# =====================
+# ML Models (sentiment + topic)
+# =====================
+# Sentiment model (XLM-RoBERTa)
+chat_analyzer/ml_models/xlm_roberta_malay/
+chat_analyzer/ml_models/xlm_roberta_malay_finetuned_17_Aug/
+
+# Topic model (BERTopic)
+chat_analyzer/ml_models/topic_model/
+
+# =====================
+# Python
+# =====================
+__pycache__/
+*.pyc
+*.pyo
+
+# =====================
+# Django
+# =====================
+db.sqlite3
+
+# =====================
+# OS files
+# =====================
+.DS_Store
+
+# =====================
+# Misc
+# =====================
+*.pth
+*.safetensors
+*.pkl
+*.bin

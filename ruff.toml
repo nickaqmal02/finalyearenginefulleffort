@@ -1,0 +1,20 @@
+# Standalone ruff.toml — no [tool.ruff] prefix (that's only for pyproject.toml)
+line-length = 100
+target-version = "py314"
+exclude = [
+    "venv",
+    "migrations",
+    "__pycache__",
+    ".django_tailwind_cli",
+]
+
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes (undefined names, unused imports)
+    "I",   # isort (import ordering)
+]
+ignore = [
+    "E501",  # line too long — let it be, Django code gets long
+]
