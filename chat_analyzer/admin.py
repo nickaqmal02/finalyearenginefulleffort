@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from .forms import CustomUserCreationForm, CustomUserChangeForm 
 import csv
 from django.http import HttpResponse
+from django.utils.safestring import mark_safe
 from .models import(
     User,
     ClientContact,
@@ -247,12 +248,137 @@ class DoctorSpecialty(admin.ModelAdmin):
 # 
 @admin.register(Conversation)
 class ConversationAdmin(admin.ModelAdmin):
-    list_display = ['client', 'date', 'time', 'username', 'sentiment', 'upload_batch']
-    list_filter = ['sentiment', 'date', 'upload_batch']
-    search_fields = ['client__first_name', 'client__last_name', 'username', 'message']
-    raw_id_fields = ['client']
-    date_hierarchy = 'date'
+    list_display = [
+        'client',
+        'therapist',
+        'sender_display',
+        'is_from_client_display',
+        'date',
+        'time',
+        'username',
+        'message_preview',
+        'cleaned_text_preview',
+        'cleaned_text_topic',
+        'chat_type',
+        'sentiment_with_emoji',
+        'sentiment_score_display',
+        'uploaded_by',
+        'upload_batch',
+    ]
 
+    list_filter = [
+        'chat_type',
+        'sentiment',
+        'date',
+        'uploaded_by',
+        'is_from_client',
+        'upload_batch',
+    ]
+
+    search_fields = [
+        'client__first_name',
+        'client__last_name',
+        'therapist__first_name',
+        'therapist__last_name',
+        'sender__first_name',
+        'sender__last_name',
+        'username',
+        'message',
+        'cleaned_text',
+    ]
+
+    raw_id_fields = ['client', 'therapist','sender', 'uploaded_by', 'upload_history']
+
+    readonly_fields = [
+        'message_hash',
+        'created_at',
+        'updated_at',
+        'uploaded_at',
+    ]
+
+    fieldsets = (
+        ('Client Information', {
+            'fields': ('client', 'username', 'chat_type')
+        }),
+        ('Message', {
+            'fields': ('date', 'time', 'message', 'cleaned_text')
+        }),
+        ('Sentiment Analysis', {
+            'fields': ('sentiment', 'sentiment_score', 'sentiment_confidence'),
+            'classes': ('collapse',)
+        }),
+        ('Upload Information', {
+            'fields': ('uploaded_by', 'upload_history', 'upload_batch', 'uploaded_at')
+        }),
+        ('System fields', {
+            'fields': ('message_hash', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def sender_display(self, obj):
+        """display sender name"""
+        if obj.sender:
+            return f"{obj.sender.get_full_name() or obj.sender.username}"
+
+        return obj.username or "Uknown"
+    sender_display.short_description = 'Sender'
+
+    def is_from_client_display(self, obj):
+        """display if message is from client with emoji"""
+        if obj.is_from_client is None:
+            return 'Uknown'
+        if obj.is_from_client:
+            return 'Client'
+        else:
+            return 'Therapist'
+    is_from_client_display.short_description = 'From'
+
+    def message_preview(self, obj):
+        """Show truncated message preview. """
+        return obj.message[:50] + '...' if len(obj.message) > 50 else obj.message
+    message_preview.short_description = 'Message'
+
+    def cleaned_text_preview(self, obj):
+        """show cleanded text."""
+        if obj.cleaned_text:
+            return obj.cleaned_text[:60] + '...' if len(obj.cleaned_text) > 60 else obj.cleaned_text
+        return 'Not Cleaned'
+    cleaned_text_preview.short_description = 'Cleaned'
+
+    def sentiment_with_emoji(self, obj):
+        """show sentiment with emoji for visual clarity"""
+        if obj.sentiment == 'positive':
+            return '😀 Positive'
+        elif obj.sentiment == 'negative':
+            return '😈 Negative'
+        elif obj.sentiment == 'neutral':
+            return '😮 Neutral'
+        else:
+            return 'None'
+    sentiment_with_emoji.short_description = 'Sentiment'
+
+    def sentiment_score_display(self, obj):
+        """Display the sentiment score with color coding."""
+        if obj.sentiment_score is None:
+            return 'N/A'
+        
+        score = obj.sentiment_score
+        if score > 0.3:
+            color = 'green'
+            emoji = '🟢'
+        elif score < -0.3:
+            color = 'red'
+            emoji = '🔴'
+        else:
+            color = 'orange'
+            emoji = '🟡'
+        
+        from django.utils.html import format_html
+        return mark_safe(
+            f'<span style="color: {color}; font-weight: bold;">{emoji} {score:.2f}</span>'
+        )
+    sentiment_score_display.short_description = 'Score'
 # ╔════════════════════════════════════════════╗ 
 # ║        9. UNMATCHED MESSAGE ADMIN          ║ 
 # ╚════════════════════════════════════════════╝ 

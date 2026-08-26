@@ -1,0 +1,76 @@
+{
+  "clients": {
+    "10": {
+      "file": "chat_client10.txt",
+      "parent": "Ahmad Fauzi",
+      "child": "Arif",
+      "therapist": "Aina Razak",
+      "topics": [
+        "Eating Habits & Food Acceptance",
+        "Sleep Patterns",
+        "Tantrum & Behavior Management"
+      ],
+      "message_count": 25
+    },
+    "11": {
+      "file": "chat_client11.txt",
+      "parent": "Siti Aishah",
+      "child": "Maya",
+      "therapist": "Daniel Tan",
+      "topics": [
+        "Speech & Communication Development",
+        "Social Interaction",
+        "Parental Emotions"
+      ],
+      "message_count": 25
+    },
+    "12": {
+      "file": "chat_client12.txt",
+      "parent": "Ravi Kumar",
+      "child": "Anita",
+      "therapist": "Farah Ismail",
+      "topics": [
+        "School & Academic Progress",
+        "Therapy Progress",
+        "Sensory Integration"
+      ],
+      "message_count": 25
+    },
+    "13": {
+      "file": "chat_client13.txt",
+      "parent": "Lim Mei Ling",
+      "child": "Jun",
+      "therapist": "Kumar Raj",
+      "topics": [
+        "Physical Development",
+        "Family Environment",
+        "Treatment Methods"
+      ],
+      "message_count": 25
+    },
+    "14": {
+      "file": "chat_client14.txt",
+      "parent": "Sarah Tan",
+      "child": "child",
+      "therapist": "Aina Razak",
+      "topics": [
+        "Parental Emotions",
+        "Tantrum & Behavior Management",
+        "Sleep Patterns"
+      ],
+      "message_count": 25
+    }
+  },
+  "admin_group": {
+    "file": "chat_admin_group.txt",
+    "senders": [
+      "Ahmad Fauzi",
+      "Siti Aishah",
+      "Ravi Kumar",
+      "Lim Mei Ling",
+      "Sarah Tan",
+      "Admin"
+    ],
+    "message_count": 40
+  }
+}

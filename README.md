@@ -21,7 +21,7 @@ This system addresses the challenge autism centers face in managing and analyzin
 
 ## ✨ Features
 
-### Phase 1 (Current MVP)
+### Phase 1 (Completed ✅)
 - ✅ **Authentication System** - Admin and Therapist login with session management
 - ✅ **Client Management** - Full CRUD operations for client profiles
 - ✅ **Therapist Management** - Manage therapists and assign clients
@@ -32,16 +32,30 @@ This system addresses the challenge autism centers face in managing and analyzin
 - ✅ **Admin Dashboard** - Key metrics, recent activity, quick actions
 - ✅ **Therapist Portal** - View assigned clients and their conversations
 - ✅ **Responsive UI** - Bootstrap 5 with offcanvas navigation
+- ✅ **Autism Diagnosis System** - DSM-5 specifiers, support levels, approval workflow (therapist proposes → doctor approves)
 
-### Phase 2 (In Progress)
-- 🔄 **Sentiment Analysis** - Malay BERT model integration
-- 🔄 **Text Cleaning** - Malay stop words, typo correction, emoji conversion
-- 🔄 **Analytics Dashboard** - Charts and visualizations
+### Phase 2 (Completed ✅)
+- ✅ **Sentiment Analysis** - XLM-RoBERTa Malay model (fine-tuned on therapy conversations)
+- ✅ **Text Cleaning** - Dual-purpose cleaner:
+  - Light cleaning for sentiment (preserves emotional words, punctuation, intensifiers)
+  - Aggressive cleaning for topic modeling (removes stopwords, greetings, fillers)
+- ✅ **Malay/English Mix Support** - Stopwords, typo correction, slang mapping, emoji conversion, curse word filtering
 
-### Phase 3 (Future)
+### Phase 3 (In Progress 🔄)
+- 🔄 **Topic Modeling** - BERTopic with hybrid approach (unsupervised clustering + supervised topic mapping)
+  - ✅ Dual cleaning pipeline (`cleaned_text` for sentiment, `cleaned_text_topic` for topics)
+  - ✅ 12 predefined therapy topic categories (Speech, Eating, Tantrums, Sleep, Social, School, Physical, Therapy Progress, Parental Emotions, Family, Sensory, Treatment)
+  - ✅ Domain words list to preserve therapy-specific terms
+  - ✅ UMAP dimensionality reduction + HDBSCAN clustering
+  - 🔄 Topic visualization dashboard
+  - 🔄 Topic trend analysis over time
+
+### Phase 4 (Future)
 - 📱 Mobile app (iOS/Android)
-- 📊 Advanced reporting
+- 📊 Advanced reporting & analytics dashboard
 - 🔔 Push notifications
+- 🌐 Multi-language support
+- ⚡ Real-time topic detection
 
 ## 🛠️ Tech Stack
 
@@ -50,7 +64,9 @@ This system addresses the challenge autism centers face in managing and analyzin
 | **Backend** | Django 6.0.4 |
 | **Database** | SQLite (development), PostgreSQL (production ready) |
 | **Frontend** | Bootstrap 5, Crispy Forms |
-| **ML/AI** | PyTorch, Transformers (Hugging Face), Malay BERT |
+| **ML/AI - Sentiment** | XLM-RoBERTa (fine-tuned on Malay therapy conversations) |
+| **ML/AI - Topic Modeling** | BERTopic, Sentence Transformers, UMAP, HDBSCAN |
+| **ML/AI - NLP** | scikit-learn (CountVectorizer, cosine similarity) |
 | **Authentication** | Custom session-based auth |
 | **Deployment** | Ready for PythonAnywhere, Railway, or self-hosted |
 

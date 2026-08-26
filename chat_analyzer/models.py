@@ -4,6 +4,7 @@ from django.core.validators import RegexValidator
 from django.db import models
 import uuid
 from django.utils import timezone
+from datetime import datetime
 
 
 """ CREATING UNIFIED USER USING AbstractUser """
@@ -717,7 +718,32 @@ class Conversation(models.Model):
         ('individual', '1-on-1 Chat'),
         ('admin', 'Admin Chat'),
     ]
-    
+
+    therapist = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='therapist_conversations',
+        limit_choices_to={'role': 'therapist'},
+        help_text="The therapist involve in this conversation (if therapist sent message)"
+    )
+
+    sender = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='sent_messages',
+        help_text="Who sent this message (client, therapist, or admin)"
+    )
+
+    # is this message from client ?
+    is_from_client = models.BooleanField(
+        default=True,
+        help_text="True if message is from client, False if from therapist/staff"
+    )
+
     client = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -734,11 +760,29 @@ class Conversation(models.Model):
         help_text="original sender name/ number from whatsapp")
     # message section
     message = models.TextField(help_text="original message text")
+    # cleaned_text for sentiment analysis (light -cleaning - to preserve the emotions behind the text)
     cleaned_text = models.TextField(
         blank=True,
         null=True,
         help_text='cleaned version (after preprocessing)'
     )
+    # for topic modeling ( aggresive cleaning - removes common words )
+    cleaned_text_topic = models.TextField(
+        blank=True,
+        null=True,
+        help_text='Cleaned version for topic modeling (aggressive one)'
+    )
+    # we shall addd to track which cleaning versions is processed
+    is_cleaned_sentiment = models.BooleanField(
+        default=False,
+        help_text="Has this message been cleaned for sentiment analysis ?"
+    )
+
+    is_cleaned_topic = models.BooleanField(
+        default=False,
+        help_text="Has this message been cleaned for topic modeling ??"
+    )
+
     message_hash = models.CharField(
         max_length=64,
         db_index=True,
@@ -759,6 +803,18 @@ class Conversation(models.Model):
         ],
         help_text='sentiment analysis result'
     )
+
+    sentiment_score = models.FloatField(
+        blank=True,
+        null=True,
+        help_text='Sentiment score from -1.0 to +1.0'
+    )
+
+    sentiment_confidence = models.FloatField(
+        blank=True,
+        null=True,
+        help_text='Confidence score from 0.0 to 1.0'
+    )
     #meta data: which is the detail about data uploaded
     uploaded_at = models.DateTimeField(
         auto_now_add=True,
@@ -771,7 +827,7 @@ class Conversation(models.Model):
         null=True,
         help_text='Batch ID for grouping uploads'
     )
-    upload_by = models.ForeignKey(
+    uploaded_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
         null=True,
@@ -812,6 +868,12 @@ class Conversation(models.Model):
         ordering = ['-date', '-time'] # newest first
         verbose_name = "Conversation"
         verbose_name_plural = "Conversations 💬 "
+        unique_together = ('client', 'message_hash')
+        indexes = [
+            models.Index(fields=['client', 'date']),
+            models.Index(fields=['sender', 'is_from_client']),
+            models.Index(fields=['upload_batch']),
+        ]
 
     # we override the current message save to save it in hash format
     def save(self, *args, **kwargs):
@@ -824,6 +886,7 @@ class Conversation(models.Model):
 
     def __str__(self):
         client_name = self.client.get_full_name() if self.client else "Uknown"
+        sender_name = self.sender.get_full_name() if self.sender else self.username
         return f"{self.date} - {client_name}: {self.message[:50]}"
     
 
