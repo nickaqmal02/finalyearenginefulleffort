@@ -259,6 +259,7 @@ class ConversationAdmin(admin.ModelAdmin):
         'message_preview',
         'cleaned_text_preview',
         'cleaned_text_topic',
+        'topic_tags_display',
         'chat_type',
         'sentiment_with_emoji',
         'sentiment_score_display',
@@ -275,6 +276,7 @@ class ConversationAdmin(admin.ModelAdmin):
         'uploaded_by',
         'is_from_client',
         'upload_batch',
+        'topics__topic',
     ]
 
     search_fields = [
@@ -381,6 +383,33 @@ class ConversationAdmin(admin.ModelAdmin):
             f'<span style="color: {color}; font-weight: bold;">{emoji} {score:.2f}</span>'
         )
     sentiment_score_display.short_description = 'Score'
+
+    def topic_tags_display(self, obj):
+        """Show topic tags assigned to this conversation."""
+        from django.utils.html import format_html, format_html_join
+
+        links = obj.topics.all()
+        if not links:
+            return format_html('<span style="color: gray;">{}</span>', '— no topic —')
+
+        def badge_parts(mt):
+            conf = mt.confidence or 0
+            if conf >= 0.7:
+                color, dot = '#2e7d32', '🟢'
+            elif conf >= 0.4:
+                color, dot = '#ef6c00', '🟡'
+            else:
+                color, dot = '#c62828', '🔴'
+            return (color, dot, mt.topic.name, f'{conf:.2f}')
+
+        return format_html_join(
+            ' ',
+            '<span style="background: {}; color: white; padding: 2px 6px;'
+            ' border-radius: 3px; margin: 1px; font-size: 11px;">{} {} ({})</span>',
+            (badge_parts(mt) for mt in links),
+        )
+    topic_tags_display.short_description = 'Topics'            
+
 # ╔════════════════════════════════════════════╗ 
 # ║        9. UNMATCHED MESSAGE ADMIN          ║ 
 # ╚════════════════════════════════════════════╝ 
