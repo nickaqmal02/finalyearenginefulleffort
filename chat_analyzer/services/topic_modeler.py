@@ -84,7 +84,7 @@ class MalayTopicModeler:
     def _load_domain_words(self):
         """Load therapy-specific domain words to KEEP."""
         domain_words = set()
-        domain_path = Path(__file__).parent.parent / 'data' / 'domain_words.txt'
+        domain_path = Path(__file__).parent.parent / 'data' / 'domain_words_topic.txt'
 
         if domain_path.exists():
             with open(domain_path, 'r', encoding='utf-8') as f:
