@@ -12,6 +12,8 @@ class MalayTextCleaner:
     """Multi-purpose text cleaner for Malay/English mixed messages"""
 
     def __init__(self, data_dir=None):
+
+        # ok now we need to load the 
         if data_dir is None:
             self.data_dir = Path(__file__).parent.parent / 'data'
         else:
@@ -23,9 +25,11 @@ class MalayTextCleaner:
         self.slang_mapping = self.load_json('slang_mapping.json')
         self.curse_words = self.load_curse_words()
 
-        # Load domain words (therapy-specific terms to KEEP)
-        self.domain_words = self.load_domain_words()
+        # Load domain words topic modeling (therapy-specific terms to KEEP)
+        self.domain_words_topic = self.load_domain_words_topic()
 
+        # adding seperate domain words for sentiment
+        self.domain_words_sentiment = self.load_domain_words_sentiment()
         # Load sentiment-specific stopwords (LIGHT)
         self.sentiment_stopwords = self.load_sentiment_stopwords()
 
@@ -34,11 +38,25 @@ class MalayTextCleaner:
 
         # Combine all mappings
         self.all_mappings = {**self.typo_mapping, **self.slang_mapping}
+        
+        # added words that weird if we stem it
+        self.stem_exceptions = {
+            'mengamuk', 'halaman', 'teratur', 'berjaga',
+        }
+        #
+
+        try:
+            from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
+            self.stemmer = StemmerFactory().create_stemmer()
+        except ImportError:
+            logger.warning("Sastrawi not installed - skipping the stemming in topic cleaning")
+            self.stemmer = None
 
         logger.info(f"✅ Loaded {len(self.typo_mapping)} typo mappings")
         logger.info(f"✅ Loaded {len(self.emoji_mapping)} emoji mappings")
         logger.info(f"✅ Loaded {len(self.slang_mapping)} slang mappings")
-        logger.info(f"✅ Loaded {len(self.domain_words)} domain words")
+        logger.info(f"✅ Loaded {len(self.domain_words_topic)} domain words topic")
+        logger.info(f"😀 Loaded {len(self.domain_words_sentiment)} domain words sentiment")
         logger.info(f"✅ Loaded {len(self.sentiment_stopwords)} sentiment stopwords")
         logger.info(f"✅ Loaded {len(self.topic_stopwords)} topic stopwords")
         logger.info(f"✅ Loaded {len(self.curse_words)} curse words")
@@ -57,9 +75,9 @@ class MalayTextCleaner:
             logger.warning(f"File not found: {filename}")
             return {}
 
-    def load_domain_words(self):
+    def load_domain_words_topic(self):
         """Load therapy-specific domain words with comment support."""
-        filepath = self.data_dir / 'domain_words.txt'
+        filepath = self.data_dir / 'domain_words_topic.txt'
         domain_words = set()
 
         if filepath.exists():
@@ -84,6 +102,30 @@ class MalayTextCleaner:
                 'gembira', 'sedih', 'marah', 'takut', 'risau',
                 'perasaan', 'keyakinan', 'motivasi', 'semangat'
             }
+
+        return domain_words
+
+    def load_domain_words_sentiment(self):
+        """load the domain words for sentiment"""
+        filepath = self.data_dir / 'domain_words_sentiment.txt'
+        domain_words = set()
+
+        # then if file path exists
+        if filepath.exists():
+            with open(filepath, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        # ni for commenting so we now be able to comment in our domain.txt
+                        if '#' in line:
+                            line = line.split('#')[0].strip()
+                        if line:
+                            domain_words.add(line.lower())
+
+        # if not exists
+        else:
+            logger.warning(f"Domain words for sentiment file not found: {filepath}")
+            return None
 
         return domain_words
 
@@ -130,38 +172,7 @@ class MalayTextCleaner:
                             stopwords.add(line.lower())
         else:
             logger.warning(f"Topic stopwords file not found: {filepath}")
-            # Default heavy stopwords
-            stopwords = {
-                # Start with sentiment stopwords
-                'yang', 'dan', 'di', 'ke', 'dari', 'pada', 'ini', 'itu',
-                'untuk', 'dengan', 'tanpa', 'oleh', 'sebagai', 'kepada',
-                'dalam', 'ada', 'juga', 'lagi', 'sahaja', 'seperti',
-                'saya', 'kamu', 'aku', 'dia', 'mereka', 'kami', 'kita',
-
-                # Greetings
-                'assalamualaikum', 'waalaikumussalam', 'salam', 'selamat',
-                'pagi', 'petang', 'malam', 'hello', 'hi', 'hai',
-
-                # Thank you
-                'terima', 'kasih', 'thanks', 'thank', 'tq',
-
-                # Names
-                'maya', 'arif', 'anita', 'haziq', 'danial',
-
-                # Intensifiers (remove for topic modeling)
-                'sangat', 'terlalu', 'amat', 'paling', 'begitu', 'demikian',
-                'banyak', 'sedikit', 'masih', 'sudah', 'dah',
-
-                # Common verbs
-                'buat', 'latihan', 'main', 'makan', 'minum',
-                'tidur', 'bangun', 'mandi', 'pakai', 'pergi', 'datang',
-                'cuba', 'bagus', 'baik', 'hebat', 'wah',
-                'semoga', 'berbangga', 'harapan',
-
-                # Pronouns and family
-                'anak', 'ibu', 'ayah', 'bapa', 'mak', 'emak',
-                'abang', 'kakak', 'adik', 'anak', 'anak',
-            }
+            return None
 
         return stopwords
 
@@ -233,7 +244,7 @@ class MalayTextCleaner:
         filtered = []
         for word in words:
             # ALWAYS keep domain words (therapy terms)
-            if word in self.domain_words:
+            if word in self.domain_words_sentiment:
                 filtered.append(word)
                 continue
             # Keep if not in sentiment stopwords
@@ -258,17 +269,24 @@ class MalayTextCleaner:
         text = re.sub(r'[^\w\s]', '', text)
 
         # Remove heavy stopwords (topic modeling)
+        # we split every single text to token
         words = text.split()
-        filtered = []
+        filtered = [] # creating array standby to put that fully furnished words
         for word in words:
             # ALWAYS keep domain words (they ARE the topics we want)
-            if word in self.domain_words:
+            if word in self.domain_words_topic:
                 filtered.append(word)
                 continue
-            # Remove if in topic stopwords or too short
-            if word not in self.topic_stopwords and len(word) > 2:
-                filtered.append(word)
+            # STEM firs so 'mengamuk' -> 'amuk' before stopwords check
+            if word in self.stem_exceptions:
+                stemmed = word
+            else:
+                stemmed = self.stemmer.stem(word) if self.stemmer else word
+            # remove if in topic stopwords or too short
+            if stemmed not in self.topic_stopwords and len(stemmed) > 2:
+                filtered.append(stemmed)
 
+        filtered = self._dedupe_tokens(filtered) # this is where we call the deduplication method
         return ' '.join(filtered)
 
     def convert_emojis(self, text):
@@ -298,6 +316,17 @@ class MalayTextCleaner:
             if word.lower() not in self.curse_words:
                 filtered.append(word)
         return ' '.join(filtered)
+
+    def _dedupe_tokens(self, words):
+        """"Remove repettive words for topic modeling"""
+        # first skali set kan seen utk kita hantar words
+        seen = set()
+        result = []
+        for w in words:
+            if w not in seen:
+                seen.add(w)
+                result.append(w)
+        return result
 
 
 # ============================================

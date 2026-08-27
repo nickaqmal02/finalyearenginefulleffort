@@ -262,6 +262,8 @@ class ConversationAdmin(admin.ModelAdmin):
         'chat_type',
         'sentiment_with_emoji',
         'sentiment_score_display',
+        'sentiment_confidence',
+        'is_processed',
         'uploaded_by',
         'upload_batch',
     ]
