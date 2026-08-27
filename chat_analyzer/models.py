@@ -782,7 +782,6 @@ class Conversation(models.Model):
         default=False,
         help_text="Has this message been cleaned for topic modeling ??"
     )
-
     message_hash = models.CharField(
         max_length=64,
         db_index=True,

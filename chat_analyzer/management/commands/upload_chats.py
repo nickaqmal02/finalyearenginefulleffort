@@ -7,6 +7,8 @@ from django.db import transaction
 from chat_analyzer.models import Conversation, UploadHistory, UnmatchedMessage, User
 from chat_analyzer.services.text_cleaner import get_cleaner
 from chat_analyzer.services.whatsapp_parser import parse_whatsapp_file
+from chat_analyzer.services.sentiment_analyzer import analyze_sentiment
+
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +74,9 @@ class Command(BaseCommand):
                 uploader = User.objects.get(id=uploader_id)
             except User.DoesNotExist:
                 self.stdout.write(self.style.WARNING(f'⚠️ Uploader with ID {uploader_id} not found, using admin'))
+        # logic if uploader None
+        if uploader is None:
+            uploader = User.objects.filter(username='admin').first()
 
         # Get cleaner
         cleaner = get_cleaner()
@@ -155,7 +160,20 @@ class Command(BaseCommand):
                 cleaned_sentiment = cleaner.clean_for_sentiment(msg['message'])
                 cleaned_topic = cleaner.clean_for_topic_modeling(msg['message'])
 
-                # Create conversation
+                # we need to generate the sentiment first 
+                # setup the sentiment section for conversation
+
+                sentiment = analyze_sentiment(cleaned_sentiment)
+
+                # we count it properly
+                if sentiment['label'] == 'positive':
+                    positive_count += 1
+                elif sentiment['label'] == 'negative':
+                    negative_count += 1
+                else: 
+                    neutral_count += 1 
+
+                # Create conversation ** the mother of all section **
                 conversation = Conversation(
                     client=client,
                     date=msg['date'],
@@ -167,11 +185,14 @@ class Command(BaseCommand):
                     is_cleaned_sentiment=True,               # Mark as cleaned for sentiment
                     is_cleaned_topic=True,                   # Mark as cleaned for topic modeling
                     message_hash=message_hash,
+                    sentiment=sentiment['label'],
+                    sentiment_score=sentiment['score'],
+                    sentiment_confidence=sentiment['confidence'],
                     upload_batch=upload_history.batch_id,
                     upload_history=upload_history,
                     uploaded_by=uploader,
                     uploaded_at=datetime.now(),
-                    is_processed=False,
+                    is_processed=True,
                     chat_type='individual'
                 )
 

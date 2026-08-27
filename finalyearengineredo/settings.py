@@ -14,6 +14,10 @@ SECRET_KEY = 'django-insecure-o%*b0^*_*#k&a@*up)d*l%!sxn^hms8y_&i$+zl46r_&p3mzp%
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+INTERNAL_IPS = [
+    "127.0.0.1",
+]
+
 ALLOWED_HOSTS = []
 
 CSRF_COOKIE_SECURE = False 
@@ -30,6 +34,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'heroicons',
+    'debug_toolbar',
     'django_extensions',
     #'crispy_forms',
     #'crispy_tailwind',
@@ -42,6 +47,7 @@ INSTALLED_APPS = [
 #CRISPY_TEMPLATE_PACK = "crispy_tailwind"
 
 MIDDLEWARE = [
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
