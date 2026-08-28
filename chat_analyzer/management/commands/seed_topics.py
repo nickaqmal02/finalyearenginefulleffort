@@ -13,12 +13,12 @@ class Command(BaseCommand):
         {
             "name": "Eating Habits & Food Acceptance",
             "description": "Feeding behavior, food preferences, apetite, mealtime challenges",
-            "keywords": ["makan", "nasi", "bubur", "selera", "makanan", "daging", "sayur"],
+            "keywords": ["makan", "nasi", "bubur", "selera", "daging", "sayur", "minum", "suap", "lauk"],
         },
         {
             "name": "Tantrum & Behavior Management",
             "description": "Behavioral outbursts, emotional regulation, disciplinary challenges",
-            "keywords": ["tantrum", "mengamuk", "merajuk", "menangis", "marah", "melawan"],
+            "keywords": ["tantrum", "mengamuk", "merajuk", "menangis", "marah", "melawan", "sepak", "baling", "jerit", "ganas"],
         },
         {
             "name": "Sleep Patterns",
@@ -28,7 +28,7 @@ class Command(BaseCommand):
         {
             "name": "Social Interaction",
             "description": "Peer relationships, play skills, social engangement",
-            "keywords": ["bergaul", "bermain", "berkawan", "main", "sosial", "kawan"]
+            "keywords": ["main", "kawan", "gaul", "kongsi", "rakan", "sosial"],
         },
         {
             "name": "School & Academic Progress",
@@ -43,12 +43,12 @@ class Command(BaseCommand):
         {
             "name": "Therapy Progress",
             "description": "Treatment outcomes, improvements, development phase",
-            "keywords": ["perubahan", "terapi", "berkembang", "kemajuan", "improvement"],
+            "keywords": ["ubah", "terapi", "kembang", "maju", "nampak", "dapat", "baik", "therapy"],
         },
         {
             "name": "Parental Emotions",
             "description": "Parent feelings, stress, hopes, emotional wellbeing",
-            "keywords": ["risau", "sedih", "kecewa", "stress", "penat", "gembira", "syukur"]
+            "keywords": ["risau", "sedih", "kecewa", "stress", "penat", "gembira", "syukur"],
         },
         {
             "name": "Family Environment",
@@ -63,7 +63,7 @@ class Command(BaseCommand):
         {
             "name": "Treatment Methods",
             "description": "Therapy techniques, session approaches, intervention methods",
-            "keywords": ["balut", "urut", "rawatan", "sesi", "balutan", "urutan"]
+            "keywords": ["balut", "urut", "rawatan", "sesi", "latih", "teknik", "kaedah", "session"],
         },
     ]
 
