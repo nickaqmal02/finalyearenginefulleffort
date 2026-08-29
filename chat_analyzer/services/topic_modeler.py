@@ -2,11 +2,10 @@
 import logging
 from datetime import datetime
 from pathlib import Path
-
 from bertopic import BERTopic
 from sentence_transformers import SentenceTransformer
 from sklearn.feature_extraction.text import CountVectorizer
-
+from umap import UMAP
 from chat_analyzer.services.text_cleaner import clean_for_topic_modeling
 
 logger = logging.getLogger(__name__)
@@ -116,14 +115,12 @@ class MalayTopicModeler:
         processed = []
 
         for msg in messages:
-            if not msg or len(msg.strip()) < 10:
+            if not msg:
                 continue
+            cleaned = msg.strip()
 
-            # Use the topic modeling cleaner
-            cleaned = clean_for_topic_modeling(msg)
-
-            # Skip if too short after aggressive cleaning
-            if len(cleaned.split()) >= 3:
+            # skip the word if too shorts
+            if len(cleaned.split()) >= 1:
                 processed.append(cleaned)
 
         # Remove duplicates
@@ -163,23 +160,30 @@ class MalayTopicModeler:
             all_stopwords = list(self.topic_stopwords)
 
             self.vectorizer = CountVectorizer(
-                stop_words=all_stopwords,
-                ngram_range=(1, 2),
-                min_df=3,
-                max_df=0.75,
-                max_features=500
+                stop_words=all_stopwords, # filter all stopwords
+                ngram_range=(1, 2), # detecting words like anxiety attacks
+                min_df=2, # keep words appearing in >= 2 cluster documents (run 7: middle ground — 3 hid tidur, 1 collapsed clusters) 
+                max_df=0.75, # ignore words too common 
+                max_features=500 # keep that top 500 words
             )
             print(f"✅ Vectorizer configured with {len(all_stopwords)} stopwords")
 
             # create the BERTopic model
             self.topic_model = BERTopic(
-                embedding_model=self.embedding_model,
-                vectorizer_model=self.vectorizer,
-                language='multilingual',
-                min_topic_size=5,
-                n_gram_range=(1, 2),
-                calculate_probabilities=True,
-                verbose=True
+                embedding_model=self.embedding_model, #XLMRobertaModel
+                vectorizer_model=self.vectorizer, # refer above
+                umap_model=UMAP(
+                    n_neighbors=15,
+                    n_components=5,
+                    min_dist=0.0,
+                    metric="cosine",
+                    random_state=42
+                ),
+                language='multilingual', # telling that hey this is not just malay
+                min_topic_size=5, # HBDSCAN we only draw circle if around an island if it has at least 5 messages crammed togetehr
+                n_gram_range=(1, 2), # same as above 
+                calculate_probabilities=True, # give fuzzy membership value for every message
+                verbose=True # make the bertopic talk while training 
             )
             print('✅ BERTopic model configured')
 
@@ -219,26 +223,33 @@ class MalayTopicModeler:
             )
 
             # Fallback to cleaned_text if topic field doesn't exist
+            # NOTE: cleaned_text is sentiment-cleaned, NOT topic-cleaned —
+            # re-apply topic cleaning here since preprocess no longer cleans.
             if not messages:
                 print("⚠️ No topic-cleaned messages found, falling back to cleaned_text")
-                messages = list(
-                    Conversation.objects.filter(
+                messages = [
+                    clean_for_topic_modeling(m)
+                    for m in Conversation.objects.filter(
                         cleaned_text__isnull=False
                     ).exclude(
                         cleaned_text=''
                     ).values_list('cleaned_text', flat=True)
-                )
+                    if m
+                ]
 
             # If still no messages, fallback to raw messages
+            # Raw message = uncleaned, must apply topic cleaning here too.
             if not messages:
                 print("⚠️ No cleaned messages found, using raw messages")
-                messages = list(
-                    Conversation.objects.filter(
+                messages = [
+                    clean_for_topic_modeling(m)
+                    for m in Conversation.objects.filter(
                         message__isnull=False
                     ).exclude(
                         message=''
                     ).values_list('message', flat=True)
-                )
+                    if m
+                ]
 
         if not messages or len(messages) == 0:
             print("❌ No messages found!")
@@ -392,8 +403,8 @@ class MalayTopicModeler:
                 print(f"    Topic {topic_id} -> '{topic_obj.name}'"
                       f"(matched {match_score} keywords)")
             else:
-                # == then if no match save as dicroved topic (keyword name) ==
-                fallback_keywords = [word for word, _ in keywords[:5]]
+                # == then if no match save as discovered topic (keyword name) ==
+                fallback_keywords = [word for word, _ in keywords[:5] if word.strip()]
                 topic_name = " - ".join(fallback_keywords[:3])
 
                 topic_obj, created = Topic.objects.get_or_create(
@@ -407,34 +418,82 @@ class MalayTopicModeler:
                 print(f"    😃 Topic {topic_id} -> discovered: '{topic_obj.name}'")
 
             # Link messages to topics
-            topic_messages = [msg for idx, msg in enumerate(messages) if topics[idx] == topic_id]
+            topic_message_indices = [
+                idx for idx, _ in enumerate(messages) if topics[idx] == topic_id
 
-            for msg in topic_messages[:20]:
+            ]
+
+            # calibrate column offset: BERTopic may include -1 outlier
+            # column. Measure 
+            n_cols = len(probabilities[0]) if probabilities is not None and len(probabilities) else 0
+            offset = 1 if n_cols == len(set(topics)) else 0
+
+            for idx in topic_message_indices[:20]:
+                msg = messages[idx]
                 try:
-                    # Try to find by cleaned_text_topic first, then cleaned_text
                     conversation = Conversation.objects.filter(
                         cleaned_text_topic__icontains=msg[:50]
-                    ).first()
 
+                    ).first()
                     if not conversation:
                         conversation = Conversation.objects.filter(
                             cleaned_text__icontains=msg[:50]
                         ).first()
 
                     if conversation:
+                        conf = 0.5
+                        try:
+                            if probabilities is not None:
+                                row = probabilities[idx]
+                                if hasattr(row, '__len__'):
+                                    conf = float(row[topic_id + offset])
+                                else:
+                                    conf = float(row)
+                        except (TypeError, IndexError, KeyError, ValueError):
+                            conf = 0.5
+
                         MessageTopic.objects.get_or_create(
                             conversation=conversation,
                             topic=topic_obj,
                             defaults={
-                                'score': 0.5,
-                                'confidence': 0.5
+                                'score': round(conf, 4),
+                                'confidence': round(conf, 4),
                             }
                         )
                 except Exception as e:
-                    print(f"    ☢️ Error linking message: {e}")
+                    print(f"    Error linking message: {e}")
 
-        print(f" ✅ Saved {len(unique_topics)} topics to database")
-        return len(unique_topics)
+                # ===== DOOR 1: per-message fallback for HDBSCAN outliers (-1) =====
+        outlier_indices = [idx for idx, t in enumerate(topics) if t == -1]
+        fallback_count = 0
+        for idx in outlier_indices:
+            msg = messages[idx]
+            fb_topic, fb_score = mapper.map_message(msg, defined_topics)
+            if fb_topic:
+                try:
+                    conversation = Conversation.objects.filter(
+                        cleaned_text_topic__icontains=msg[:50]
+                    ).first()
+                    if not conversation:
+                        conversation = Conversation.objects.filter(
+                            cleaned_text__icontains=msg[:50]
+                        ).first()
+                    if conversation:
+                        MessageTopic.objects.get_or_create(
+                            conversation=conversation,
+                            topic=fb_topic,
+                            defaults={
+                                'score': round(min(fb_score / 10, 1.0), 4),
+                                'confidence': round(min(fb_score / 10, 1.0), 4),
+                            }
+                        )
+                        fallback_count += 1
+                except Exception as e:
+                    print(f"    🚪 Door 1 error: {e}")
+        print(f"    🚪 Door 1 fallback routed {fallback_count} "
+              f"of {len(outlier_indices)} outlier messages")
+
+
 
     def generate_topic_report(self, messages, topics):
         """Generate a report of discovered topics."""
@@ -446,7 +505,8 @@ class MalayTopicModeler:
         }
 
         topic_info = self.topic_model.get_topic_info()
-
+        
+        # idx means that which messages that we are talking about right now
         for idx, row in topic_info.iterrows():
             if row['Topic'] != -1:
                 keywords = self.topic_model.get_topic(row['Topic'])

@@ -18,12 +18,12 @@ class Command(BaseCommand):
         {
             "name": "Tantrum & Behavior Management",
             "description": "Behavioral outbursts, emotional regulation, disciplinary challenges",
-            "keywords": ["tantrum", "mengamuk", "merajuk", "menangis", "marah", "melawan", "sepak", "baling", "jerit", "ganas"],
+            "keywords": ["tantrum", "mengamuk", "merajuk", "menangis", "marah", "melawan", "sepak", "baling", "jerit", "ganas", "kurang tantrum"],
         },
         {
             "name": "Sleep Patterns",
             "description": "Sleep quality, bedtime routines, night waking, rest issues",
-            "keywords": ["tidur", "malam", "lena", "terjaga", "buaian", "rehat"],
+            "keywords": ["nyenyak","tidur","tido", "malam", "lena", "terjaga", "buaian", "rehat", "bangun"],
         },
         {
             "name": "Social Interaction",
@@ -33,22 +33,22 @@ class Command(BaseCommand):
         {
             "name": "School & Academic Progress",
             "description": "School Performance, learning, focus, academic milestones",
-            "keywords": ["sekolah", "cikgu", "fokus", "belajar", "baca", "tulis"],
+            "keywords": ["school","sekolah", "cikgu", "fokus", "belajar", "baca", "tulis"],
         },
         {
             "name": "Physical Development",
             "description": "Motor skills, movemoment milestones, physical coordination",
-            "keywords": ["gerak", "motor", "jalan", "lompat", "pegang", "pijak", "merangkak"],
+            "keywords": ["aktif","gerak", "motor", "jalan", "lompat", "pegang", "pijak", "merangkak"],
         },
         {
             "name": "Therapy Progress",
             "description": "Treatment outcomes, improvements, development phase",
-            "keywords": ["ubah", "terapi", "kembang", "maju", "nampak", "dapat", "baik", "therapy"],
+            "keywords": ["ubah", "terapi", "maju", "perubahan", "proses"],
         },
         {
             "name": "Parental Emotions",
             "description": "Parent feelings, stress, hopes, emotional wellbeing",
-            "keywords": ["risau", "sedih", "kecewa", "stress", "penat", "gembira", "syukur"],
+            "keywords": ["suka","risau", "sedih", "kecewa", "stress", "penat", "gembira", "syukur"],
         },
         {
             "name": "Family Environment",
@@ -63,7 +63,7 @@ class Command(BaseCommand):
         {
             "name": "Treatment Methods",
             "description": "Therapy techniques, session approaches, intervention methods",
-            "keywords": ["balut", "urut", "rawatan", "sesi", "latih", "teknik", "kaedah", "session"],
+            "keywords": ["balutan","sapu", "balut", "urut", "rawatan", "sesi", "latih", "teknik", "kaedah", "session"],
         },
     ]
 
