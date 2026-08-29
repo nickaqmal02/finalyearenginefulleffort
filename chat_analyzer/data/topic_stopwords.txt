@@ -4,6 +4,10 @@
 # This list has been reviewed to ensure NO topic-defining
 # verbs are removed. All verbs from your 12 topics are KEPT.
 # ============================================================
+just
+suffi
+ana
+cuma
 dah
 kurang
 takde
@@ -30,7 +34,24 @@ jarang
 don
 tapi
 
-
+ammar
+amin
+luthfi
+haidar
+umar
+khalish
+anaqi
+eewan
+hafiy
+azz
+kartigayen
+masih
+banyak
+macam
+sendiri 
+jam
+hari
+balik
 
 # ============================================================
 # 1. STRUCTURAL WORDS - SAFE TO REMOVE
