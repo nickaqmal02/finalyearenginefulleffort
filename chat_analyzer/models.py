@@ -1101,9 +1101,16 @@ class MessageTopic(models.Model):
         default=0.0,
         help_text="Model confidence (0.0 to 1.0)"
     )
+    
+    is_primary = models.BooleanField(
+        default=False,
+        help_text='Is this primary topic for this message ?'
+    )
+
     analyzed_at = models.DateTimeField(auto_now_add=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now_add=True)
+
 
     class Meta:
         unique_together = ('conversation', 'topic')

@@ -8,7 +8,7 @@ class Command(BaseCommand):
         {
             "name": "Speech & Communication Development",
             "description": "Languange development, speech milestones, communication patterns",
-            "keywords": ["bercakap", "sebut", "perkataan", "ayat", "komunikasi", "interaksi"],
+            "keywords": ["komunikasi","bercakap", "sebut", "perkataan", "ayat", "komunikasi", "interaksi", "cakap"],
         },
         {
             "name": "Eating Habits & Food Acceptance",
@@ -18,52 +18,52 @@ class Command(BaseCommand):
         {
             "name": "Tantrum & Behavior Management",
             "description": "Behavioral outbursts, emotional regulation, disciplinary challenges",
-            "keywords": ["tantrum", "mengamuk", "merajuk", "menangis", "marah", "melawan", "sepak", "baling", "jerit", "ganas", "kurang tantrum"],
+            "keywords": ["lari","perangai","meraung","kurang tantrum","tantrum", "mengamuk", "merajuk", "menangis", "marah", "melawan", "sepak", "baling", "jerit", "ganas", "kurang tantrum"],
         },
         {
             "name": "Sleep Patterns",
             "description": "Sleep quality, bedtime routines, night waking, rest issues",
-            "keywords": ["nyenyak","tidur","tido", "malam", "lena", "terjaga", "buaian", "rehat", "bangun"],
+            "keywords": ["mata","lena","nyenyak","tidur","tido", "malam", "lena", "terjaga", "buaian", "rehat", "bangun"],
         },
         {
             "name": "Social Interaction",
             "description": "Peer relationships, play skills, social engangement",
-            "keywords": ["main", "kawan", "gaul", "kongsi", "rakan", "sosial"],
+            "keywords": ["bermain","panggil","berinteraksi","interaksi","mengadu","sahabat","kawankawan","minta","maklum","cerita","main", "kawan", "gaul", "kongsi", "rakan", "sosial"],
         },
         {
             "name": "School & Academic Progress",
             "description": "School Performance, learning, focus, academic milestones",
-            "keywords": ["school","sekolah", "cikgu", "fokus", "belajar", "baca", "tulis"],
+            "keywords": ["baca","membaca","tahfiz","pembelajaran","pandai","cerita","paham","explain","school","sekolah", "cikgu", "fokus", "belajar", "baca", "tulis", "kelas"],
         },
         {
             "name": "Physical Development",
             "description": "Motor skills, movemoment milestones, physical coordination",
-            "keywords": ["aktif","gerak", "motor", "jalan", "lompat", "pegang", "pijak", "merangkak"],
+            "keywords": ["bermain","kerja","kuat","gerak","control","aktif","gerak", "motor", "jalan", "lompat", "pegang", "pijak", "merangkak"],
         },
         {
             "name": "Therapy Progress",
             "description": "Treatment outcomes, improvements, development phase",
-            "keywords": ["ubah", "terapi", "maju", "perubahan", "proses"],
+            "keywords": ["bermain","sayang","bagus","sesi","makin","perkembangan","fasa","terus","improve","konsisten","berhenti","kurang","hasil","therapy","improvement","semakin baik","tahniah","perkembangan","hasil","perubahan","rawatan","syukur","ubah", "terapi", "maju", "perubahan", "proses"],
         },
         {
             "name": "Parental Emotions",
             "description": "Parent feelings, stress, hopes, emotional wellbeing",
-            "keywords": ["suka","risau", "sedih", "kecewa", "stress", "penat", "gembira", "syukur"],
+            "keywords": ["raung","suka","risau", "sedih", "kecewa", "stress", "penat", "gembira", "syukur"],
         },
         {
             "name": "Family Environment",
             "description": "Home Situation, family dynamics, household context",
-            "keywords": ["rumah", "keluarga", "ibu", "ayah", "kakak", "abang"],
+            "keywords": ["rumah","daddy","mummy","adik","rumah", "keluarga", "ibu", "ayah", "kakak", "abang"],
         },
         {
             "name": "Sensory Integration",
             "description": "Sensory processing, stimuli response, attention regulation",
-            "keywords": ["sensory", "rangsangan", "fokus", "perhatian", "integrasi"],
+            "keywords": ["sayang","bermain","menangis","gembira","rasa","kasih sayang","eye contact","seronok","sensory", "rangsangan", "fokus", "perhatian", "integrasi"],
         },
         {
             "name": "Treatment Methods",
             "description": "Therapy techniques, session approaches, intervention methods",
-            "keywords": ["balutan","sapu", "balut", "urut", "rawatan", "sesi", "latih", "teknik", "kaedah", "session"],
+            "keywords": ["pakai","ubat","taktik","kepala","balutan","sapu", "balut", "urut", "rawatan", "sesi", "latih", "teknik", "kaedah", "session"],
         },
     ]
 

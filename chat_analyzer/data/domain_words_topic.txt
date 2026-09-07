@@ -11,7 +11,7 @@ menangis
 nangis
 marah
 malam
-bejaga
+berjaga
 
 # ============================================================
 # THERAPY TYPES & METHODS (Defines treatment topics)
@@ -538,10 +538,10 @@ alternative
 # ============================================================
 # SOCIAL & BEHAVIOR (Defines social interaction topics)
 # ============================================================
-bermain
-kawan
-gaul
-sosial
+
+
+
+
 kongsi
 gilir
 atur
@@ -562,12 +562,12 @@ jiran
 saudara
 penjaga
 terapis
-guru
-cikgu
+
+
 mesra
 sambung
 percaya
-selamat
+
 hormat
 sopan
 perkenal
@@ -638,7 +638,6 @@ coordination
 synchronization
 turn
 wait
-share
 help
 support
 encourage
@@ -1034,8 +1033,6 @@ suami
 isteri
 husband
 wife
-anak
-anakanak
 children
 child
 son

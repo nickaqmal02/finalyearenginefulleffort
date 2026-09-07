@@ -8,7 +8,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--limit',
             type=int,
-            default=20,
+            default=124,
             help='Max rows to print'
         )
         parser.add_argument(

@@ -65,14 +65,6 @@ class MalayTopicModeler:
                 'sangat', 'terlalu', 'amat', 'paling', 'begitu', 'demikian',
                 'banyak', 'sedikit', 'masih', 'sudah', 'dah', 'tak', 'tidak',
 
-                # Common verbs
-                'buat', 'latihan', 'main', 'makan', 'minum', 'tidur', 'bangun',
-                'mandi', 'pakai', 'pergi', 'datang', 'cuba', 'bagus', 'baik',
-                'hebat', 'wah', 'semoga', 'berbangga', 'harapan',
-
-                # Pronouns and family
-                'anak', 'ibu', 'ayah', 'bapa', 'mak', 'emak', 'abang', 'kakak', 'adik',
-
                 # Fillers
                 'nak', 'tu', 'ni', 'je', 'lah', 'kah', 'kan', 'yer', 'ya', 'oh', 'ah', 'eh'
             }
@@ -256,7 +248,7 @@ class MalayTopicModeler:
             return None
 
         if not self.is_loaded:
-            print("☢️ Model is not loaded......")
+            print(" Model is loaded Mate :)))) ready for training bruh ......")
             if not self.setup_models():
                 print("❌ Failed to setup models")
                 return None
@@ -379,126 +371,143 @@ class MalayTopicModeler:
             return False
 
     def save_topics_to_db(self, topics, probabilities, messages):
-        """Save topics to database with better filtering."""
+        """
+        Save topics to database with better filtering.
+        updating multi topic for each messages
+        """
         from chat_analyzer.models import Conversation, MessageTopic, Topic
         from chat_analyzer.services.topic_mapper import TopicMapper
 
         print("\n💾 Saving topics to database... ")
 
         unique_topics = set([t for t in topics if t != -1])
-        # we have to created mapper and state that we also have defined using ORM that we have the topic defined
-        mapper = TopicMapper(threshold=2)
+        self.mapper = TopicMapper(threshold=1.5, min_gap=1.0)
         defined_topics = list(Topic.objects.filter(is_active=True))
 
+        # ╔════════════════════════════════════════════╗ 
+        # ║  PHASE 1: MAP EACH CLUSTER TO THE TOPICS   ║ 
+        # ╚════════════════════════════════════════════╝ 
+        cluster_mapping = {}
         for topic_id in unique_topics:
             keywords = self.topic_model.get_topic(topic_id)
             if not keywords:
                 continue
+            
+            # get all matching topics for this cluster
+            matches = self.mapper.map_cluster_with_alternatives(
+                keywords,
+                defined_topics,
+            )
 
-            # ==== SO WE HAVE CHOOSE TO USE HYBRID APPROACH WHICH IS DEFININF TOPIC
-            mapped_topic, match_score = mapper.map_cluster(keywords, defined_topics)
-
-            if mapped_topic:
-                topic_obj = mapped_topic
-                print(f"    Topic {topic_id} -> '{topic_obj.name}'"
-                      f"(matched {match_score} keywords)")
+            if matches:
+                cluster_mapping[topic_id] = matches
+                print(f"    Topic {topic_id}: {len(matches)} matching topics")
             else:
-                # == then if no match save as discovered topic (keyword name) ==
+                # nothing match then we discovered topic
                 fallback_keywords = [word for word, _ in keywords[:5] if word.strip()]
-                topic_name = " - ".join(fallback_keywords[:3])
+                topic_name = "-".join(fallback_keywords[:3])
 
                 topic_obj, created = Topic.objects.get_or_create(
                     name=topic_name[:100],
                     defaults={
-                        'description': "Topic discovered from therapy conversations",
+                        'description': "Topic discovered from therapy center conversations",
                         'keywords': fallback_keywords,
                         'is_active': True,
-                    },
+                    }
                 )
-                print(f"    😃 Topic {topic_id} -> discovered: '{topic_obj.name}'")
+                cluster_mapping[topic_id] = [{
+                    'topic': topic_obj,
+                    'score': 2.0,
+                    'confidence': 0.5,
+                    'is_primary': True,
+                }]
+                print(f"    Topic {topic_id} -> NEW Discovered: '{topic_obj.name}'")
 
-            # Link messages to topics
-            topic_message_indices = [
-                idx for idx, _ in enumerate(messages) if topics[idx] == topic_id
+        # ╔════════════════════════════════════════════╗ 
+        # ║   PHASE 2: ASSIGN TOPICS TO EACH MESSAGE   ║ 
+        # ╚════════════════════════════════════════════╝ 
+        stats = {
+            'total': len(messages),
+            'assigned': 0,
+            'outliers': 0,
+            'multi_topic': 0,
+            'total_assignments': 0,
+        }
 
-            ]
+        for idx, msg in enumerate(messages):
+            topic_id = topics[idx]
 
-            # calibrate column offset: BERTopic may include -1 outlier
-            # column. Measure 
-            n_cols = len(probabilities[0]) if probabilities is not None and len(probabilities) else 0
-            offset = 1 if n_cols == len(set(topics)) else 0
+            # find the conversations
+            conv = Conversation.objects.filter(
+                cleaned_text_topic__icontains=msg[:50]
+            ).first()
 
-            for idx in topic_message_indices[:20]:
-                msg = messages[idx]
-                try:
-                    conversation = Conversation.objects.filter(
-                        cleaned_text_topic__icontains=msg[:50]
+            if not conv:
+                continue
 
-                    ).first()
-                    if not conversation:
-                        conversation = Conversation.objects.filter(
-                            cleaned_text__icontains=msg[:50]
-                        ).first()
+            stats['total_assignments'] += 1
 
-                    if conversation:
-                        conf = 0.5
-                        try:
-                            if probabilities is not None:
-                                row = probabilities[idx]
-                                if hasattr(row, '__len__'):
-                                    conf = float(row[topic_id + offset])
-                                else:
-                                    conf = float(row)
-                        except (TypeError, IndexError, KeyError, ValueError):
-                            conf = 0.5
+            # Case 1: This message belongs to a cluster
+            if topic_id != -1 and topic_id in cluster_mapping:
+                matches = cluster_mapping[topic_id]
 
+                # we save all matching topics for this message
+                for match in matches:
+                    MessageTopic.objects.get_or_create(
+                        conversation=conv,
+                        topic=match['topic'],
+                        defaults={
+                            'score': match['score'],
+                            'confidence': match['confidence'],
+                            'is_primary': match['is_primary']
+                        }
+                    )
+                if len(matches) > 1:
+                    stats['multi_topic'] += 1
+
+                stats['assigned'] += 1
+
+            # case 2 outliers try door 1 fallback
+            else:
+                stats['outliers'] += 1
+                
+                # use this new method we create
+                matches = self.mapper.map_message_with_alternatives(
+                    msg,
+                    defined_topics,
+                    threshold=self.mapper.threshold * 0.5
+                )
+                
+                if matches:
+                    for match in matches:
                         MessageTopic.objects.get_or_create(
-                            conversation=conversation,
-                            topic=topic_obj,
+                            conversation=conv,
+                            topic=match['topic'],
                             defaults={
-                                'score': round(conf, 4),
-                                'confidence': round(conf, 4),
+                                'score': match['score'],
+                                'confidence': match.get('confidence', 0.5),
+                                'is_primary': match.get('is_primary', False)
                             }
                         )
-                except Exception as e:
-                    print(f"    Error linking message: {e}")
+                    stats['assigned'] += 1
+                    if len(matches) > 1:
+                        stats['multi_topic'] += 1
 
-                # ===== DOOR 1: per-message fallback for HDBSCAN outliers (-1) =====
-        outlier_indices = [idx for idx, t in enumerate(topics) if t == -1]
-        fallback_count = 0
-        for idx in outlier_indices:
-            msg = messages[idx]
-            fb_topic, fb_score = mapper.map_message(msg, defined_topics)
-            if fb_topic:
-                try:
-                    conversation = Conversation.objects.filter(
-                        cleaned_text_topic__icontains=msg[:50]
-                    ).first()
-                    if not conversation:
-                        conversation = Conversation.objects.filter(
-                            cleaned_text__icontains=msg[:50]
-                        ).first()
-                    if conversation:
-                        MessageTopic.objects.get_or_create(
-                            conversation=conversation,
-                            topic=fb_topic,
-                            defaults={
-                                'score': round(min(fb_score / 10, 1.0), 4),
-                                'confidence': round(min(fb_score / 10, 1.0), 4),
-                            }
-                        )
-                        fallback_count += 1
-                except Exception as e:
-                    print(f"    🚪 Door 1 error: {e}")
-        print(f"    🚪 Door 1 fallback routed {fallback_count} "
-              f"of {len(outlier_indices)} outlier messages")
-
-
+        # ╔════════════════════════════════════════════╗ 
+        # ║        PHASE 3: Print summary             ║ 
+        # ╚════════════════════════════════════════════╝ 
+        # ✅ MOVED OUTSIDE THE TOPIC LOOP!
+        print(f"\n📊 Multi-Topic Assignment Summary:")
+        print(f"    Total messages: {stats['total']}")
+        print(f"    Messages with topics: {stats['assigned']} ({stats['assigned']/stats['total']*100:.1f}%)")
+        print(f"    Outliers: {stats['outliers']} ({stats['outliers']/stats['total']*100:.1f}%)")
+        print(f"    Multi-topic messages: {stats['multi_topic']}")
+        print(f"    Total topic assignments: {stats['total_assignments']}")
 
     def generate_topic_report(self, messages, topics):
         """Generate a report of discovered topics."""
         report = {
-            'total_messages': len(messages),
+            'total': len(messages),
             'total_topics': len(set([t for t in topics if t != -1])),
             'outliers': sum(1 for t in topics if t == -1),
             'topics': []
@@ -617,7 +626,7 @@ def train_topics(messages=None, min_topic_size=5, use_db_messages=True):
         print("\n" + "=" * 60)
         print("📊 TOPIC MODELING REPORT")
         print("=" * 60)
-        print(f"Total Messages: {report['total_messages']}")
+        print(f"Total Messages: {report['total']}")
         print(f"Topics Discovered: {report['total_topics']}")
         print(f"Outliers: {report['outliers']}")
         print("\n📑 Topics:")

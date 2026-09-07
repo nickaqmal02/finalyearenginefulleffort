@@ -3,6 +3,7 @@ import json
 import logging
 import re
 from pathlib import Path
+from chat_analyzer.services.malay_normalizer import MalayNormalizer
 
 from django.db.models import Q
 
@@ -13,6 +14,8 @@ class MalayTextCleaner:
 
     def __init__(self, data_dir=None):
 
+        # load our normalizer
+        self.normalizer =  MalayNormalizer()
         # ok now we need to load the 
         if data_dir is None:
             self.data_dir = Path(__file__).parent.parent / 'data'
@@ -23,6 +26,7 @@ class MalayTextCleaner:
         self.typo_mapping = self.load_json('typo_mapping.json')
         self.emoji_mapping = self.load_json('emoji_mapping.json')
         self.slang_mapping = self.load_json('slang_mapping.json')
+        self.root_mapping = self.load_json('root_mapping.json')
         self.curse_words = self.load_curse_words()
 
         # Load domain words topic modeling (therapy-specific terms to KEEP)
@@ -39,11 +43,10 @@ class MalayTextCleaner:
         # Combine all mappings
         self.all_mappings = {**self.typo_mapping, **self.slang_mapping}
         
-        # added words that weird if we stem it
+        # stemming stem_exceptions
         self.stem_exceptions = {
-            'mengamuk', 'halaman', 'teratur', 'berjaga',
+            'berumah','berapi', 'perkembangan'
         }
-        #
 
         try:
             from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
@@ -74,6 +77,10 @@ class MalayTextCleaner:
         else:
             logger.warning(f"File not found: {filename}")
             return {}
+
+    # defining normalizer function 
+    def normalize(self, word):
+        return self.normalizer.normalize(word)
 
     def load_domain_words_topic(self):
         """Load therapy-specific domain words with comment support."""
@@ -278,14 +285,12 @@ class MalayTextCleaner:
                 filtered.append(word)
                 continue
             # STEM firs so 'mengamuk' -> 'amuk' before stopwords check
-            if word in self.stem_exceptions:
-                stemmed = word
-            else:
-                stemmed = self.stemmer.stem(word) if self.stemmer else word
-            # remove if in topic stopwords or too short
-            if stemmed not in self.topic_stopwords and len(stemmed) > 2:
-                filtered.append(stemmed)
+            normalized = self.normalize(word)
 
+            if normalized not in self.topic_stopwords and len(normalized) > 2:
+                filtered.append(normalized)
+
+        # remove duplicates while preserving
         filtered = self._dedupe_tokens(filtered) # this is where we call the deduplication method
         return ' '.join(filtered)
 
