@@ -131,10 +131,10 @@ class Command(BaseCommand):
         self.stdout.write('   This may take a few minutes...\n')
 
         # Get messages as list
-        messages = list(messages_qs.values_list(field_name, flat=True))
+        pairs = list(messages_qs.values_list("id", field_name))
 
         result = train_topics(
-            messages=messages,
+            messages=pairs,
             min_topic_size=min_topic_size
         )
 
