@@ -47,6 +47,50 @@
   (topic_mapper.py, topic_modeler.py, text_cleaner.py, admin.py, requirements.txt, generate_fixtures.py, fixtures/).
 - Lesson 9 (lazy loading + py_compile) discussed but not yet appended to `LessonLearnFinal.md`.
 
+## 2026-09-23 — Run 8: Topic QUALITY (8a seed de-overlap + 8b primary election + 8c coverage override)
+
+### What we did today (3 sub-runs, each one variable)
+- **8a — Seed de-overlap:** Audited all 12 seed keyword lists. Found 11 stems owned by >1 topic (main in 4 lists,
+  sayang/menangis/rasa/gembira/syukur/fokus/cerita/interaksi/sesi/raung each in 2). For each: domain ruling on which
+  topic keeps it (sayang→Sensory, main→Physical, gembira+syukur→Parental, fokus→School, cerita→Social, interaksi→Speech,
+  sesi→Treatment, raung→Tantrum). Therapy Progress gutted of all evaluators (bagus/makin/terus/improve/hasil/kurang/
+  tahniah/perubahan) — kept only therapy-specifics (perkembangan/fasa/konsisten/terapi/maju/proses). Result: 0 collisions.
+- **8b — Primary election fix:** `map_cluster_with_alternatives` retired the `min_gap` requirement. Gap was calibrated
+  for greedy seeds (Therapy 3.5 vs Sensory 2.0 = gap 1.5). After 8a balanced scores (Therapy 2.5 vs Sensory 2.0 = gap
+  0.5 < 1.0), 115/124 rows lost their primary. Retiring gap restored 123/124 primaries.
+- **8c — Full-coverage override (Door 1):** For each deduped text, stem all tokens and check if exactly ONE topic
+  covers ALL of them (`hits == len(tokens) and hits > 0 → coverage[topic] = hits; if len(coverage) == 1 → override`).
+  Fires before cluster inheritance (Door 2) and outlier fallback (Door 3). Override writes primary=True, confidence=0.9.
+
+### Results — verified from DB
+- covered: 123/124 | primaries: 123 | no_primary: 0
+- Sleep Patterns: 0 → **6** (3× 'tidur' + 'malam tidur' + 2 more) ← THE GOAL
+- Parental Emotions: 0 → **8** (syukur, gembira) ← BONUS
+- Physical Development: 25 → **28** (kerja jalan) ← BONUS
+- Treatment Methods: 1 → **4** (sesi) ← BONUS
+- Sensory: 116 → **92** | Therapy: 116 → **92** ← de-overlap reduced greedy swallowing
+- Probe: [2482] 'tidur' → Sleep(primary=True) ✅ | [2483] 'malam tidur' → Sleep(primary=True) ✅
+- Commit: aa40d11, pushed to origin/main
+
+### What Nik learned
+- Three-door architecture: (1) coverage override [supervised, unambiguous msgs],
+  (2) cluster inheritance [unsupervised HDBSCAN + supervised cluster→topic mapping],
+  (3) outlier fallback [supervised direct keyword match]. Each door has an exit condition;
+  only Door 1 overrides — Doors 2+3 defer to the cluster or direct mapping.
+- HDBSCAN + c-TF-IDF serve the ~88 ambiguous messages whose words span multiple topics;
+  coverage handles the ~15 unambiguous ones with zero ML compute. Hybrid = both, not either/or.
+- Threshold recalibration: a threshold tuned for one distribution (greedy seeds) breaks on another (de-overlapped).
+  `min_gap=1.0` assumed Therapy would dominate; when 8a balanced scores, the gap died everywhere.
+- `> 1` vs `== 1`: one character bug that fired the override on TIES instead of unambiguous matches.
+  Simulation proved the design worked; the bug was in the condition, not the logic.
+
+### What's next
+1. **MVP build:** DRF API layer (topics/conversations/messages endpoints, serializers, role-based permissions).
+   Django templates + Chart.js for dashboard — API-first so React can consume later.
+2. Parked (post-MVP): transform-only path (analyze_new_messages), ClientTopicScore/TopicTrend,
+   HDBSCAN tuning (blob → more clusters), TypedDict TopicMatch + mypy CI.
+
+
 ## 2026-09-23 — Run 7: ID-pair plumbing kills the icontains lottery (topic pipeline COMPLETENESS closed)
 
 ### What we did today
