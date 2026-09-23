@@ -254,13 +254,23 @@ class MalayTopicModeler:
                 return None
 
         # preprocess_messages with aggressive cleaning
-        messages = self.preprocess_messages(messages)
+        # pairs in: {conversation_id, text} -- dedupe by text, always remember all ids
+        # declaring some dict
+        text_to_ids = {}
 
-        if len(messages) < 10:
-            print(f"❌ Not enough messages for topic modeling ({len(messages)}) messages, need at least 10")
+        for conv_id, text in messages:
+            key = text.strip().lower()
+            if not key:
+                continue
+            text_to_ids.setdefault(key, []).append(conv_id)
+
+        texts = self.preprocess_messages(list(text_to_ids.keys()))
+
+        if len(texts) < 10:
+            print(f"❌ Not enough messages for topic modeling ({len(texts)}) messages, need at least 10")
             return None
 
-        print(f" Training on {len(messages)} messages")
+        print(f" Training on {len(texts)} messages")
         print(f"    Min topic size: {min_topic_size}")
 
         # train the model
@@ -268,7 +278,7 @@ class MalayTopicModeler:
 
         try:
             self.topic_model.min_topic_size = min_topic_size
-            topics, probabilities = self.topic_model.fit_transform(messages)
+            topics, probabilities = self.topic_model.fit_transform(texts)
 
             # get the topic info
             topic_info = self.topic_model.get_topic_info()
@@ -291,7 +301,8 @@ class MalayTopicModeler:
                 'probabilities': probabilities,
                 'topic_info': topic_info,
                 'num_topics': num_topics,
-                'messages': messages
+                'messages': texts,
+                'text_to_ids': text_to_ids,
             }
 
         except Exception as e:
@@ -370,7 +381,7 @@ class MalayTopicModeler:
             traceback.print_exc()
             return False
 
-    def save_topics_to_db(self, topics, probabilities, messages):
+    def save_topics_to_db(self, topics, probabilities, messages, text_to_ids=None):
         """
         Save topics to database with better filtering.
         updating multi topic for each messages
@@ -387,6 +398,7 @@ class MalayTopicModeler:
         # ╔════════════════════════════════════════════╗ 
         # ║  PHASE 1: MAP EACH CLUSTER TO THE TOPICS   ║ 
         # ╚════════════════════════════════════════════╝ 
+        # THIS WHOLE THINGS WAS MADE UP FROM HBDSCAN
         cluster_mapping = {}
         for topic_id in unique_topics:
             keywords = self.topic_model.get_topic(topic_id)
@@ -426,73 +438,61 @@ class MalayTopicModeler:
         # ╔════════════════════════════════════════════╗ 
         # ║   PHASE 2: ASSIGN TOPICS TO EACH MESSAGE   ║ 
         # ╚════════════════════════════════════════════╝ 
+        # the stats dictionary below still empty but we only declare the key
         stats = {
             'total': len(messages),
             'assigned': 0,
             'outliers': 0,
             'multi_topic': 0,
             'total_assignments': 0,
+            'rows_written': 0,
         }
+
+        all_ids = [cid for ids in (text_to_ids or {}).values() for cid in ids]
+        conv_map = Conversation.objects.in_bulk(all_ids)
+        unmapped_ids = set(all_ids)
 
         for idx, msg in enumerate(messages):
             topic_id = topics[idx]
-
-            # find the conversations
-            conv = Conversation.objects.filter(
-                cleaned_text_topic__icontains=msg[:50]
-            ).first()
-
-            if not conv:
-                continue
 
             stats['total_assignments'] += 1
 
             # Case 1: This message belongs to a cluster
             if topic_id != -1 and topic_id in cluster_mapping:
                 matches = cluster_mapping[topic_id]
+            # case 2 outliers try door 1 fallback
+            else:
+                stats['outliers'] += 1
+                # use this new method we create
+                matches = self.mapper.map_message_with_alternatives(
+                    msg, defined_topics,
+                    threshold=self.mapper.threshold * 0.5
+                ) or []
+                
+            if not matches:
+                continue # stays unmapped_ids if not mathc
 
-                # we save all matching topics for this message
+            stats['assigned'] += 1
+            if len(matches) > 1:
+                stats['multi_topic'] += 1
+
+            # we expand: which is EVERY DB row sharing this text gets the topics
+            for conv_id in conv_ids:
+                conv = conv_map.get(conv_id)
+                if conv is None:
+                    continue
+                unmapped_ids.discard(conv_id)
+                stats['rows_written'] += 1
                 for match in matches:
                     MessageTopic.objects.get_or_create(
                         conversation=conv,
                         topic=match['topic'],
                         defaults={
                             'score': match['score'],
-                            'confidence': match['confidence'],
-                            'is_primary': match['is_primary']
+                            'confidence': match.get('confidence', 0.5),
+                            'is_primary': match.get('is_primary', False),
                         }
                     )
-                if len(matches) > 1:
-                    stats['multi_topic'] += 1
-
-                stats['assigned'] += 1
-
-            # case 2 outliers try door 1 fallback
-            else:
-                stats['outliers'] += 1
-                
-                # use this new method we create
-                matches = self.mapper.map_message_with_alternatives(
-                    msg,
-                    defined_topics,
-                    threshold=self.mapper.threshold * 0.5
-                )
-                
-                if matches:
-                    for match in matches:
-                        MessageTopic.objects.get_or_create(
-                            conversation=conv,
-                            topic=match['topic'],
-                            defaults={
-                                'score': match['score'],
-                                'confidence': match.get('confidence', 0.5),
-                                'is_primary': match.get('is_primary', False)
-                            }
-                        )
-                    stats['assigned'] += 1
-                    if len(matches) > 1:
-                        stats['multi_topic'] += 1
-
         # ╔════════════════════════════════════════════╗ 
         # ║        PHASE 3: Print summary             ║ 
         # ╚════════════════════════════════════════════╝ 
@@ -614,7 +614,8 @@ def train_topics(messages=None, min_topic_size=5, use_db_messages=True):
         modeler.save_topics_to_db(
             result['topics'],
             result['probabilities'],
-            result['messages']
+            result['messages'],
+            result['text_to_ids'],
         )
 
         # Generate report

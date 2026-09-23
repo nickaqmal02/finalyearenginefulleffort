@@ -130,7 +130,7 @@ class Command(BaseCommand):
         self.stdout.write(f'\n🚀 Training topics with min size {min_topic_size}')
         self.stdout.write('   This may take a few minutes...\n')
 
-        # Get messages as list
+        # Get messages as list which is in ('a', 'b', 'c')
         pairs = list(messages_qs.values_list("id", field_name))
 
         result = train_topics(

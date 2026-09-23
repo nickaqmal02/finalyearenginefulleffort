@@ -86,3 +86,16 @@ cd autism-center-analyzer
 ```
 
 
+### still in training phase
+
+```bash
+
+python manage.py reset_topics --confirm
+
+python manage.py train_topics --verbose
+
+
+
+
+```
+

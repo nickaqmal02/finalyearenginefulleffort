@@ -138,18 +138,20 @@ class TopicMapper:
 # ╔════════════════════════════════════════════╗ 
 # ║       MAP MESSAGE WITH ALTERNATIVES        ║ 
 # ╚════════════════════════════════════════════╝ 
-    def map_message_with_alternatives(self, text, defined_topics, threshold=0.5):
+    def map_message_with_alternatives(
+        self,
+        text: str,
+        defined_topics: list[Topic],
+        threshold: float = 0.5,
+    ) -> list[dict[str, object]]:
         """
         Map a single message to All matching topics above threshold
         """
-        
         # 1. stem all tokens in the message
         tokens = [self.stem(t) for t in text.split() if self.stem(t)]
-
         # but
         if not tokens:
             return []
-
         # 2. score againts all defined topics
         results = []
         for topic in defined_topics:

@@ -50,4 +50,62 @@ result = train_topics(
 )
 
 
+# why value_list ??: means that only returning those columns from the database, not full objects.
+
+messages = Message.objects.all() # to take all values in those objects
+
+messages = list(Message.objects.values_list("id", field_name))
+
+```
+
+## WHAT WILL PROFESSIONAL DO TO TEST SOME FUNCTION OR SETUP ?? BEFORE ACTUALLY IMPLEMENT IT ON FULL PRODUCTION CODE?? ALWAYS TEST IT USING PYTHON SHELL !!
+
+example ??
+
+```bash
+python manage.py shell -c "
+from chat_analyzer.services.topic_modeler import get_topic_modeler
+m = get_topic_modeler
+m.preprocess_message([(1, 'tidur'), (2,'makan nasi')])
+"
+
+```
+
+## when to use enumerate ??
+> when we need to creating some fake indexing
+
+
+##
+
+```python
+text_to_ids = {
+    "Hello": [1, 2, 3],      # key = text (str), value = list of IDs
+    "World": [4, 5],
+    "Hi":    [6],
+}
+
+than how do we preprocess if text_to_ids in dictionary ?? also have keys right ??
+
+here is the magic
+
+we sending out our key from those text_to_ids dict, but how ??
+
+texts = self.preprocess_messages(list(text_to_ids.keys()))
+
+    .keys() means we only send keys which is the word
+
+
+    all_ids = [cid for ids in (text_to_ids).values() for cid in ids]
+
+    # this stay that first we say ok cid is for ids in text_to_ids.values()
+# and then we put it all into list of ids for all cid in ids make it list of ids
+    conv_map = {c.id: c for c in Conversation.objects.in_bulk(all_ids)}
+    # take all the ids of conversation make it into dicstionary
+
+unmapped_ids = set(all_ids)
+
+# we unmapped by putting it into set
+
+
+
 ```
