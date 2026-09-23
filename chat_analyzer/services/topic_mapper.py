@@ -52,7 +52,12 @@ class TopicMapper:
 # ╔════════════════════════════════════════════╗ 
 # ║MAPPING THIS CLUSTER LEVEL WITH ALTERNATIVES║ 
 # ╚════════════════════════════════════════════╝ 
-    def map_cluster_with_alternatives(self, bertopic_keywords, defined_topics, threshold=0.5):
+    def map_cluster_with_alternatives(
+        self,
+        bertopic_keywords: list[tuple[str, float]],
+        defined_topics: list[Topic],
+        threshold: float = 0.5,
+    ) -> list[dict[str, object]]:
         """
             This is one of our enhancement 
             the difference we already set lower threshold for this method

@@ -109,3 +109,140 @@ unmapped_ids = set(all_ids)
 
 
 ```
+
+### the differences between list and tuple
+
+#### LIST [1,2,3]
+- can change
+- speed slower
+- memory more
+- methods - bnyk append remove etc
+- use case when data change
+
+#### TUPLE (1,2,3)
+- cant change
+- faster
+- less
+- method few (count, index only)
+- when data is fixed we use tuple
+- Fast
+
+#### SET {1,2,3}
+- No duplicates
+- Unordered
+- Mutable
+- Super fast 
+
+
+##### mutability
+
+```python
+""" LIST just like what we do in MATLAB"""
+mylist = []
+mylist = [1,2,3]
+mylist.append(4) # add to end
+mylist.pop() # remove from end
+mylist.insert(0, 0) # insert at position
+mylist.remove(2)
+mylist.sort() # sort in place
+mylist.extend([5, 6]) # add multiple time
+mylist.clear() # remove all
+len(mylist)
+
+""" TUPLE """
+mytuple = ()
+mytuple = (1,2,3)
+mytuple.count(2) # how many 2 appears
+mytuple.index(3) 
+mytuple = (42, ) # must have comma
+
+""" SET - UNORDERED, CHANGEABLE, NO DUPLICATES """
+# empty set (can't use {} - that's a dict)
+myset = set()
+
+numbers = {1,2,3}
+
+myset = set([1,1,2,3,3])
+
+# common operation
+numbers = {1, 2, 3}
+
+# Add
+numbers.add(4)            # → {1, 2, 3, 4}
+
+# Remove
+numbers.remove(2)         # ❌ Error if not found
+numbers.discard(2)        # ✅ Safe, no error if not found
+numbers.pop()             # remove random item
+numbers.clear()           # remove all
+
+# Check
+3 in numbers              # → True
+len(numbers)             # → length
+
+# with math much more useful
+A = {1,2,3,4}
+B = {3,4,5,6}
+
+# union (combine)
+A | B
+A.union(B)
+
+A & B
+A.intersection(B)
+
+A - B # what have in A not have in B
+A.difference(B)
+
+A ^ B # the difference of both -> {1,2,5,6}
+
+person = {"name": "Alice", "age": 25, "city": "NYC"}
+
+person.keys()    # → dict_keys(["name", "age", "city"])
+person.values()  # → dict_values(["Alice", 25, "NYC"])
+person.items()   # → dict_items([("name", "Alice"), ("age", 25), ("city", "NYC")])
+
+4. DICT — Key-Value pairs, changeable, NO duplicate keys
+Create
+# Empty dict
+my_dict = {}
+my_dict = dict()
+
+# With items
+person = {
+    "name": "Alice",
+    "age": 25,
+    "city": "NYC"
+}
+
+# From pairs
+person = dict([("name", "Alice"), ("age", 25)])
+Common operations
+person = {"name": "Alice", "age": 25}
+
+# Access
+person["name"]              # → "Alice"
+person.get("name")          # → "Alice"
+person.get("phone", "N/A") # → "N/A" (safe, no error if missing)
+person["phone"]             # ❌ KeyError if missing!
+
+# Add / Update
+person["email"] = "alice@mail.com"   # add new
+person["age"] = 26                    # update existing
+
+# Remove
+person.pop("email")         # remove and return value
+del person["age"]           # remove by key
+person.clear()              # remove all
+
+# Check
+"name" in person           # → True (checks KEYS only!)
+len(person)                # → number of keys
+
+
+
+"""THE VERDICT"""
+~ use list when data changes overtime, use tuple when u dont wanna add remove data without accidentally add or remove days
+
+
+```

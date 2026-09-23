@@ -221,14 +221,24 @@ for topic in defined_topics:
 
 > **Tier 2**: Cluster Inheritance (unsupervised + supervised): Messages that fail the coverage check are routed to the BERTopic pipelien. which is XLME embedding -> UMAP dimensionality reduction -> HBDSCAN density clustering group semantically similar messages. c-TF-IDF extracts each cluster's representative terms. A supervised TopicMapper then scores those terms againts the 12 seeded topics using rank-weighted
 
-> **Tier 3** Outlier Fallback (supervised direct)
-
-
+> **Tier 3** Outlier Fallback (supervised direct): outliers get the direct keyword match instead. 
 
 # **IN A SIMPLE WORDS**
 "if the message's words are unanimous -> keyword override, no ML needed"
 "if not -> BERTopic clusters by semantic similarity, cluster inherits a mapped topic"
 "if HDBSCAN rejects -> direct keyword fallback, zero orphans"
+
+## Ok but how the **FULL STORY**
+
+1. Upload parses WhatsApp, dual-cleans method separates (light for sentiment and heavy for topics modeling), and saves each message with XLM-R sentiment inline.
+
+2. Training dedupes by text (103 unique from 124), embeds with XLM-R, reduces with UMAP, clusters it with HBDSCAN, and names clusters with c-TF-IDF.
+
+3. **Cluster mapping** scores each cluster's representative words againts the 12 seeded therapy topics multiple topics ca match one cluster, best scorer then will takes primary.
+
+4. **Three doors to mappping**: coverage override (message's words are unanimous -> direct assignment, no ML), cluster Inheritance (message inherits its cluster's mapped topics), outlier fallback (rejected messages get direct keyword matching).
+
+5. **The data contract**: carries (conversation_id, text) pairs through everything - text_to_ids deduplicates for training.
 
 
 

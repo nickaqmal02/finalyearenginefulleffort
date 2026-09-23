@@ -187,7 +187,12 @@ class MalayTopicModeler:
             self.is_loaded = False
             return False
 
-    def train(self, messages=None, min_topic_size=5, use_db_messages=True):
+    def train(
+        self,
+        messages: list[tuple[int, str]],
+        min_topic_size: int = 5,
+        use_db_messages=True
+    ) -> dict[str, object] | None:
         """
         Train the topic model on messages.
 
@@ -381,7 +386,13 @@ class MalayTopicModeler:
             traceback.print_exc()
             return False
 
-    def save_topics_to_db(self, topics, probabilities, messages, text_to_ids=None):
+    def save_topics_to_db(
+        self,
+        topics: list[int],
+        probabilities: list[float] | None,
+        messages: list[str],
+        text_to_ids: dict[str, list[int]] | None = None,
+    ):
         """
         Save topics to database with better filtering.
         updating multi topic for each messages
@@ -586,7 +597,11 @@ def get_topic_modeler():
         _topic_modeler = MalayTopicModeler()
     return _topic_modeler
 
-def train_topics(messages=None, min_topic_size=5, use_db_messages=True):
+def train_topics(
+    messages: list[tuple[int,str]] | None = None,
+    min_topic_size: int = 5,
+    use_db_messages: bool = True,
+) -> dict[str, object] | None:
     """
     Train topic model on messages.
 
