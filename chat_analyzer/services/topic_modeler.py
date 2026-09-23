@@ -454,12 +454,39 @@ class MalayTopicModeler:
 
         for idx, msg in enumerate(messages):
             topic_id = topics[idx]
+            conv_ids = (text_to_ids or {}).get(msg, [])
 
-            stats['total_assignments'] += 1
+            # full coveragae message's own words elect primary
+            tokens = [self.mapper.stem(t) for t in msg.split() if self.mapper.stem(t)]
+            coverage = {}
+
+            for topic in defined_topics:
+                topic_stems = {self.mapper.stem(k) for k in topic.keywords}
+                hits = sum(1 for t in tokens if t in topic_stems)
+                if hits == len(tokens) and hits > 0:
+                    coverage[topic] = hits
+
+            if len(coverage) == 1:
+                # override this message topic
+                override_topic = list(coverage.keys())[0]
+
+                for conv_id in conv_ids:
+                    conv = conv_map.get(conv_id)
+                    if conv is None:
+                        continue
+                    unmapped_ids.discard(conv_id)
+                    stats['rows_written'] += 1
+                    MessageTopic.objects.get_or_create(
+                        conversation=conv,
+                        topic=override_topic,
+                        defaults={'score': 2.0, 'confidence': 0.9, 'is_primary': True}
+                    )
+                stats['assigned'] += 1
+                continue # skip cluster inheritence for this text
 
             # Case 1: This message belongs to a cluster
             if topic_id != -1 and topic_id in cluster_mapping:
-                matches = cluster_mapping[topic_id]
+                matches = cluster_mapping[topic_id] # malam tidur actually die here
             # case 2 outliers try door 1 fallback
             else:
                 stats['outliers'] += 1

@@ -85,7 +85,6 @@ cd autism-center-analyzer
 
 ```
 
-
 ### still in training phase
 
 ```bash
@@ -94,8 +93,9 @@ python manage.py reset_topics --confirm
 
 python manage.py train_topics --verbose
 
-
-
-
 ```
+
+
+
+# WHAT SHALL I DO NEXT ? FOR IMPROVEMENT AND ENHANCEMENT
 

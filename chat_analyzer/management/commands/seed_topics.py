@@ -28,12 +28,12 @@ class Command(BaseCommand):
         {
             "name": "Social Interaction",
             "description": "Peer relationships, play skills, social engangement",
-            "keywords": ["bermain","panggil","berinteraksi","interaksi","mengadu","sahabat","kawankawan","minta","maklum","cerita","main", "kawan", "gaul", "kongsi", "rakan", "sosial"],
+            "keywords": ["panggil","mengadu","sahabat","kawankawan","minta","maklum","cerita","kawan", "gaul", "kongsi", "rakan", "sosial"],
         },
         {
             "name": "School & Academic Progress",
             "description": "School Performance, learning, focus, academic milestones",
-            "keywords": ["baca","membaca","tahfiz","pembelajaran","pandai","cerita","paham","explain","school","sekolah", "cikgu", "fokus", "belajar", "baca", "tulis", "kelas"],
+            "keywords": ["baca","membaca","tahfiz","pembelajaran","pandai","paham","explain","school","sekolah", "cikgu", "fokus", "belajar", "baca", "tulis", "kelas"],
         },
         {
             "name": "Physical Development",
@@ -43,12 +43,12 @@ class Command(BaseCommand):
         {
             "name": "Therapy Progress",
             "description": "Treatment outcomes, improvements, development phase",
-            "keywords": ["bermain","sayang","bagus","sesi","makin","perkembangan","fasa","terus","improve","konsisten","berhenti","kurang","hasil","therapy","improvement","semakin baik","tahniah","perkembangan","hasil","perubahan","rawatan","syukur","ubah", "terapi", "maju", "perubahan", "proses"],
+            "keywords": ["perkembangan","fasa","konsisten","therapy","terapi","improvement","improve","maju","proses"],
         },
         {
             "name": "Parental Emotions",
             "description": "Parent feelings, stress, hopes, emotional wellbeing",
-            "keywords": ["raung","suka","risau", "sedih", "kecewa", "stress", "penat", "gembira", "syukur"],
+            "keywords": ["suka","risau","sedih","kecewa","stress","penat","gembira","syukur"]
         },
         {
             "name": "Family Environment",
@@ -58,7 +58,7 @@ class Command(BaseCommand):
         {
             "name": "Sensory Integration",
             "description": "Sensory processing, stimuli response, attention regulation",
-            "keywords": ["sayang","bermain","menangis","gembira","rasa","kasih sayang","eye contact","seronok","sensory", "rangsangan", "fokus", "perhatian", "integrasi"],
+            "keywords": ["sayang","kasih sayang","rasa","eye contact","seronok","sensory","rangsangan","perhatian","integrasi"]
         },
         {
             "name": "Treatment Methods",

@@ -92,7 +92,7 @@ class TopicMapper:
             gap = best['score'] - second_score
 
             #primaru topic: must meet the threshold + gap if wanna be primary
-            if best['score'] >= self.threshold and gap >= self.min_gap:
+            if best['score'] >= self.threshold:
                 best['is_primary'] = True
             else:
                 best['is_primary'] = False
