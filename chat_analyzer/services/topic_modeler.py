@@ -154,8 +154,8 @@ class MalayTopicModeler:
             self.vectorizer = CountVectorizer(
                 stop_words=all_stopwords, # filter all stopwords
                 ngram_range=(1, 2), # detecting words like anxiety attacks
-                min_df=2, # keep words appearing in >= 2 cluster documents (run 7: middle ground — 3 hid tidur, 1 collapsed clusters) 
-                max_df=0.75, # ignore words too common 
+                min_df=1, # keep words appearing in >= 1 doc (relaxed from 2 — small clusters need this)
+                max_df=0.95, # ignore words too common (raised from 0.75 — fixes empty range error)
                 max_features=500 # keep that top 500 words
             )
             print(f"✅ Vectorizer configured with {len(all_stopwords)} stopwords")

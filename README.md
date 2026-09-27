@@ -89,6 +89,9 @@ cd autism-center-analyzer
 
 ```bash
 
+# reclean the chats
+python manage.py reclear_clean
+
 python manage.py reset_topics --confirm
 
 python manage.py train_topics --verbose
@@ -106,5 +109,13 @@ we actually use
 
 
 
-# WHAT SHALL I DO NEXT ? FOR IMPROVEMENT AND ENHANCEMENT
+# WHAT SHALL I DO NEXT ? FOR IMPROVEMENT AND ENHANCEMENT\
+
+##### VULNERABILITIES 1: NEED ONLY TRAIN TOPIC MODELING ON CLIENT CONVERSATION NOT THERAPIST
+
+
+#### the system when through several iterations 
+
+TO DO TOMORROW
+- FIX THE TOPIC MODELING SETUP ONLY FOR THERAPIST MESSAGE NOT ALL
 
