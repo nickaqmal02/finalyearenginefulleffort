@@ -1,0 +1,38 @@
+{% extends "chat_analyzer/admin/base_site.html" %}
+
+{% block content %}
+<div id="content-main">
+    <div style="max-width: 600px; margin: 20px auto;">
+        
+        <p>Upload a whatsapp export .txt file and associate it with a
+        client.</p>
+
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <fieldset class="module aligned">
+                {% for field in form %}
+                <div class="form-row">
+                    {{ field.errors }}
+                    <div>
+                        <label for="{{ field.id_for_label }}" class="required">
+                            {{ field.label }}{% if field.field.required %}<span class="asterisk">*</span>{% endif %}
+                        </label>
+                        {{ field }}
+                        {% if field.help_text %}
+                        <p class="help">{{ field.help_text }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </fieldset>
+
+            <div class="submit-row">
+                <input type="submit" value="Upload and Process" class="default">
+                <a href="{% url 'admin:chat_analyzer_conversation_changelist' %}" class="button"> Cancel </a>
+            </div>
+
+        </form>
+    </div>
+
+</div>
+{% endblock %}

@@ -615,35 +615,39 @@ def train_topics(
     # If messages not provided, fetch from database
     if messages is None and use_db_messages:
         # Try to use cleaned_text_topic first (topic modeling specific cleaning)
-        messages = list(
+        # Fetch as (id, text) pairs so train() can dedupe with text_to_ids expansion map
+        pairs = list(
             Conversation.objects.filter(
                 cleaned_text_topic__isnull=False
             ).exclude(
                 cleaned_text_topic=''
-            ).values_list('cleaned_text_topic', flat=True)
+            ).values_list('id', 'cleaned_text_topic')
         )
 
-        # Fallback to cleaned_text (sentiment cleaning)
-        if not messages:
+        if pairs:
+            messages = pairs  # train() expects list[tuple[int, str]]
+        else:
+            # Fallback to cleaned_text (sentiment cleaning)
             print("⚠️ No topic-cleaned messages found, falling back to cleaned_text")
-            messages = list(
+            pairs = list(
                 Conversation.objects.filter(
                     cleaned_text__isnull=False
                 ).exclude(
                     cleaned_text=''
-                ).values_list('cleaned_text', flat=True)
+                ).values_list('id', 'cleaned_text')
             )
-
-        # Final fallback to raw messages
-        if not messages:
-            print("⚠️ No cleaned messages found, using raw messages")
-            messages = list(
-                Conversation.objects.filter(
-                    message__isnull=False
-                ).exclude(
-                    message=''
-                ).values_list('message', flat=True)
-            )
+            if pairs:
+                messages = pairs
+            else:
+                # Final fallback to raw messages
+                print("⚠️ No cleaned messages found, using raw messages")
+                messages = list(
+                    Conversation.objects.filter(
+                        message__isnull=False
+                    ).exclude(
+                        message=''
+                    ).values_list('message', flat=True)
+                )
 
     if not messages or len(messages) == 0:
         print("❌ No messages found in database!")

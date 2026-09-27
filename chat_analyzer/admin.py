@@ -5,6 +5,10 @@ from .forms import CustomUserCreationForm, CustomUserChangeForm
 import csv
 from django.http import HttpResponse
 from django.utils.safestring import mark_safe
+from django.shortcuts import redirect, render
+from django import forms
+from django.urls import path
+from chat_analyzer.services.upload_service import process_whatsapp_upload
 from .models import(
     User,
     ClientContact,
@@ -242,12 +246,40 @@ class DoctorSpecialty(admin.ModelAdmin):
     search_fields = ['doctor__first_name', 'doctor__last_name', 'specialty__specialty_name']
     raw_id_fields = ['doctor', 'specialty']
 
-# ╔════════════════════════════════════════════╗ 
-# ║        8. CONVERSATION SECTON 💬         ║ 
-# ╚════════════════════════════════════════════╝ 
-# 
+class UploadChatForm(forms.Form):
+    """Form for uploading WhatsApp .txt files from the admin panel."""
+    client = forms.ModelChoiceField(
+        queryset=User.objects.filter(role='client', is_active=True),
+        help_text="Select the client this chat is about",
+    )
+    chat_file = forms.FileField(label='WhatsApp .txt file')
+    chat_type = forms.ChoiceField(
+        choices=Conversation.CHAT_TYPES,
+        initial='individual',
+        help_text="What type of chat is this?",
+    )
+    therapist = forms.ModelChoiceField(
+        queryset=User.objects.filter(role='therapist', is_active=True),
+        help_text="required for one to one chats, optional for group/admin chats",
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        chat_type = cleaned_data.get('chat_type')
+        therapist = cleaned_data.get('therapist')
+
+        if chat_type == 'individual' and not therapist:
+            raise forms.ValidationError(
+                "1-on-1 chats require a therapist. Select which therapist this chat was with"
+            )
+        return cleaned_data
+# ╔════════════════════════════════════════════╗
+# ║        8. CONVERSATION SECTON 💬         ║
+# ╚════════════════════════════════════════════╝
+#
 @admin.register(Conversation)
 class ConversationAdmin(admin.ModelAdmin):
+    change_list_template = 'chat_analyzer/admin/conversations/change_list.html'
     list_display = [
         'client',
         'therapist',
@@ -408,10 +440,63 @@ class ConversationAdmin(admin.ModelAdmin):
             ' border-radius: 3px; margin: 1px; font-size: 11px;">{} {} ({})</span>',
             (badge_parts(mt) for mt in links),
         )
-    topic_tags_display.short_description = 'Topics'            
+    topic_tags_display.short_description = 'Topics'
 
-# ╔════════════════════════════════════════════╗ 
-# ║        9. UNMATCHED MESSAGE ADMIN          ║ 
+    def get_urls(self):
+        """Add custom upload URL to admin."""
+        urls = super().get_urls()
+        custom = [
+            path(
+                'upload-chats/',
+                self.admin_site.admin_view(self.upload_chats_view),
+                name='chat_analyzer_conversation_upload', # this is actually we use in the 
+            ),
+        ]
+        return custom + urls
+
+    def upload_chats_view(self, request):
+        """Custom view: therapist/admin uploads WhatsApp .txt from admin panel."""
+        if request.method == 'POST':
+            form = UploadChatForm(request.POST, request.FILES)
+            if form.is_valid():
+                result = process_whatsapp_upload(
+                    file_path_or_file=request.FILES['chat_file'],
+                    client_id=form.cleaned_data['client'].id,
+                    uploader_id=request.user.id,
+                    chat_type=form.cleaned_data['chat_type'],
+                )
+                if 'error' in result:
+                    self.message_user(request, f"❌ {result['error']}", level='ERROR')
+                else:
+                    # auto-retrain topics
+                    from chat_analyzer.services.topic_modeler import train_topics
+                    try:
+                        train_topics()
+                    except Exception as e:
+                        self.message_user(
+                            request,
+                            f"⚠️ Topic training failed: {e}",
+                            level='WARNING',
+                        )
+
+                    self.message_user(
+                        request,
+                        f"✅ Saved {result['saved']} messages as '{result.get('file_name', '')}' "
+                        f"({result['positive']} pos / {result['negative']} neg / {result['neutral']} neu) — "
+                        f"topics retrained",
+                    )
+                return redirect('admin:chat_analyzer_conversation_changelist')
+        else:
+            form = UploadChatForm()
+        return render(
+            request,
+            'chat_analyzer/admin/conversations/upload_chats.html',
+            {'form': form, 'title': 'Upload WhatsApp Chat'},
+        )
+
+
+# ╔════════════════════════════════════════════╗
+# ║        9. UNMATCHED MESSAGE ADMIN          ║
 # ╚════════════════════════════════════════════╝ 
 #
 @admin.register(UnmatchedMessage)
