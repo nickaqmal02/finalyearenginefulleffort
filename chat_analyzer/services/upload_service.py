@@ -85,6 +85,7 @@ def process_whatsapp_upload(
     uploader_id: int | None = None,
     batch_id: str | None = None,
     chat_type: str = "individual",
+    therapist_id: int | None = None,
     dry_run: bool = False,
 ) -> dict[str, object]:
     """
@@ -98,6 +99,13 @@ def process_whatsapp_upload(
         batch_id, total, file_name
     Or error/dry_run keys on early exit.
     """
+    therapist = None
+    if therapist_id:
+        try:
+            therapist = User.objects.get(id=therapist_id, role="therapist")
+        except User.DoesNotExist:
+            pass
+
     # 1. Get client + uploader
     try:
         client = User.objects.get(id=client_id, role="client")
@@ -178,6 +186,7 @@ def process_whatsapp_upload(
             # build conversation row
             conversation = Conversation(
                 client=client,
+                therapist=therapist,
                 date=msg["date"],
                 time=msg["time"],
                 username=msg["username"],

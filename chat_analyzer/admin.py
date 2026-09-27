@@ -1,4 +1,5 @@
 from django.contrib import admin
+from .forms import UploadChatForm
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth import get_user_model
 from .forms import CustomUserCreationForm, CustomUserChangeForm 
@@ -246,33 +247,6 @@ class DoctorSpecialty(admin.ModelAdmin):
     search_fields = ['doctor__first_name', 'doctor__last_name', 'specialty__specialty_name']
     raw_id_fields = ['doctor', 'specialty']
 
-class UploadChatForm(forms.Form):
-    """Form for uploading WhatsApp .txt files from the admin panel."""
-    client = forms.ModelChoiceField(
-        queryset=User.objects.filter(role='client', is_active=True),
-        help_text="Select the client this chat is about",
-    )
-    chat_file = forms.FileField(label='WhatsApp .txt file')
-    chat_type = forms.ChoiceField(
-        choices=Conversation.CHAT_TYPES,
-        initial='individual',
-        help_text="What type of chat is this?",
-    )
-    therapist = forms.ModelChoiceField(
-        queryset=User.objects.filter(role='therapist', is_active=True),
-        help_text="required for one to one chats, optional for group/admin chats",
-    )
-
-    def clean(self):
-        cleaned_data = super().clean()
-        chat_type = cleaned_data.get('chat_type')
-        therapist = cleaned_data.get('therapist')
-
-        if chat_type == 'individual' and not therapist:
-            raise forms.ValidationError(
-                "1-on-1 chats require a therapist. Select which therapist this chat was with"
-            )
-        return cleaned_data
 # ╔════════════════════════════════════════════╗
 # ║        8. CONVERSATION SECTON 💬         ║
 # ╚════════════════════════════════════════════╝
@@ -464,6 +438,7 @@ class ConversationAdmin(admin.ModelAdmin):
                     client_id=form.cleaned_data['client'].id,
                     uploader_id=request.user.id,
                     chat_type=form.cleaned_data['chat_type'],
+                    therapist_id=form.cleaned_data.get('therapist').id if form.cleaned_data.get('therapist') else None,
                 )
                 if 'error' in result:
                     self.message_user(request, f"❌ {result['error']}", level='ERROR')

@@ -7,8 +7,43 @@ from crispy_forms.layout import Layout, Submit, Field, Div, HTML, Fieldset
 from django.conf import settings
 from django.forms import inlineformset_factory
 from .utils import normalize_phone_number
+from .models import Conversation
 
 User = get_user_model()
+
+class UploadChatForm(forms.Form):
+    """form for uploading whatsapp .txt files from admin panel"""
+    client = forms.ModelChoiceField(
+        queryset=User.objects.filter(role='client', is_active=True),
+        help_text="select the client this chat is about",
+    )
+    chat_file = forms.FileField(label='WhatsApp .txt file')
+    chat_type = forms.ChoiceField(
+        choices=Conversation.CHAT_TYPES,
+        initial='individual',
+        help_text="What type of chat is this ?",
+    )
+    therapist = forms.ModelChoiceField(
+        queryset=User.objects.filter(role='therapist', is_active=True),
+        help_text="only required when it is about one on one chat",
+    )
+    def clean(self):
+        cleaned_data = super().clean()
+        chat_type = cleaned_data.get('chat_type')
+        therapist = cleaned_data.get('therapist')
+
+        if chat_type == 'individual' and not therapist:
+            raise forms.ValidationError(
+                "1-on-1 chats require a therapist. Select which therapist this chat was with"
+            )
+        return cleaned_data
+
+    
+
+    
+
+
+
 # creating our own custom user creation form
 class CustomUserCreationForm(UserCreationForm):
     """Custom form for creating new users in admin"""
