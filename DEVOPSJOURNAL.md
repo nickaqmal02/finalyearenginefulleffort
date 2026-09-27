@@ -239,10 +239,52 @@ person.clear()              # remove all
 "name" in person           # → True (checks KEYS only!)
 len(person)                # → number of keys
 
+*more information about the dictionary functionality*
+- we can actually declare the data type for dict
+
+```python
+
+scores: dict[str, int] = {"alice": 95, "bob": 87}
+
+# we can also use TypeDict for specific key
+""""TypeDict when keys are fixed"""
+# how to use it then ??
+from typing import TypeDict
+
+class Movie(TypeDict):
+    title: str,
+    year: int
 
 
+m: Movie = {"title": "alien", "year": 1979}
+
+```
 """THE VERDICT"""
 ~ use list when data changes overtime, use tuple when u dont wanna add remove data without accidentally add or remove days
 
 
+
+
+
 ```
+
+# **The difference of logic gate between in views vs and in our core services file**
+
+**in views**
+- is this user are allowed to called this endpoint
+
+**in Business Validation or we called it as a Services function**
+- all logic actually happens over here, so some logic like is this client eligible, is this file readable and is the chat type valid ?
+
+**The verdict is**: This will make our code looks professional and stay clean
+
+
+```
+
+
+# WE HAVE SEVERAL ERROR TRACING IF WE USING TRY CATCH
+
+- except FileNotFoundError:
+- 
+
+

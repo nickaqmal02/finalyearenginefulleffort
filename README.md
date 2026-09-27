@@ -93,6 +93,13 @@ python manage.py reset_topics --confirm
 
 python manage.py train_topics --verbose
 
+# how to run upload chats command ?
+# verify the file first
+python -m py_compile chat_analyzer/management/commands/upload_chats.py
+
+# and then we can run the upload chats commands
+python manage.py upload_chats --file chat_analyzer/sample_chats/fixtures/chat_client10.txt --client-id 10 --dry-run
+
 ```
 
 

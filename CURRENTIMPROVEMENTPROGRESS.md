@@ -240,6 +240,7 @@ for topic in defined_topics:
 
 5. **The data contract**: carries (conversation_id, text) pairs through everything - text_to_ids deduplicates for training.
 
+## **26/09/26**
 
-
-
+- creating upload_service for reusability
+- 
