@@ -268,22 +268,23 @@ class MalayTopicModeler:
         # This fixes the username-vs-fullname mismatch bug (e.g. "AinaRazak" vs "Aina Razak")
         conv_ids = [cid for cid, _ in messages]
         
-        therapist_conv_ids = set(
+        staff_conv_ids = set(
             Conv.objects.filter(
-                id__in=conv_ids, sender__role='therapist' 
+                id__in=conv_ids,
+                sender__role=['therapist', 'admin', 'doctor'] 
             ).values_list('id', flat=True)
         )
 
         # set all conv with conv_ids False type map 
-        conv_therapist_map = {cid: False for cid in conv_ids}
+        conv_staff_map = {cid: False for cid in conv_ids}
 
         # only set True for conv_id in conv_ids
-        for cid in therapist_conv_ids:
-            conv_therapist_map[cid] = True
+        for cid in staff_conv_ids:
+            conv_staff_map[cid] = True
 
         # declaring some dict
         text_to_ids = {}
-        text_to_therapist = {}  # NEW: marks which deduped texts are therapist voices
+        text_to_staff = {}  # NEW: marks which deduped texts are therapist voices
 
         for conv_id, text in messages:
             key = text.strip().lower()
@@ -293,14 +294,14 @@ class MalayTopicModeler:
 
             # Mark this text's origin if not already marked
             if key not in text_to_therapist:
-                text_to_therapist[key] = conv_therapist_map.get(conv_id, False)
+                text_to_staff[key] = conv_staff_map.get(conv_id, False)
 
         # Filter out therapist messages before training (Run 9: parent voices only)
         all_keys = list(text_to_ids.keys())
-        parent_keys = [k for k in all_keys if not text_to_therapist.get(k, False)]
-        therapist_keys = [k for k in all_keys if text_to_therapist.get(k, False)]
+        parent_keys = [k for k in all_keys if not text_to_staff.get(k, False)]
+        staff_keys = [k for k in all_keys if text_to_staff.get(k, False)]
 
-        print(f"📊 Messages split: {len(parent_keys)} parent voices / {len(therapist_keys)} therapist voices (filtered out)")
+        print(f"📊 Messages split: {len(parent_keys)} parent voices / {len(staff_keys)} staff voices (filtered out)")
 
         texts = self.preprocess_messages(parent_keys)
 
