@@ -216,7 +216,7 @@ class MalayTopicModeler:
                     cleaned_text_topic__isnull=False
                 ).exclude(
                     cleaned_text_topic=''
-                ).values_list('cleaned_text_topic', flat=True)
+                ).values_list('id', 'cleaned_text_topic')
             )
 
             # Fallback to cleaned_text if topic field doesn't exist
@@ -230,7 +230,7 @@ class MalayTopicModeler:
                         cleaned_text__isnull=False
                     ).exclude(
                         cleaned_text=''
-                    ).values_list('cleaned_text', flat=True)
+                    ).values_list('id','cleaned_text')
                     if m
                 ]
 
@@ -244,7 +244,7 @@ class MalayTopicModeler:
                         message__isnull=False
                     ).exclude(
                         message=''
-                    ).values_list('message', flat=True)
+                    ).values_list('id','message')
                     if m
                 ]
 
@@ -260,8 +260,30 @@ class MalayTopicModeler:
 
         # preprocess_messages with aggressive cleaning
         # pairs in: {conversation_id, text} -- dedupe by text, always remember all ids
+        # Run 9: also track whether each deduped text came from a therapist or parent
+        # so we can filter therapist voices out (they cluster differently from parent reports)
+        from chat_analyzer.models import User as UserModel, Conversation as Conv
+
+        # Build map: conv_id → is_therapist (using the sender FK role, not fuzzy name match)
+        # This fixes the username-vs-fullname mismatch bug (e.g. "AinaRazak" vs "Aina Razak")
+        conv_ids = [cid for cid, _ in messages]
+        
+        therapist_conv_ids = set(
+            Conv.objects.filter(
+                id__in=conv_ids, sender__role='therapist' 
+            ).values_list('id', flat=True)
+        )
+
+        # set all conv with conv_ids False type map 
+        conv_therapist_map = {cid: False for cid in conv_ids}
+
+        # only set True for conv_id in conv_ids
+        for cid in therapist_conv_ids:
+            conv_therapist_map[cid] = True
+
         # declaring some dict
         text_to_ids = {}
+        text_to_therapist = {}  # NEW: marks which deduped texts are therapist voices
 
         for conv_id, text in messages:
             key = text.strip().lower()
@@ -269,7 +291,18 @@ class MalayTopicModeler:
                 continue
             text_to_ids.setdefault(key, []).append(conv_id)
 
-        texts = self.preprocess_messages(list(text_to_ids.keys()))
+            # Mark this text's origin if not already marked
+            if key not in text_to_therapist:
+                text_to_therapist[key] = conv_therapist_map.get(conv_id, False)
+
+        # Filter out therapist messages before training (Run 9: parent voices only)
+        all_keys = list(text_to_ids.keys())
+        parent_keys = [k for k in all_keys if not text_to_therapist.get(k, False)]
+        therapist_keys = [k for k in all_keys if text_to_therapist.get(k, False)]
+
+        print(f"📊 Messages split: {len(parent_keys)} parent voices / {len(therapist_keys)} therapist voices (filtered out)")
+
+        texts = self.preprocess_messages(parent_keys)
 
         if len(texts) < 10:
             print(f"❌ Not enough messages for topic modeling ({len(texts)}) messages, need at least 10")
