@@ -271,7 +271,7 @@ class MalayTopicModeler:
         staff_conv_ids = set(
             Conv.objects.filter(
                 id__in=conv_ids,
-                sender__role=['therapist', 'admin', 'doctor'] 
+                sender__role__in=['therapist', 'admin', 'doctor'] 
             ).values_list('id', flat=True)
         )
 
@@ -293,7 +293,7 @@ class MalayTopicModeler:
             text_to_ids.setdefault(key, []).append(conv_id)
 
             # Mark this text's origin if not already marked
-            if key not in text_to_therapist:
+            if key not in text_to_staff:
                 text_to_staff[key] = conv_staff_map.get(conv_id, False)
 
         # Filter out therapist messages before training (Run 9: parent voices only)
@@ -426,7 +426,7 @@ class MalayTopicModeler:
         probabilities: list[float] | None,
         messages: list[str],
         text_to_ids: dict[str, list[int]] | None = None,
-    ):
+    ) -> None:
         """
         Save topics to database with better filtering.
         updating multi topic for each messages
@@ -438,7 +438,7 @@ class MalayTopicModeler:
 
         unique_topics = set([t for t in topics if t != -1])
         self.mapper = TopicMapper(threshold=1.5, min_gap=1.0)
-        defined_topics = list(Topic.objects.filter(is_active=True))
+        defined_topics = list(Topic.objects.filter(status='active'))
 
         # ╔════════════════════════════════════════════╗ 
         # ║  PHASE 1: MAP EACH CLUSTER TO THE TOPICS   ║ 
@@ -469,7 +469,7 @@ class MalayTopicModeler:
                     defaults={
                         'description': "Topic discovered from therapy center conversations",
                         'keywords': fallback_keywords,
-                        'is_active': True,
+                        'status': 'discovered',
                     }
                 )
                 cluster_mapping[topic_id] = [{

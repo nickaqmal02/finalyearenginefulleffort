@@ -1,31 +1,31 @@
-[01/08/2025, 09:00:00] Terapis Nurul: Messages and calls are end-to-end encrypted. Tap for more info.
-[01/08/2025, 09:00:00] Puan Aminah: jenuh dah bersilat maknya baru nak sihat.
-[01/08/2025, 10:57:00] Puan Aminah: saya rasa sangat optimis
-[01/08/2025, 13:52:00] Terapis Nurul: ya, memang itu yang kita mahukan.
-[01/08/2025, 14:31:00] Puan Aminah: jadi time terapi malam memang kul 1 ke atas, atau kul 12 malam paling awal.
-[01/08/2025, 15:12:00] Terapis Nurul: assalamualaikum, ada apa-apa yang nak saya bantu?
-[01/08/2025, 16:37:00] Puan Aminah: saya sangat bahagia
-[01/08/2025, 16:52:00] Terapis Nurul: saya akan bagi jadual untuk minggu depan.
-[01/08/2025, 18:32:00] Puan Aminah: malam tadi alhamdulillah dapat balut kepala sebelum tido.
-[01/08/2025, 18:38:00] Terapis Nurul: ok saya faham. teruskan terapi di rumah ya.
-[01/08/2025, 19:08:00] Puan Aminah: saya gembira sangat
-[01/08/2025, 21:22:00] Terapis Nurul: assalamualaikum, ada apa-apa yang nak saya bantu?
-[01/08/2025, 22:09:00] Puan Aminah: jam 10.30 tidur.
-[02/08/2025, 01:05:00] Terapis Nurul: assalamualaikum, ada apa-apa yang nak saya bantu?
-[02/08/2025, 03:12:00] Puan Aminah: saya rasa macam dah tak mampu
-[02/08/2025, 05:02:00] Terapis Nurul: ya, memang itu yang kita mahukan.
-[02/08/2025, 05:18:00] Puan Aminah: saya rasa sangat ceria dan optimis
-[02/08/2025, 05:37:00] Terapis Nurul: saya akan maklum doktor tentang perkembangan ini.
-[02/08/2025, 05:42:00] Puan Aminah: kalau nak tidur pun masuk jam 3–4 pagi baru nak tidur.
-[02/08/2025, 09:14:00] Terapis Nurul: boleh share gambar aktiviti dia?
-[05/08/2025, 12:58:00] Puan Aminah: assalamualaikum, saya just nak share.
-[05/08/2025, 13:19:00] Terapis Nurul: boleh share gambar aktiviti dia?
-[05/08/2025, 13:38:00] Puan Aminah: dia pun dah pandai suap sendiri carrot dan potato dalam mulut dia. 😍
-[05/08/2025, 16:30:00] Terapis Nurul: assalamualaikum, ada apa-apa yang nak saya bantu?
-[05/08/2025, 19:20:00] Puan Aminah: saya sangat beruntung
-[05/08/2025, 19:38:00] Terapis Nurul: assalamualaikum, ada apa-apa yang nak saya bantu?
-[05/08/2025, 20:23:00] Puan Aminah: alhamdulillah, semuanya baik
-[05/08/2025, 21:28:00] Terapis Nurul: saya suka dengan perkembangan ini
-[02/08/2025, 05:37:00] Terapis Nurul: saya akan maklum doktor tentang perkembangan ini.
-[05/08/2025, 16:30:00] Terapis Nurul: assalamualaikum, ada apa-apa yang nak saya bantu?
-[22/08/2025, 00:28:00] Puan Aminah: menangis
+[01/08/2025, 09:00:00] Kumar Raj: Messages and calls are end-to-end encrypted. Tap for more info.
+[01/08/2025, 09:00:00] David Sam: jenuh dah bersilat maknya baru nak sihat.
+[01/08/2025, 10:57:00] David Sam: saya rasa sangat optimis
+[01/08/2025, 13:52:00] Kumar Raj: ya, memang itu yang kita mahukan.
+[01/08/2025, 14:31:00] David Sam: jadi time terapi malam memang kul 1 ke atas, atau kul 12 malam paling awal.
+[01/08/2025, 15:12:00] Kumar Raj: assalamualaikum, ada apa-apa yang nak saya bantu?
+[01/08/2025, 16:37:00] David Sam: saya sangat bahagia
+[01/08/2025, 16:52:00] Kumar Raj: saya akan bagi jadual untuk minggu depan.
+[01/08/2025, 18:32:00] David Sam: malam tadi alhamdulillah dapat balut kepala sebelum tido.
+[01/08/2025, 18:38:00] Kumar Raj: ok saya faham. teruskan terapi di rumah ya.
+[01/08/2025, 19:08:00] David Sam: saya gembira sangat
+[01/08/2025, 21:22:00] Kumar Raj: assalamualaikum, ada apa-apa yang nak saya bantu?
+[01/08/2025, 22:09:00] David Sam: jam 10.30 tidur.
+[02/08/2025, 01:05:00] Kumar Raj: assalamualaikum, ada apa-apa yang nak saya bantu?
+[02/08/2025, 03:12:00] David Sam: saya rasa macam dah tak mampu
+[02/08/2025, 05:02:00] Kumar Raj: ya, memang itu yang kita mahukan.
+[02/08/2025, 05:18:00] David Sam: saya rasa sangat ceria dan optimis
+[02/08/2025, 05:37:00] Kumar Raj: saya akan maklum doktor tentang perkembangan ini.
+[02/08/2025, 05:42:00] David Sam: kalau nak tidur pun masuk jam 3–4 pagi baru nak tidur.
+[02/08/2025, 09:14:00] Kumar Raj: boleh share gambar aktiviti dia?
+[05/08/2025, 12:58:00] David Sam: assalamualaikum, saya just nak share.
+[05/08/2025, 13:19:00] Kumar Raj: boleh share gambar aktiviti dia?
+[05/08/2025, 13:38:00] David Sam: dia pun dah pandai suap sendiri carrot dan potato dalam mulut dia. 😍
+[05/08/2025, 16:30:00] Kumar Raj: assalamualaikum, ada apa-apa yang nak saya bantu?
+[05/08/2025, 19:20:00] David Sam: saya sangat beruntung
+[05/08/2025, 19:38:00] Kumar Raj: assalamualaikum, ada apa-apa yang nak saya bantu?
+[05/08/2025, 20:23:00] David Sam: alhamdulillah, semuanya baik
+[05/08/2025, 21:28:00] Kumar Raj: saya suka dengan perkembangan ini
+[02/08/2025, 05:37:00] Kumar Raj: saya akan maklum doktor tentang perkembangan ini.
+[05/08/2025, 16:30:00] Kumar Raj: assalamualaikum, ada apa-apa yang nak saya bantu?
+[22/08/2025, 00:28:00] David Sam: menangis

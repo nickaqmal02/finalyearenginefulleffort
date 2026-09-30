@@ -509,7 +509,7 @@ class UploadHistoryAdmin(admin.ModelAdmin):
 # ╚════════════════════════════════════════════╝ 
 @admin.register(Topic)
 class TopicAdmin(admin.ModelAdmin):
-    list_display = ['name', 'is_active', 'created_at']
+    list_display = ['name', 'description', 'status', 'is_active', 'created_at']
     list_filter = ['is_active']
     search_fields = ['name', 'description']
 

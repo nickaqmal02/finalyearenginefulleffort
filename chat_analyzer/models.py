@@ -1009,13 +1009,27 @@ class Topic(models.Model):
         help_text="List of keywords for this topic (Malay words)"
     )
     is_active = models.BooleanField(default=True)
+    
+    # Run 7.5: tier-2 governance for discovered topics
+    STATUS_CHOICES = [
+        ('active', 'Active — used in clinical reports'),
+        ('discovered', 'Auto-discovered — awaiting review'),
+        ('archived', 'Archived — historical only'),
+    ]
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='active',
+        help_text='Active = used in reports. Discovered = needs review. Archived = retired.',
+    )
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = 'Topic'
         verbose_name_plural = 'Topics 🧠'
-        ordering = ['name']
+        ordering = ['status', 'name']
 
     def __str__(self):
         return self.name

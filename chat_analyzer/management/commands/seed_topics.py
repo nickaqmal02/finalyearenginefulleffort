@@ -6,64 +6,29 @@ class Command(BaseCommand):
 
     DEFINED_TOPICS = [
         {
-            "name": "Speech & Communication Development",
-            "description": "Languange development, speech milestones, communication patterns",
-            "keywords": ["komunikasi","bercakap", "sebut", "perkataan", "ayat", "komunikasi", "interaksi", "cakap"],
+            "name": "Progress and Sessions",
+            "description": "Overall therapy progress and session-related updates",
+            "keywords": ["perkembangan", "sesi", "mula", "anak", "perubahan", "therapy", "terapi", "rawatan", "improvement", "maju", "proses", "konsisten", "fasa"],
         },
         {
-            "name": "Eating Habits & Food Acceptance",
-            "description": "Feeding behavior, food preferences, apetite, mealtime challenges",
-            "keywords": ["makan", "nasi", "bubur", "selera", "daging", "sayur", "minum", "suap", "lauk"],
+            "name": "Behaviour and Transitions",
+            "description": "Behaviour changes, tantrums, eating habits, sensory responses",
+            "keywords": ["anak", "makan", "perubahan", "mula", "nak", "tantrum", "mengamuk", "menangis", "marah", "lari", "perangai", "meraung", "mengadu", "kawan"],
         },
         {
-            "name": "Tantrum & Behavior Management",
-            "description": "Behavioral outbursts, emotional regulation, disciplinary challenges",
-            "keywords": ["lari","perangai","meraung","kurang tantrum","tantrum", "mengamuk", "merajuk", "menangis", "marah", "melawan", "sepak", "baling", "jerit", "ganas", "kurang tantrum"],
+            "name": "Sleep and Routine",
+            "description": "Sleep patterns, bedtime, night routine, wrapping therapy",
+            "keywords": ["tidur", "malam", "lena", "nyenyak", "tidur", "balut", "kepala", "rehat", "bangun", "mata", "terjaga", "buai"],
         },
         {
-            "name": "Sleep Patterns",
-            "description": "Sleep quality, bedtime routines, night waking, rest issues",
-            "keywords": ["mata","lena","nyenyak","tidur","tido", "malam", "lena", "terjaga", "buaian", "rehat", "bangun"],
+            "name": "Speech and Emotional Feedback",
+            "description": "Speech development and emotional responses from parents/doctors",
+            "keywords": ["perkembangan", "positif", "nampak", "sikit", "doktor", "cakap", "bercakap", "sebut", "perkataan", "komunikasi", "syukur", "gembira", "happy", "respond"],
         },
         {
-            "name": "Social Interaction",
-            "description": "Peer relationships, play skills, social engangement",
-            "keywords": ["panggil","mengadu","sahabat","kawankawan","minta","maklum","cerita","kawan", "gaul", "kongsi", "rakan", "sosial"],
-        },
-        {
-            "name": "School & Academic Progress",
-            "description": "School Performance, learning, focus, academic milestones",
-            "keywords": ["baca","membaca","tahfiz","pembelajaran","pandai","paham","explain","school","sekolah", "cikgu", "fokus", "belajar", "baca", "tulis", "kelas"],
-        },
-        {
-            "name": "Physical Development",
-            "description": "Motor skills, movemoment milestones, physical coordination",
-            "keywords": ["bermain","kerja","kuat","gerak","control","aktif","gerak", "motor", "jalan", "lompat", "pegang", "pijak", "merangkak"],
-        },
-        {
-            "name": "Therapy Progress",
-            "description": "Treatment outcomes, improvements, development phase",
-            "keywords": ["perkembangan","fasa","konsisten","therapy","terapi","improvement","improve","maju","proses"],
-        },
-        {
-            "name": "Parental Emotions",
-            "description": "Parent feelings, stress, hopes, emotional wellbeing",
-            "keywords": ["suka","risau","sedih","kecewa","stress","penat","gembira","syukur"]
-        },
-        {
-            "name": "Family Environment",
-            "description": "Home Situation, family dynamics, household context",
-            "keywords": ["rumah","daddy","mummy","adik","rumah", "keluarga", "ibu", "ayah", "kakak", "abang"],
-        },
-        {
-            "name": "Sensory Integration",
-            "description": "Sensory processing, stimuli response, attention regulation",
-            "keywords": ["sayang","kasih sayang","rasa","eye contact","seronok","sensory","rangsangan","perhatian","integrasi"]
-        },
-        {
-            "name": "Treatment Methods",
-            "description": "Therapy techniques, session approaches, intervention methods",
-            "keywords": ["pakai","ubat","taktik","kepala","balutan","sapu", "balut", "urut", "rawatan", "sesi", "latih", "teknik", "kaedah", "session"],
+            "name": "School and Play Interaction",
+            "description": "School activities, teacher feedback, play, treatment sessions",
+            "keywords": ["cikgu", "minggu", "sekolah", "tantrum", "rawatan", "main", "bermain", "play", "kawan", "rakan", "belajar", "tulis", "baca", "kelas"],
         },
     ]
 
