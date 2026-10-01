@@ -290,4 +290,13 @@ m: Movie = {"title": "alien", "year": 1979}
 
 
 
+# WHY USING DJANGO SIGNALS
+ 5 types of signals that we commonly used
+
+- pre_save
+- post_save
+- pre_delete
+- post_delete
+- m2m_changed
+
 

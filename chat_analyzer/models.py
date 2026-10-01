@@ -1053,6 +1053,11 @@ class ClientTopicScore(models.Model):
         default=0.0,
         help_text="Current score for this topic (0.0 to 1.0)"
     )
+    message_count = models.IntegerField(
+        default=0,
+        help_text="Number of message assign to this topic"
+    )
+
     last_updated = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

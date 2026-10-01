@@ -57,6 +57,24 @@ This system addresses the challenge autism centers face in managing and analyzin
 - 🌐 Multi-language support
 - ⚡ Real-time topic detection
 
+### ERD GENERATION WE USE IT FROM django-extensions graph models
+
+```bash
+python manage.py graph_models -a -g -o database_schema.svg
+
+# what does all of that means ??
+-a : includes all apps in your Django project
+-g : Generates the layout using Graphiz django extensions graph models
+-o : Directly outputs the clean, fully-wrapped SVG file
+
+
+# what to ensure that we have installed
+pip install django-extensions
+pip install pygraphviz or pip install pydot
+
+```
+
+
 ## 🛠️ Tech Stack
 
 | Category | Technology |
