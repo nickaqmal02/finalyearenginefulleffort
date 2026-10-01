@@ -1,5 +1,9 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin
+from unfold.views import UnfoldModelAdminViewMixin
+from django.views.generic import View
+from django.shortcuts import redirect
+from django.http import Http404
 from .forms import UploadChatForm
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth import get_user_model
@@ -7,7 +11,6 @@ from .forms import CustomUserCreationForm, CustomUserChangeForm
 import csv
 from django.http import HttpResponse
 from django.utils.safestring import mark_safe
-from django.shortcuts import redirect, render
 from django import forms
 from django.urls import path
 from chat_analyzer.services.upload_service import process_whatsapp_upload
@@ -249,10 +252,97 @@ class DoctorSpecialty(admin.ModelAdmin):
     search_fields = ['doctor__first_name', 'doctor__last_name', 'specialty__specialty_name']
     raw_id_fields = ['doctor', 'specialty']
 
-# ╔════════════════════════════════════════════╗
-# ║        8. CONVERSATION SECTON 💬         ║
-# ╚════════════════════════════════════════════╝
+# ╔════════════════════════════════════════════╗ 
+# ║        8. CONVERSATION SECTON 💬         ║ 
+# ╚════════════════════════════════════════════╝ 
 #
+
+# ── Unfold-styled Upload View ─────────────────────────────
+class UploadChatsView(UnfoldModelAdminViewMixin, View):
+    """Custom view: therapist/admin uploads WhatsApp .txt from admin panel.
+    Uses UnfoldModelAdminViewMixin so Unfold's CSS/JS/theme is injected."""
+    title = "Upload WhatsApp Chat"
+    permission_required = "chat_analyzer.view_conversation"
+
+    def get(self, request, *args, **kwargs):
+        form = UploadChatForm()
+        return self.render_template(request, 'chat_analyzer/admin/conversations/upload_chats.html', {
+            'form': form,
+            'title': self.title,
+        })
+
+    def post(self, request, *args, **kwargs):
+        form = UploadChatForm(request.POST, request.FILES)
+        if form.is_valid():
+            result = process_whatsapp_upload(
+                file_path_or_file=request.FILES['chat_file'],
+                client_id=form.cleaned_data['client'].id,
+                uploader_id=request.user.id,
+                chat_type=form.cleaned_data['chat_type'],
+                therapist_id=form.cleaned_data.get('therapist').id if form.cleaned_data.get('therapist') else None,
+            )
+            if 'error' in result:
+                from django.contrib import messages
+                messages.error(request, f"❌ {result['error']}")
+            else:
+                # auto-retrain topics
+                from chat_analyzer.services.topic_modeler import train_topics
+                try:
+                    train_topics()
+                except Exception as e:
+                    from django.contrib import messages
+                    messages.warning(request, f"⚠️ Topic training failed: {e}")
+
+                from django.contrib import messages
+                messages.success(
+                    request,
+                    f"✅ Saved {result['saved']} messages as '{result.get('file_name', '')}' "
+                    f"({result['positive']} pos / {result['negative']} neg / {result['neutral']} neu) — "
+                    f"topics retrained",
+                )
+            return redirect('admin:chat_analyzer_conversation_changelist')
+        # Form has errors — re-render with errors
+        return self.render_template(request, 'chat_analyzer/admin/conversations/upload_chats.html', {
+            'form': form,
+            'title': self.title,
+        })
+
+    def render_template(self, request, template_name, context):
+        """Helper to render template with Unfold's full admin context."""
+        from django.template.loader import render_to_string
+        from django.http import HttpResponse
+        from django.contrib import admin
+
+        # Pull in Unfold's admin context (colors, theme, border_radius, etc.)
+        admin_site = admin.site
+        admin_context = admin_site.each_context(request)
+        context.update(admin_context)
+
+        form = context.get('form')
+        context.update({
+            'opts': Conversation._meta,
+            'app_label': Conversation._meta.app_label,
+            'has_change_permission': True,
+            'has_view_permission': True,
+            'has_add_permission': True,
+            'has_permission': True,
+            'is_popup': False,
+            'to_field': None,
+            'title': context.get('title', ''),
+            'cl': None,
+            'save_as': False,
+            'save_on_top': False,
+            'add': False,
+            'change': False,
+            'preserve_filters': False,
+            'actions_on_top': False,
+            'actions_on_bottom': False,
+            'media': form.media if form else None,
+        })
+
+        return HttpResponse(render_to_string(template_name, context, request=request))
+
+
 @admin.register(Conversation)
 class ConversationAdmin(admin.ModelAdmin):
     change_list_template = 'chat_analyzer/admin/conversations/change_list.html'
@@ -424,52 +514,11 @@ class ConversationAdmin(admin.ModelAdmin):
         custom = [
             path(
                 'upload-chats/',
-                self.admin_site.admin_view(self.upload_chats_view),
-                name='chat_analyzer_conversation_upload', # this is actually we use in the 
+                self.admin_site.admin_view(UploadChatsView.as_view()),
+                name='chat_analyzer_conversation_upload',
             ),
         ]
         return custom + urls
-
-    def upload_chats_view(self, request):
-        """Custom view: therapist/admin uploads WhatsApp .txt from admin panel."""
-        if request.method == 'POST':
-            form = UploadChatForm(request.POST, request.FILES)
-            if form.is_valid():
-                result = process_whatsapp_upload(
-                    file_path_or_file=request.FILES['chat_file'],
-                    client_id=form.cleaned_data['client'].id,
-                    uploader_id=request.user.id,
-                    chat_type=form.cleaned_data['chat_type'],
-                    therapist_id=form.cleaned_data.get('therapist').id if form.cleaned_data.get('therapist') else None,
-                )
-                if 'error' in result:
-                    self.message_user(request, f"❌ {result['error']}", level='ERROR')
-                else:
-                    # auto-retrain topics
-                    from chat_analyzer.services.topic_modeler import train_topics
-                    try:
-                        train_topics()
-                    except Exception as e:
-                        self.message_user(
-                            request,
-                            f"⚠️ Topic training failed: {e}",
-                            level='WARNING',
-                        )
-
-                    self.message_user(
-                        request,
-                        f"✅ Saved {result['saved']} messages as '{result.get('file_name', '')}' "
-                        f"({result['positive']} pos / {result['negative']} neg / {result['neutral']} neu) — "
-                        f"topics retrained",
-                    )
-                return redirect('admin:chat_analyzer_conversation_changelist')
-        else:
-            form = UploadChatForm()
-        return render(
-            request,
-            'chat_analyzer/admin/conversations/upload_chats.html',
-            {'form': form, 'title': 'Upload WhatsApp Chat'},
-        )
 
 
 # ╔════════════════════════════════════════════╗

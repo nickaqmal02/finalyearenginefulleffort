@@ -3,28 +3,37 @@ from django.contrib.auth.forms import AuthenticationForm, UserCreationForm, User
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Layout, Submit, Field, Div, HTML, Fieldset
 from django.conf import settings
 from django.forms import inlineformset_factory
 from .utils import normalize_phone_number
 from .models import Conversation
+from unfold.widgets import UnfoldAdminSelectWidget, UnfoldAdminTextInputWidget, UnfoldAdminFileFieldWidget
+from unfold.layout import Submit, Button
+from crispy_forms.layout import Layout, Fieldset
 
 User = get_user_model()
 
 class UploadChatForm(forms.Form):
+
     """form for uploading whatsapp .txt files from admin panel"""
     client = forms.ModelChoiceField(
         queryset=User.objects.filter(role='client', is_active=True),
+        widget=UnfoldAdminSelectWidget,
         help_text="select the client this chat is about",
     )
-    chat_file = forms.FileField(label='WhatsApp .txt file')
+    chat_file = forms.FileField(
+        label='WhatsApp .txt file',
+        widget=UnfoldAdminFileFieldWidget,
+    )
     chat_type = forms.ChoiceField(
         choices=Conversation.CHAT_TYPES,
         initial='individual',
+        widget=UnfoldAdminSelectWidget,
         help_text="What type of chat is this ?",
     )
     therapist = forms.ModelChoiceField(
         queryset=User.objects.filter(role='therapist', is_active=True),
+        widget=UnfoldAdminSelectWidget,
         help_text="only required when it is about one on one chat",
     )
     def clean(self):
@@ -37,6 +46,27 @@ class UploadChatForm(forms.Form):
                 "1-on-1 chats require a therapist. Select which therapist this chat was with"
             )
         return cleaned_data
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.layout = Layout(
+            Fieldset(
+                'Upload Details',
+                'client',
+                'chat_file',
+                'chat_type',
+                'therapist',
+            ),
+            Submit('submit', 'Upload and Process', css_class='!mx-6 !my-6'),
+            Button(
+                'cancel',                          # name
+                'Cancel',                          # label
+                css_class='ml-2',                  # spacing
+                onclick='window.location.href="/admin/chat_analyzer/conversation/";'
+            )
+        )
 
     
 

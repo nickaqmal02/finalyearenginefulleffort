@@ -521,10 +521,14 @@ class MalayTopicModeler:
                         continue
                     unmapped_ids.discard(conv_id)
                     stats['rows_written'] += 1
-                    MessageTopic.objects.get_or_create(
+                    MessageTopic.objects.update_or_create(
                         conversation=conv,
                         topic=override_topic,
-                        defaults={'score': 2.0, 'confidence': 0.9, 'is_primary': True}
+                        defaults={
+                            'score': 2.0,
+                            'confidence': 0.9,
+                            'is_primary': True
+                        }
                     )
                 stats['assigned'] += 1
                 continue # skip cluster inheritence for this text
@@ -556,7 +560,7 @@ class MalayTopicModeler:
                 unmapped_ids.discard(conv_id)
                 stats['rows_written'] += 1
                 for match in matches:
-                    MessageTopic.objects.get_or_create(
+                    MessageTopic.objects.update_or_create(
                         conversation=conv,
                         topic=match['topic'],
                         defaults={

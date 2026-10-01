@@ -12,7 +12,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-o%*b0^*_*#k&a@*up)d*l%!sxn^hms8y_&i$+zl46r_&p3mzp%'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 DEBUG_TOOLBAR_PANELS = []
 
@@ -30,6 +30,7 @@ CSRF_TRUSTED_ORIGINS = []
 
 INSTALLED_APPS = [
     'unfold',
+    'unfold.contrib.forms',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -39,15 +40,15 @@ INSTALLED_APPS = [
     'heroicons',
     'debug_toolbar',
     'django_extensions',
-    #'crispy_forms',
+    'crispy_forms',
     #'crispy_tailwind',
     'django_tailwind_cli',
     'chat_analyzer'
 ]
 
-# crispy forms configuration TAILWIND
-#CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"
-#CRISPY_TEMPLATE_PACK = "crispy_tailwind"
+#crispy forms configuration TAILWIND
+CRISPY_ALLOWED_TEMPLATE_PACKS = "unfold_crispy"
+CRISPY_TEMPLATE_PACK = ["unfold_crispy"]
 
 MIDDLEWARE = [
     'debug_toolbar.middleware.DebugToolbarMiddleware',
@@ -142,5 +143,45 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 AUTH_USER_MODEL = 'chat_analyzer.User'
+
+
+# ====================================
+# UNFOLD ADMIN THEME CONFIGURATION
+# ====================================
+UNFOLD = {
+    "SITE_TITLE": "Sentiri Admin",
+    "SITE_HEADER": "Sentiri Admin",
+    "SITE_ICON": "https://avatars.githubusercontent.com/u/134147465?s=200&v=4",
+    "COLORS": {
+        "primary": {
+            50: "#ecfdf5", 100: "#d1fae5", 200: "#a7f3d0", 300: "#6ee7b7",
+            400: "#34d399", 500: "#10b981", 600: "#059669", 700: "#047857",
+            800: "#065f46", 900: "#064e3b", 950: "#022c22",
+        },
+        "base": {
+            50: "#f8fafc", 100: "#f1f5f9", 200: "#e2e8f0", 300: "#cbd5e1",
+            400: "#94a3b8", 500: "#64748b", 600: "#475569", 700: "#334155",
+            800: "#1e293b", 900: "#0f172a", 950: "#020617",
+        },
+        "font": {
+            "subtle-light": "#94a3b8",
+            "subtle-dark": "#64748b",
+            "default-light": "#475569",
+            "default-dark": "#cbd5e1",
+            "important-light": "#0f172a",
+            "important-dark": "#f1f5f9",
+        },
+    },
+    "BORDER_RADIUS": {
+        "xs": "0.125rem",
+        "sm": "0.25rem",
+        "default": "0.375rem",
+        "md": "0.375rem",
+        "lg": "0.5rem",
+        "xl": "0.75rem",
+        "2xl": "1rem",
+        "3xl": "1.5rem",
+    },
+}
 
 

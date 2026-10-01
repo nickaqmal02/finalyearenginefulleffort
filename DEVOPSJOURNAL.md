@@ -299,4 +299,10 @@ m: Movie = {"title": "alien", "year": 1979}
 - post_delete
 - m2m_changed
 
+# noted that the signals is event driven not call driven 
+so let me explain the deep analogy it just like
+ok we dont actually push button to activate the alarm when a fire come in but we install the sensor once in apps.py, and it goes automatically when something happen (When MessageTopic is saved) when we use the door
+
+but only if the operation single not a bulk operation
+
 
