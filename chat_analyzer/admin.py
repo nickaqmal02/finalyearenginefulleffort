@@ -1,4 +1,5 @@
 from django.contrib import admin
+from unfold.admin import ModelAdmin
 from .forms import UploadChatForm
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth import get_user_model
@@ -35,11 +36,12 @@ try:
     admin.site.unregister(User)
 except admin.sites.NotRegistered:
     pass
+
 # ===================
 # 1. USER ADMIN (CUSTOM)
 # ===================
 @admin.register(User)
-class CustomUserAdmin(UserAdmin):
+class CustomUserAdmin(ModelAdmin):
     """Custom User admin with all fields."""
     
     # ✅ Use custom forms
@@ -509,9 +511,23 @@ class UploadHistoryAdmin(admin.ModelAdmin):
 # ╚════════════════════════════════════════════╝ 
 @admin.register(Topic)
 class TopicAdmin(admin.ModelAdmin):
-    list_display = ['name', 'description', 'status', 'is_active', 'created_at']
-    list_filter = ['is_active']
+    list_display = ['name', 'status', 'is_active', 'created_at']
+    list_filter = ['status', 'is_active']
     search_fields = ['name', 'description']
+
+    actions = ['promote_to_active', 'archive_topics']
+
+    @admin.action(description="Promote selected discovered topics to ACTIVE")
+    def promote_to_active(self, request, queryset):
+        # Only promote topics currently in 'discovered' state
+        candidates = queryset.filter(status='discovered')
+        count = candidates.update(status='active', is_active=True)
+        self.message_user(request, f"✅ Promoted {count} topic(s) to ACTIVE")
+
+    @admin.action(description="Archive selected topics (retired, kept for history)")
+    def archive_topics(self, request, queryset):
+        count = queryset.update(status='archived', is_active=False)
+        self.message_user(request, f"📦 Archived {count} topic(s)")
 
 @admin.register(ClientTopicScore)
 class ClientTopicScoreAdmin(admin.ModelAdmin):

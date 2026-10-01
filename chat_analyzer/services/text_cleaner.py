@@ -39,6 +39,7 @@ class MalayTextCleaner:
 
         # Load topic-specific stopwords (HEAVY)
         self.topic_stopwords = self.load_topic_stopwords()
+        self.translation_mapping = self.load_json('english_to_malay.json')
 
         # Combine all mappings
         self.all_mappings = {**self.typo_mapping, **self.slang_mapping}
@@ -58,6 +59,7 @@ class MalayTextCleaner:
         logger.info(f"✅ Loaded {len(self.typo_mapping)} typo mappings")
         logger.info(f"✅ Loaded {len(self.emoji_mapping)} emoji mappings")
         logger.info(f"✅ Loaded {len(self.slang_mapping)} slang mappings")
+        logger.info(f"✅ Loaded {len(self.translation_mapping)} translation_mapping")
         logger.info(f"✅ Loaded {len(self.domain_words_topic)} domain words topic")
         logger.info(f"😀 Loaded {len(self.domain_words_sentiment)} domain words sentiment")
         logger.info(f"✅ Loaded {len(self.sentiment_stopwords)} sentiment stopwords")
@@ -268,13 +270,10 @@ class MalayTextCleaner:
         """
         if not text:
             return ""
-
         # Base cleaning
         text = self._base_clean(text)
-
         # FOR TOPIC MODELING: Remove all punctuation
         text = re.sub(r'[^\w\s]', '', text)
-
         # Remove heavy stopwords (topic modeling)
         # we split every single text to token
         words = text.split()
@@ -292,7 +291,12 @@ class MalayTextCleaner:
 
         # remove duplicates while preserving
         filtered = self._dedupe_tokens(filtered) # this is where we call the deduplication method
-        return ' '.join(filtered)
+        # before we sending the text we need to convert the list to string first
+        text = ' '.join(filtered)
+
+        filtered = self.apply_translation(text)
+
+        return filtered
 
     def convert_emojis(self, text):
         """Convert emojis to Malay words."""
@@ -313,7 +317,19 @@ class MalayTextCleaner:
                 corrected.append(word)
         return ' '.join(corrected)
 
-    def filter_curse_words(self, text):
+    def apply_translation(self, text: str) -> str:
+        words = text.split()
+        translated = []
+        for word in words:
+            if word in self.translation_mapping:
+                # if word match with our dictionary we map it to that values by taking the key
+                translated.append(self.translation_mapping[word])
+            else:
+                translated.append(word)
+
+        return ' '.join(translated)
+
+    def filter_curse_words(self, text: str) -> str:
         """Filter curse words."""
         words = text.split()
         filtered = []
