@@ -44,7 +44,7 @@ except admin.sites.NotRegistered:
 # 1. USER ADMIN (CUSTOM)
 # ===================
 @admin.register(User)
-class CustomUserAdmin(ModelAdmin):
+class CustomUserAdmin(UserAdmin, ModelAdmin):
     """Custom User admin with all fields."""
     
     # ✅ Use custom forms
@@ -390,6 +390,13 @@ class ConversationAdmin(admin.ModelAdmin):
     ]
 
     raw_id_fields = ['client', 'therapist','sender', 'uploaded_by', 'upload_history']
+
+    actions = ['mark_as_processed']
+
+    @admin.action(description="Mark selected conversations as processed")
+    def mark_as_processed(self, request, queryset):
+        count = queryset.update(is_processed=True)
+        self.message_user(request, f"✅ Marked {count} conversation(s) as processed")
 
     readonly_fields = [
         'message_hash',

@@ -24,10 +24,15 @@ def update_client_topic_score_on_save(sender, instance, created, **kwargs):
         conversation__client_id=conv.client_id,
         topic_id=instance.topic_id,
         is_primary=True,
+        topic__status='active',
     ).aggregate(
         avg_score=Avg('score'),
         msg_count=Count('id'),
     )
+
+    # adding another policy to handles if not active
+    if instance.topic.status != 'active':
+        return
 
     # adding the aggregates part first
     ClientTopicScore.objects.update_or_create(
@@ -38,3 +43,4 @@ def update_client_topic_score_on_save(sender, instance, created, **kwargs):
             'message_count': aggregates['msg_count'] or 0,
         }
     )
+

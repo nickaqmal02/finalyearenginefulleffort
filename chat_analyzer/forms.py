@@ -166,8 +166,6 @@ class CustomUserCreationForm(UserCreationForm):
         model = User
         fields = [
             'username',
-            'password1',
-            'password2',
             'role',
             'first_name',
             'last_name',

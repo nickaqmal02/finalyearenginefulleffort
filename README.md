@@ -144,4 +144,23 @@ TO DO TOMORROW
 - 
 
 
+### the main reason why we used approach to stay using the malay text without translating it because it hold certain sentiment
+
+- XLM-R supports Malay natively - translation adds noise, not signal
+- Emotional weight will be flatten if translate it to english
+- bersilat malam-malam : martial art here refer not good sentiment thats why we use to stay in malay
+- something like cultural metaphor cannot be translate through actually because then it will loose the meaning
+
+
+### our pre-processing approach ?
+: tokenization ->  mapping [typo_mapping, emoji_mapping, root_mapping, slang_mapping] -> remove [stopwords, curse_words]
+
+##### btw we actually have seperate domain_words for sentiment and domain words for topic modeling.
+
+##### if topic training : we actually have another different which is add stemming using sastrawi and custom normalizer but still same because for malay there still no custom one.
+
+#####
+
+"Stemming is rule-based, lemmatization is dictionary-based. Both normalize words to root form. I use Sastrawi stemmer because no production Malay lemmatizer exists, and for Malay morphology the results are equivalent."
+
 

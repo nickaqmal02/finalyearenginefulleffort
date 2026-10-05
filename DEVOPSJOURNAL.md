@@ -305,4 +305,7 @@ ok we dont actually push button to activate the alarm when a fire come in but we
 
 but only if the operation single not a bulk operation
 
+## what is aggregate in django orm ? then 
+> return summary of dictionary with key and values
+
 
