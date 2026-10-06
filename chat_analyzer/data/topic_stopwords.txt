@@ -4,6 +4,9 @@
 # This list has been reviewed to ensure NO topic-defining
 # verbs are removed. All verbs from your 12 topics are KEPT.
 # ============================================================
+child
+has
+the
 anak
 sangatsangat
 apa
@@ -206,8 +209,6 @@ salamsejahtera
 # ============================================================
 # 4. THANK YOU - REMOVE
 # ============================================================
-terima
-kasih
 thanks
 thank
 tq

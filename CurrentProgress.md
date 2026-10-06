@@ -574,3 +574,16 @@ After 2 months, **Therapist Jane** observes head-banging during meltdowns and pr
 │ └── Head-banging during meltdowns │
 │ │
 └─────────────────────────────────────────────────────────────────────────────┘
+
+
+
+
+
+[6 10 26] **Tuesday**
+- Update all conversation in fixtures /
+- how can topic score 0.0 because the topic was not main topic is_primary=False
+- 
+
+
+
+

@@ -8,7 +8,7 @@ class Command(BaseCommand):
         {
             "name": "Progress and Sessions",
             "description": "Overall therapy progress and session-related updates",
-            "keywords": ["perkembangan", "sesi", "mula", "anak", "perubahan", "therapy", "terapi", "rawatan", "improvement", "maju", "proses", "konsisten", "fasa"],
+            "keywords": ["perkembangan", "sesi", "mula", "anak", "perubahan", "therapy", "terapi", "rawatan", "improvement", "maju", "proses", "konsisten", "fasa", "terima kasih", "thanks"],
         },
         {
             "name": "Behaviour and Transitions",
@@ -46,7 +46,7 @@ class Command(BaseCommand):
                     "keywords": topic_data["keywords"],
                     "is_active": True,
                 },
-            )
+            ) 
 
             if created:
                 self.stdout.write(

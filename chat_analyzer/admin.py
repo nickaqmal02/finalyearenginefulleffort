@@ -221,9 +221,9 @@ class ClientSpecifierAdmin(admin.ModelAdmin):
 
 @admin.register(DiagnosisDocument)
 class DiagnosisDocumentAdmin(admin.ModelAdmin):
-    list_display = ['client', 'file_name', 'document_type', 'is_approved', 'upload_date']
+    list_display = ['client', 'file', 'document_type', 'is_approved', 'upload_date']
     list_filter = ['document_type', 'is_approved']
-    search_fields = ['client__first_name', 'client__last_name', 'file_name']
+    search_fields = ['client__first_name', 'client__last_name', 'file']
     raw_id_fields = ['client', 'uploaded_by', 'approved_by']
 
 # ╔════════════════════════════════════════════╗ 

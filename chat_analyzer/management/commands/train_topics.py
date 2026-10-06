@@ -1,7 +1,7 @@
 # chat_analyzer/management/commands/train_topics.py
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Avg, Count, Q
 from chat_analyzer.models import Conversation, Topic, ClientTopicScore, TopicTrend, MessageTopic
 from chat_analyzer.services.topic_modeler import get_topic_modeler, train_topics
 from chat_analyzer.services.text_cleaner import batch_clean_conversations
@@ -141,6 +141,38 @@ class Command(BaseCommand):
         # Show results
         if result:
             self.stdout.write(self.style.SUCCESS('\n✅ Topic modeling complete!'))
+
+            self.stdout.write('\n Recalculating ClientTopicScore aggregates... ')
+            client_topic_pairs = (
+                MessageTopic.objects.filter(
+                    is_primary=True,
+                    topic__status='active'
+                ).values_list(
+                    'conversation__client_id', 'topic_id'
+                ).distinct()
+            )
+            recomputed = 0
+            for client_id, topic_id in client_topic_pairs:
+                aggregates = MessageTopic.objects.filter(
+                    conversation__client_id=client_id,
+                    topic_id=topic_id,
+                    is_primary=True,
+                    topic__status='active',
+                ).aggregate(
+                    avg_score=Avg('score'),
+                    msg_count=Count('id')
+                )
+                ClientTopicScore.objects.update_or_create(
+                    client_id=client_id,
+                    topic_id=topic_id,
+                    defaults={
+                        'score': aggregates['avg_score'] or 0.0,
+                        'message_count': aggregates['msg_count'] or 0,
+                    }
+                )
+                recomputed+=1
+
+            self.stdout.write(f'    Recalculated{recomputed} client-topic pair(s)')
 
             # Show discovered topics from database
             from chat_analyzer.models import Topic

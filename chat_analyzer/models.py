@@ -1,11 +1,10 @@
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError 
-from django.core.validators import RegexValidator
+from django.core.validators import RegexValidator, FileExtensionValidator
 from django.db import models
 import uuid
 from django.utils import timezone
 from datetime import datetime
-
 
 """ CREATING UNIFIED USER USING AbstractUser """
 class User(AbstractUser):
@@ -582,21 +581,13 @@ class DiagnosisDocument(models.Model):
         default='diagnostic_report',
         help_text="Type of document"
     )
-
-    file_name = models.CharField(
-        max_length=255,
-        help_text="Original file name"
-    )
-
-    file_path = models.CharField(
-        max_length=500,
-        help_text="Cloud/S3 path or server path"
-    )
-
-    file_size = models.IntegerField(
-        blank=True,
+    
+    file = models.FileField(
+        upload_to='diagnosis_documents/%Y/%m',
+        validators=[FileExtensionValidator(['pdf', 'docx', 'png', 'jpg', 'jpeg'])],
+        help_text='Allowed: PDF, DOCX, PNG, JPG',
         null=True,
-        help_text="Size in KB"
+        blank=True
     )
 
     upload_date = models.DateTimeField(auto_now_add=True)

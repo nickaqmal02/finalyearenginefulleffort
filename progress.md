@@ -138,5 +138,161 @@
    primary-election logic, maybe IDF-weighted scoring. Receipts now exist (distribution above).
 2. Wire `analyze_new_messages` (transform-only path) to a command — no full retrain per upload.
 3. ClientTopicScore / TopicTrend computation (both tables at 0 rows).
-4. Parked: TypedDict `TopicMatch` across the 3 match-producers; mypy CI; type annotations on touched signatures.
+2. Parked: TypedDict `TopicMatch` across the 3 match-producers; mypy CI; type annotations on touched signatures.
 
+---
+
+## 2026-10-06 — Policy C step 1: ClientTopicScore guard against discovered topics (verification deferred)
+
+### What we did today
+- Reviewed `signals.py` `update_client_topic_score_on_save`: post_save on MessageTopic → recompute (client, topic) pair via `aggregate(Avg, Count)` → `ClientTopicScore.objects.update_or_create(...)`. Single listener handles every save scenario.
+- Taught signals concept: Django's pub/sub mechanism (`@receiver(post_save, sender=...)`); `instance` = the saved object; `created` = INSERT vs UPDATE. Analogy: `addEventListener` for the database.
+- Taught `.aggregate()` semantics: returns ONLY the dict of names you declared (e.g. `{'avg_score': 0.75, 'msg_count': 4}`). `client_id` / `topic_id` come from `conv.client_id` and `instance.topic_id` separately — the filter inputs, not the aggregate output.
+- **Nik's instinct caught the real bug:** the existing signal was including `discovered` topics in the aggregate. Result: dashboard showed aggregates for topics the admin hadn't promoted to `active` yet. Two policies considered:
+  - A — exclude discovered in the aggregate filter (simple)
+  - B — compute including discovered, filter at display time
+  - **C — A + a SECOND signal on Topic.post_save to recompute when admin promotes discovered → active** (most correct)
+- Nik picked C; reasoning: aggregate must stay in sync on the promotion event itself, since no MessageTopic gets saved in that scenario.
+
+### Policy C Step 1 implementation (today)
+- Added `topic__status='active'` to the MessageTopic filter clause (filters discovered/archived at source).
+- Added explicit guard: `if instance.topic.status != 'active': return` before `update_or_create` — semantically tied to Policy C's "approved topics only" rule.
+- Selected Option 1b-B (check topic status directly) over 1b-A (skip on empty filter) because: explicit policy statement beats incidental empty-set detection. Both are functionally identical when topic is discovered.
+- Reasoning for 1b-B: "avoid zero-noise rows" — keep `ClientTopicScore` meaningful; dashboard view doesn't have to filter out empties.
+
+### What Nik learned
+- **The 0.0 score mystery decoded:** Ravi Kumar's "Sleep and Routine" ClientTopicScore = 0.0 was NOT a bug. Live diagnostic:
+      Raw (score, is_primary): [(1.0, False), (1.0, False), ...]  ← 11 rows, ALL is_primary=False
+      Stored CTS: 0.0
+      Ravi's primary topics: ['Progress and Sessions', 'buka-nangis-baru', 'Speech and Emotional Feedback', 'Behaviour and Transitions', 'menangis tidur-mampu-suka bagus', ...]
+    Sleep scores 1.0 but never wins primary election (Progress/Speech/Behaviour dominate). Filter `is_primary=True` → 0 rows → aggregate NULL → `or 0.0` → 0.0. **Check 1 lesson in production.**
+- Signals are reactive, not active: a signal fires on save; you don't "take the next topic." Each save pins one (client, topic) pair and recomputes just that pair.
+- `pre_save` + `post_save` share state via the same Python object reference. Setting `instance._old_status = ...` in `pre_save` persists into `post_save` because it's an attribute on the in-memory object — both signals receive the same reference.
+- Two valid decisions for "detect topic promotion": (A) always recompute on Topic.post_save (simple, idempotent, wasteful on description edits), (B) only recompute on `discovered → active` transition (efficient, needs old-state capture via pre_save). Nik picked B.
+- Test-fixture hygiene lesson: `aggregate(Avg)` over zero rows returns NULL, NOT an exception. `or 0.0` is null-coalescing, not exception handling. Test runs must clean both ClientTopicScore AND MessageTopic rows for the test pair (unique_together on (conversation, topic) bites if you only clean one).
+
+### What we went through together
+- Nik dodged three open viva questions in a row (the `or 0.0` guard, the discovered→active transition gap, the `instance._old_status` mechanism) — needed firm re-asking each time. Reinforced: dodging = plausible output with no understanding behind it.
+- Hit `UNIQUE constraint failed: chat_analyzer_messagetopic.conversation_id, chat_analyzer_messagetopic.topic_id` mid-test. Diagnosis: leftover MessageTopic row from prior test run — only ClientTopicScore was being deleted. Test fixture leak between runs is now a known smell in this codebase.
+- **Verification deferred (Path B):** Nik chose to move forward without running the live 7-print guard test. Reasoning accepted, logged here as a known-unverified step. **Risk:** if Signal 1's `if instance.topic.status != 'active': return` has a typo or is in the wrong function, it won't actually skip discovered-topic saves, and zero-noise rows will keep appearing on promotion. Bug-hunt is on Nik, not on us.
+- Surfaced two production smells (not bugs, not fixing today):
+  1. `is_primary` election: Sleep scores 1.0 but never wins primary. Model behavior — modeler needs review.
+  2. Topic name quality: discovered topics like `buka-nangis-baru` and `menangis tidur-mampu-suka bagus` (three unrelated words jammed together) signal seed keyword overlap. Run 8 thread continues.
+
+### What's next (Policy C step 2)
+1. **Signal 2 on Topic.post_save:** `pre_save` captures `_old_status`; `post_save` detects `discovered → active` transition; recomputes ClientTopicScore for ALL clients with MessageTopics for that topic (loop over `conversation__client_id` distinct values).
+2. (After) wire `analyze_new_messages` (transform-only path).
+3. (After) DRF API endpoints: topics, conversations, messages — role-based permissions.
+4. **Viva sweep (unpaid):** revisit signal guard `if instance.topic.status != 'active': return` and run the live 7-print test before demo day.
+
+---
+
+## 2026-10-06 (late session) — Recompute trigger inside `train_topics` command — VERIFIED ✅
+
+### What we did
+- Decision path: abandoned the `Topic.post_save` signal (Policy C step 2) in favour of recomputing inside `train_topics` after `train_topics()` returns. Reasoning: the **actual event** that changes MessageTopic scores is `train_topics`, not any Topic.save(). The signal was chasing the wrong trigger. The command knows exactly when the data has settled.
+- Modified `chat_analyzer/management/commands/train_topics.py`:
+  - Added `Avg, Count` to the existing `django.db.models` import
+  - Added recompute block inside `if result:` (after `train_topics()` returns, before "Show discovered topics"):
+    - distinct (client_id, topic_id) tuples where `is_primary=True` AND `topic__status='active'`
+    - per-pair aggregate → `ClientTopicScore.objects.update_or_create(...)` with `or 0.0` / `or 0` guards
+    - end-count print: `✅ Recalculated N client-topic pair(s)`
+- Verified live: `python manage.py train_topics --clean-first --limit 10 --verbose` runs and prints:
+  ```
+  ✅ Topic modeling complete!
+  📊 Recalculating ClientTopicScore aggregates...
+  ✅ Recalculated 42 client-topic pair(s)
+  ```
+
+### What Nik learned
+- **The right trigger is the command, not the signal.** Signals are for fine-grained model events; commands are for orchestrated workflows. The retrain *is* an orchestrated workflow — it cleans, trains, writes MessageTopic rows. Recompute belongs at its tail.
+- **Bulk_create and signals:** `bulk_create` does NOT fire `post_save`. The earlier reasoning about "bulk saves bypass signals" is why even if Signal 1 were perfectly tuned, recompute inside the command is more reliable than relying on signal chaining.
+
+### What we went through together
+- Hit decision fatigue end-of-session. Nik tried to bail with "i wanna give up" — pulled back: deliverables already 90% done. Two valid closure paths were offered, Nik picked option that fit his state.
+- Persisted question raised at session end (non-primary topics should also count) — parked. It's a real design question but **not for tonight**. Defer to next session.
+
+### What's next
+1. **Discovered-topic quality (Run 8 thread, URGENT for demo):** 3 of 9 discovered topics are garbage:
+   - `buka-nangis-baru` (3 unrelated words in name)
+   - `child-has-the` (English stopwords leaking — `child`, `has`, `the` — cleaner is not stripping English tokens)
+   - `menangis tidur-mampu-suka bagus` (3 unrelated words, same jammed pattern as `buka-nangis-baru`)
+   - These come from seed keyword overlap and short-text cluster inheritance. Run 8 8a/8b/8c work continues here.
+2. **Viva sweep (unpaid):** run the 7-print live test for Signal 1's `if instance.topic.status != 'active': return` guard before demo day. **Path B is currently a known-unverified risk.**
+3. DRF API endpoints (post-Run 8).
+4. Parked: `is_primary` election behaviour (Sleep never wins primary despite scoring 1.0); non-primary topic scoring decision (asked, deferred).
+
+---
+
+## 2026-10-06 — Policy C step 1: ClientTopicScore guard against discovered topics (verification deferred)
+
+### What we did today
+- Reviewed `signals.py` `update_client_topic_score_on_save`: post_save on MessageTopic → recompute (client, topic) pair via `aggregate(Avg, Count)` → `ClientTopicScore.objects.update_or_create(...)`. Single listener handles every save scenario.
+- Taught signals concept: Django's pub/sub mechanism (`@receiver(post_save, sender=...)`); `instance` = the saved object; `created` = INSERT vs UPDATE. Analogy: `addEventListener` for the database.
+- Taught `.aggregate()` semantics: returns ONLY the dict of names you declared (e.g. `{'avg_score': 0.75, 'msg_count': 4}`). `client_id` / `topic_id` come from `conv.client_id` and `instance.topic_id` separately — the filter inputs, not the aggregate output.
+- **Nik's instinct caught the real bug:** the existing signal was including `discovered` topics in the aggregate. Result: dashboard showed aggregates for topics the admin hadn't promoted to `active` yet. Two policies considered:
+  - A — exclude discovered in the aggregate filter (simple)
+  - B — compute including discovered, filter at display time
+  - **C — A + a SECOND signal on Topic.post_save to recompute when admin promotes discovered → active** (most correct)
+- Nik picked C; reasoning: aggregate must stay in sync on the promotion event itself, since no MessageTopic gets saved in that scenario.
+
+### Policy C Step 1 implementation (today)
+- Added `topic__status='active'` to the MessageTopic filter clause (filters discovered/archived at source).
+- Added explicit guard: `if instance.topic.status != 'active': return` before `update_or_create` — semantically tied to Policy C's "approved topics only" rule.
+- Selected Option 1b-B (check topic status directly) over 1b-A (skip on empty filter) because: explicit policy statement beats incidental empty-set detection. Both are functionally identical when topic is discovered.
+- Reasoning for 1b-B: "avoid zero-noise rows" — keep `ClientTopicScore` meaningful; dashboard view doesn't have to filter out empties.
+
+### What Nik learned
+- **The 0.0 score mystery decoded:** Ravi Kumar's "Sleep and Routine" ClientTopicScore = 0.0 was NOT a bug. Live diagnostic:
+      Raw (score, is_primary): [(1.0, False), (1.0, False), ...]  ← 11 rows, ALL is_primary=False
+      Stored CTS: 0.0
+      Ravi's primary topics: ['Progress and Sessions', 'buka-nangis-baru', 'Speech and Emotional Feedback', 'Behaviour and Transitions', 'menangis tidur-mampu-suka bagus', ...]
+    Sleep scores 1.0 but never wins primary election (Progress/Speech/Behaviour dominate). Filter `is_primary=True` → 0 rows → aggregate NULL → `or 0.0` → 0.0. **Check 1 lesson in production.**
+- Signals are reactive, not active: a signal fires on save; you don't "take the next topic." Each save pins one (client, topic) pair and recomputes just that pair.
+- `pre_save` + `post_save` share state via the same Python object reference. Setting `instance._old_status = ...` in `pre_save` persists into `post_save` because it's an attribute on the in-memory object — both signals receive the same reference.
+- Two valid decisions for "detect topic promotion": (A) always recompute on Topic.post_save (simple, idempotent, wasteful on description edits), (B) only recompute on `discovered → active` transition (efficient, needs old-state capture via pre_save). Nik picked B.
+- Test-fixture hygiene lesson: `aggregate(Avg)` over zero rows returns NULL, NOT an exception. `or 0.0` is null-coalescing, not exception handling. Test runs must clean both ClientTopicScore AND MessageTopic rows for the test pair (unique_together on (conversation, topic) bites if you only clean one).
+
+### What we went through together
+- Nik dodged three open viva questions in a row (the `or 0.0` guard, the discovered→active transition gap, the `instance._old_status` mechanism) — needed firm re-asking each time. Reinforced: dodging = plausible output with no understanding behind it.
+- Hit `UNIQUE constraint failed: chat_analyzer_messagetopic.conversation_id, chat_analyzer_messagetopic.topic_id` mid-test. Diagnosis: leftover MessageTopic row from prior test run — only ClientTopicScore was being deleted. Test fixture leak between runs is now a known smell in this codebase.
+- **Verification deferred (Path B):** Nik chose to move forward without running the live 7-print guard test. Reasoning accepted, logged here as a known-unverified step. **Risk:** if Signal 1's `if instance.topic.status != 'active': return` has a typo or is in the wrong function, it won't actually skip discovered-topic saves, and zero-noise rows will keep appearing on promotion. Bug-hunt is on Nik, not on us.
+- Surfaced two production smells (not bugs, not fixing today):
+  1. `is_primary` election: Sleep scores 1.0 but never wins primary. Model behavior — modeler needs review.
+  2. Topic name quality: discovered topics like `buka-nangis-baru` and `menangis tidur-mampu-suka bagus` (three unrelated words jammed together) signal seed keyword overlap. Run 8 thread continues.
+
+### What's next (Policy C step 2)
+1. **Signal 2 on Topic.post_save:** `pre_save` captures `_old_status`; `post_save` detects `discovered → active` transition; recomputes ClientTopicScore for ALL clients with MessageTopics for that topic (loop over `conversation__client_id` distinct values).
+2. (After) wire `analyze_new_messages` (transform-only path).
+3. (After) DRF API endpoints: topics, conversations, messages — role-based permissions.
+4. **Viva sweep (unpaid):** revisit signal guard `if instance.topic.status != 'active': return` and run the live 7-print test before demo day.
+
+
+
+## 2026-10-06 (after Deloitte submit) — Internship application submitted, build plan locked
+
+### What we did today
+- Filled Deloitte AI&Data internship application form. Skill list submitted:
+  `Python - Expert, Django - Advanced, SQL - Intermediate, Machine Learning - Intermediate, NLP - Intermediate, RAG - Intermediate, Jupyter - Intermediate, Quarto - Intermediate`
+  (193 chars, all skills backed by repo evidence)
+- Discussed and rejected overclaiming: React/FastAPI/DRF all readme-badged but NOT yet implemented in repos.
+  Decision: don't put them on the form. Build them in the 4-month runway (Oct 2026 → Jan-Mar 2027).
+- Discussed the actual rejection sensitivity. Re-application is normal and supported.
+  Most Big 4 firms give feedback. Build pipeline → reapply stronger.
+
+### What's next (4-month build plan for reapplication strength)
+1. **DRF in Sentiri** (2 weeks) — serializers, 4-5 endpoints, role-based permissions.
+   Unblocks: update README badges honestly.
+2. **FastAPI microservice** (2 weeks) — standalone service consuming Sentiri via DRF.
+   Unblocks: AI/ML Engineer positioning, microservice architecture.
+3. **Quarto polish** (1 week) — convert RAG_notebook.qmd into a portfolio piece, publish.
+   Unblocks: data-science narrative strength.
+4. **React dashboard widget** (4 weeks, last) — only if everything else is solid.
+   Unblocks: full-stack claim credibility.
+
+### Open items (unchanged)
+- Run 8 garbage-topic cleanup (`buka-nangis-baru`, `child-has-the`, `menangis tidur-mampu-suka bagus`)
+- DRF endpoints (above)
+- FastAPI service (above)
+- Viva sweep: run 7-print live test for Signal 1 guard before demo day.
+- Fix broken LinkedIn link in README (`yourusername` placeholder → real URL).
