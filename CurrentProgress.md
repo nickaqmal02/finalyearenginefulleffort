@@ -584,6 +584,10 @@ After 2 months, **Therapist Jane** observes head-banging during meltdowns and pr
 - how can topic score 0.0 because the topic was not main topic is_primary=False
 - 
 
+[7 10 26] Wednesday
+- finish all forms for every model fields
+- the mental model [ forms -> ] 
+
 
 
 

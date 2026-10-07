@@ -6,10 +6,10 @@ from crispy_forms.helper import FormHelper
 from django.conf import settings
 from django.forms import inlineformset_factory
 from .utils import normalize_phone_number
-from .models import Conversation
+from .models import Conversation, DiagnosisDocument, AutismDiagnosis, MasterSpecifier, MasterSpecialtyCategory, MasterSpecialtyCategory
 from unfold.widgets import UnfoldAdminSelectWidget, UnfoldAdminTextInputWidget, UnfoldAdminFileFieldWidget
 from unfold.layout import Submit, Button
-from crispy_forms.layout import Layout, Fieldset
+from crispy_forms.layout import Layout, Fieldset, HTML
 
 User = get_user_model()
 
@@ -69,10 +69,6 @@ class UploadChatForm(forms.Form):
         )
 
     
-
-    
-
-
 
 # creating our own custom user creation form
 class CustomUserCreationForm(UserCreationForm):
@@ -406,3 +402,256 @@ class CustomSignUpForm(UserCreationForm):
         if commit:
             user.save()
         return user
+
+# ╔════════════════════════════════════════════╗ 
+# ║           UploadDocument [admin]           ║ 
+# ╚════════════════════════════════════════════╝ 
+class UploadDocumentForm(forms.Form):
+    """Form for uploading diagnosis documents from admin panel"""
+    client = forms.ModelChoiceField(
+        queryset=User.objects.filter(
+        role='client',
+        is_active=True,
+        ),
+        widget=UnfoldAdminSelectWidget,
+        help_text="Select the client this document belongs to",
+    )
+    file = forms.FileField(
+        label='DiagnosisDocument',
+        widget=UnfoldAdminFileFieldWidget,
+        help_text="Allowed: PDF, DOCX, PNG, JPG",
+    )
+    document_type = forms.ChoiceField(
+        choices=DiagnosisDocument.DOCUMENT_TYPES,
+        initial='diagnostic_report',
+        widget=UnfoldAdminSelectWidget,
+        help_text="Type of document",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False,
+        self.helper.layout = Layout(
+            Fieldset(
+                'Upload Details',
+                'client',
+                'file',
+                'document_type',
+            ),
+            Submit('submit', 'Upload Document', css_class='!mx-6 mt-2 !rounded-full'),
+            Button(
+                'cancel',
+                'Cancel',
+                css_class='ml-2 !rounded-full',
+                onclick='window.location.href="/admin/chat_analyzer/diagnosisdocument/";'
+            )
+        )
+
+# ╔════════════════════════════════════════════╗ 
+# ║          UploadDIagnosis [admin]           ║ 
+# ╚════════════════════════════════════════════╝ 
+class AutismDiagnosisForm(forms.Form):
+    """ custom form for uploading the AutismDiagnosisForm """
+    client = forms.ModelChoiceField(
+        queryset=User.objects.filter(
+            role='client',
+            is_active=True,
+        ),
+        widget=UnfoldAdminSelectWidget,
+        help_text="Select the client this diagnosis belongs to",
+    )
+
+    support_level = forms.ChoiceField(
+        choices=AutismDiagnosis.SUPPORT_LEVEL_CHOICES,
+        widget=UnfoldAdminSelectWidget,
+        help_text="level of support for this client",
+    )
+
+    diagnosed_by = forms.ModelChoiceField(
+        queryset = User.objects.filter(
+            role='doctor',
+            is_active=True,
+        ),
+        widget=UnfoldAdminSelectWidget,
+        help_text="who diagnosed this ?",
+    )
+    diagnoses_date = forms.DateField(
+        widget=forms.DateInput(attrs={'type': 'date'}),
+    )
+
+    clinical_notes = forms.CharField(
+        widget=forms.Textarea(attrs={'rows': 4}),
+        required=False,
+    )
+
+    is_active = forms.BooleanField(
+        required=False,
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.layout = Layout(
+            Fieldset(
+                'Diagnosis Details',
+                'client',
+                'diagnosed_by',
+                'support_level',
+                'diagnoses_date',
+                'is_active',
+                'clinical_notes',
+            ),
+            Submit('submit', 'Upload Document', css_class='!mx-6 mt-2 !rounded-full'),
+            Button(
+                'cancel',
+                'Cancel',
+                css_class='ml-2 !rounded-full',
+                onclick='window.location.href="/admin/chat_analyzer/diagnosisdocument/";'
+            )
+        )
+# ╔════════════════════════════════════════════╗ 
+# ║        MasterSpecifierForms[admin]         ║ 
+# ╚════════════════════════════════════════════╝ 
+class MasterSpecifierForm(forms.Form):
+    """custom form: master specifier"""
+    specifier_name = forms.CharField(
+        widget=UnfoldAdminTextInputWidget,
+        help_text="name of the specifier",
+    )
+
+    specifier_category = forms.CharField(
+        widget=UnfoldAdminTextInputWidget,
+        help_text="category of specifier e.g. Language",
+    )
+
+    is_positive_specifier = forms.BooleanField(
+        required=False,
+    )
+
+    dsm_code = forms.CharField(
+        widget=UnfoldAdminTextInputWidget,
+        help_text="DSM-5 reference code ="
+    )
+
+    is_active = forms.BooleanField(
+        required=False,
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.layout = Layout(
+            Fieldset(
+                'SPECIFIERS DETAILS',
+                'specifier_name',
+                'specifier_category',
+                'is_positive_specifier',
+                'dsm_code',
+                'is_active',
+            ),
+            Submit('submit', 'Submit', css_class="!mx-6 !mt-2 !rounded-full"),
+            Button(
+                'cancel',
+                'Cancel',
+                css_class='ml-2 !rounded-full',
+                onclick='window.location.href="/admin/chat_analyzer/masterspecifier"'
+            )
+        )
+
+
+# ╔════════════════════════════════════════════╗ 
+# ║     MasterSpecialtyForm [ Admin ]          ║ 
+# ╚════════════════════════════════════════════╝ 
+class MasterSpecialtyForm(forms.Form):
+    
+    specialty_name = forms.CharField(
+        widget=UnfoldAdminTextInputWidget,
+        help_text="e.g. Tecnical",
+    )
+
+    specialty_code = forms.CharField(
+        widget=UnfoldAdminTextInputWidget,
+        help_text=" e.g SP_01",
+    )
+
+    category = forms.ModelChoiceField(
+        queryset=MasterSpecialtyCategory.objects.filter(is_active=True),
+        widget=UnfoldAdminSelectWidget,
+        help_text="select the category for this specialty",
+    )
+
+    is_active = forms.BooleanField(
+        required=False,
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.layout = Layout(
+            Fieldset(
+                'AVAILABLE DOCTOR SPECIALTY',
+                'specialty_name',
+                'specialty_code',
+                'category',
+                'is_active',
+            ),
+            Submit('submit', 'Submit', css_class="!mx-6 !mt-2 !rounded-full"),
+            Button(
+                'cancel',
+                'Cancel',
+                css_class="!ml-2 !rounded-full",
+                onclick='window.location.href="/admin/chat_analyzer/masterspecialty"'
+            )
+        )
+    
+# ╔════════════════════════════════════════════╗ 
+# ║         SPECIALTYCATEGORY [ADMIN]          ║ 
+# ╚════════════════════════════════════════════╝ 
+class MasterSpecialtyCategoryForm(forms.Form):
+    category_name = forms.CharField(
+        widget=UnfoldAdminTextInputWidget,
+        help_text="e.g Verbal",
+    )
+    category_code = forms.CharField(
+        widget=UnfoldAdminTextInputWidget,
+        help_text="e.g. CA_01",
+    )
+    category_description = forms.CharField(
+        widget=forms.Textarea(attrs={'rows': 4}),
+        help_text="the doctor have professional cert in this fields",
+    )
+    is_active = forms.BooleanField(
+        required=False,
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.layout = Layout(
+            Fieldset(
+                'Doctor Specialty Category',
+                'category_name',
+                'category_code',
+                'category_description',
+                'is_active',
+            ),
+            Submit('submit', 'Submit', css_class="!mx-6 !mt-2 !rounded-full"),
+            Button(
+                'cancel',
+                'Cancel',
+                css_class="!ml-2 !rounded-full",
+                onclick='window.location.href="/admin/chat_analyzer/marterspecialtycategory"',
+            )
+        )
+
+
+
+
+
+
+

@@ -624,7 +624,7 @@ class DiagnosisDocument(models.Model):
         ordering = ['-upload_date']
 
     def __str__(self):
-        return f"{self.client.get_full_name()} - {self.file_name}"
+        return f"{self.client.get_full_name()} - {self.file}"
 
 
 # ====================================
@@ -670,6 +670,7 @@ class MasterSpecialty(models.Model):
 
     def __str__(self):
         return self.specialty_name
+
 
 # THIS IS THE ASSOCIATIVE TABLE THAT CONNECT BETWEEN {DR AND THEIR SPECIALTY}
 class DoctorSpecialty(models.Model):

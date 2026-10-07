@@ -5,7 +5,7 @@ from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie, csrf_exempt
 from django.contrib.auth.forms import AuthenticationForm
-from .forms import CustomLoginForm, CustomSignUpForm
+from .forms import CustomLoginForm, CustomSignUpForm, UploadChatForm, UploadDocumentForm
 from .models import User
 from .decorators import admin_required, therapist_required, doctor_required, client_required
 # ████████████████████████████████████████████████████████████████████████████████
@@ -87,8 +87,6 @@ def login_view(request):
         form = CustomLoginForm()
 
     return render(request, 'chat_analyzer/auth/login.html', {'form': form})
-
-
 #· · · · · · · · · · · · · · · · · · · · · · 
 #  2.2 LOGOUT VIEWS                          
 #· · · · · · · · · · · · · · · · · · · · · · 

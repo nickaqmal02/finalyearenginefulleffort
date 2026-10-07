@@ -296,3 +296,75 @@
 - FastAPI service (above)
 - Viva sweep: run 7-print live test for Signal 1 guard before demo day.
 - Fix broken LinkedIn link in README (`yourusername` placeholder → real URL).
+
+---
+
+## 2026-10-06 (evening session) — DiagnosisDocument FileField swap + custom upload view + glassmorphism UI
+
+### What we did
+- **DiagnosisDocument model swap:** Replaced `file_path` (CharField), `file_name` (CharField), `file_size` (IntegerField) with a single `FileField(upload_to='diagnosis_documents/%Y/%m/', validators=[FileExtensionValidator(['pdf', 'docx', 'png', 'jpg', 'jpeg'])])`. Migration applied. Uploads land at `MEDIA_ROOT/diagnosis_documents/<YYYY>/<MM>/<filename>`.
+- **Admin UX:** Switched `DiagnosisDocumentAdmin` from `raw_id_fields` to `autocomplete_fields` for `client`, `uploaded_by`, `approved_by`. Clean type-to-search, no popup icons.
+- **Custom upload view (5-layer pattern taught):** Built `UploadDocumentView` mirroring the existing `UploadChatsView` pattern:
+  1. **Form** (`UploadDocumentForm` in forms.py): client, file, document_type fields. `__init__` sets up crispy `FormHelper` with `Layout`, `Fieldset`, `Submit`, `Button`.
+  2. **View** (`UploadDocumentView` in admin.py): GET renders empty form; POST validates → `DiagnosisDocument.objects.create(client=..., file=..., document_type=..., uploaded_by=request.user)` → success message → redirect to changelist.
+  3. **Template** (`upload_document.html`): `enctype="multipart/form-data"`, `{% crispy form form.helper "unfold_crispy" %}`.
+  4. **URL** (`DiagnosisDocumentAdmin.get_urls()`): `path('upload-document/', self.admin_site.admin_view(UploadDocumentView.as_view()), name='chat_analyzer_diagnosisdocument_upload')`.
+  5. **Button** (`change_list.html` override + `change_list_template` class attr): frosted glass pill link on changelist.
+- **Verified end-to-end:** Admin clicks "Upload Diagnosis Document" → form renders → selects client + PDF → uploads → success message → file lands in `media/diagnosis_documents/2026/10/`. ✅
+- **Glassmorphism UI attempt:** Tried Tailwind CDN for Apple-style frosted glass pill buttons on changelist + form submit. Hit three bugs:
+  1. **Missing `margin:` keyword** in template div style (`20px auto` → `margin: 20px auto`).
+  2. **`render_template` context bugs:** `has_change_permisssion` (3 s's typo) + `has_permission: False` (overrode `each_context`'s correct `True`). Killed breadcrumbs. Fixed both.
+  3. **Tailwind CDN conflicted with unfold's built-in Tailwind** — submit button text invisible, padding broken, hover dead. Root cause: unfold ships its own compiled Tailwind CSS; loading the CDN alongside causes two Tailwinds to fight.
+- **Final fix for glassmorphism:** Removed CDN entirely. Used `HTML()` from crispy_forms to render raw `<button>` and `<a>` elements with Tailwind classes — unfold's built-in Tailwind picks them up natively. No CDN, no conflict.
+
+### What Nik learned
+- **5-layer Django file upload pattern:** URL route → View (GET/POST) → Form (validates input) → Template (`enctype="multipart/form-data"`) → Model save (`objects.create` with `FileField`). Every Django upload has these 5 layers.
+- **`request.FILES` dict:** Django parses multipart POST into `request.POST` (text fields) + `request.FILES` (binary). The key in `request.FILES` matches the form field name. View passes both to form: `UploadDocumentForm(request.POST, request.FILES)`.
+- **`enctype="multipart/form-data"`:** Without it, the browser sends form data as URL-encoded text — file bytes get lost. `multipart` splits text from binary into separate MIME parts.
+- **GET vs POST in views:** GET = "show me the form" (creates empty form, renders template). POST = "process my submission" (validates form, saves data, redirects).
+- **`upload_to='path/%Y/%m/'`:** Django's `strftime` placeholders auto-organize files by year/month. `%Y` = 4-digit year, `%m` = 2-digit month. File lands at `MEDIA_ROOT/diagnosis_documents/2026/10/filename.pdf`.
+- **Admin context variables:** `opts` (model metadata), `has_change_permission`, `is_popup`, `app_label` — normally set by `ModelAdmin` automatically. Custom views extending `View` must provide them manually via `context.update()` so admin chrome (breadcrumbs, sidebar) renders correctly.
+- **`has_permission`:** Site-wide flag from `AdminSite.each_context()`. Controls whether user sees full admin navigation. Overriding it to `False` kills breadcrumbs/sidebar. Let `each_context` set it; don't override.
+- **`context.update()` order matters:** Later updates overwrite earlier ones. If `each_context` sets `has_permission=True`, don't override with `False` afterward.
+- **`change_list_template`:** Class attribute on `ModelAdmin` that tells Django which template to use for the changelist page. Without it, Django uses the default `admin/change_list.html` — custom buttons don't appear.
+- **`{{ block.super }}` in template blocks:** Renders the parent's content of that block. Without it, you REPLACE the block instead of adding to it (e.g. removing the default "Add" button).
+- **`form.helper.form_tag = False`:** Tells crispy_forms NOT to render its own `<form>` tag. The template already has `<form>` — if crispy renders another, you get nested forms (broken).
+- **Tailwind CDN vs unfold's built-in Tailwind:** Unfold ships compiled Tailwind CSS. Loading `cdn.tailwindcss.com` alongside causes two Tailwind engines to conflict — classes get overridden, text disappears, hover breaks. Solution: don't use the CDN; unfold's Tailwind handles classes natively.
+- **`FileExtensionValidator` syntax:** `FileExtensionValidator(['pdf', 'png'])` — NOT `FileExtensionValidator==(['pdf', 'png'])`. The `==` is a comparison operator, not a function call. Python evaluates it to `False`, Django sees `validators=[False]`, errors.
+- **`css_class` in crispy_forms `Submit`:** Passes the string as the HTML `class` attribute on the rendered `<input type="submit">`. But `<input>` doesn't render text content well — better to use `HTML()` to render a raw `<button>` for full control.
+- **`AdminSite.each_context()` source:** `venv/.../django/contrib/admin/sites.py` — the authoritative source for site-wide admin context variables.
+- **Admin/ML engineer role boundary:** Admin owns the domain layer (keyword curation, topic approval, manual corrections). ML engineer owns the model layer (architecture, training pipeline, evaluation). The handoff: modeler trains → admin reviews discovered → ML engineer adjusts modeler → retrain. Same loop a content moderation team has with the team that trains the toxicity classifier.
+- **"Not getting Deloitte" is diagnostic, not verdict:** Rejection gives feedback. Reapply Q1 2027 with DRF + FastAPI added. One application outcome doesn't define a 30-year career.
+- **Nik's career positioning:** AI Engineer (not ML Engineer). Builds systems that USE models — pipelines, APIs, infrastructure. PersonalRAG (cross-encoder reranking) + Sentiri (BERTopic + XLM-R + Django) = textbook AI Engineer portfolio. Title: "AI Engineer" on resume, LinkedIn, Deloitte application.
+
+### What we went through together
+- Nik flagged the existing `DiagnosisDocument.file_path` was a CharField ("Cloud/S3 path or server path") — not a real FileField. Caught a real model design flaw.
+- Hit `FileExtensionValidator==([...])` typo — `==` instead of `(`. Python didn't error at parse time; only Django's system check caught it (`validators[0] (False) isn't a function`). Lesson: read error messages carefully.
+- Hit `IntegrityError: UNIQUE constraint failed` again (same pattern as earlier session — leftover rows from prior test). Test-fixture hygiene still a known smell.
+- Nik noticed breadcrumbs missing after building the view. Diagnosed: `has_change_permisssion` (3 s's) + `has_permission: False`. Two bugs in `render_template` context. Fixed both.
+- Nik wanted glassmorphism buttons. First attempt with Tailwind CDN conflicted with unfold's built-in Tailwind. Pivoted to `HTML()` from crispy_forms for raw `<button>` rendering — full control, no CDN, no conflict.
+- Nik dodged the `form_tag = False` prediction question — still unpaid. Added to viva sweep.
+
+### Glassmorphism CSS reference (for viva / future use)
+| CSS property | Effect | Tailwind class |
+|---|---|---|
+| `border-radius: 9999px` | Full pill shape | `rounded-full` |
+| `background: rgba(255,255,255,0.7)` | Semi-transparent white (glass) | `bg-white/70` |
+| `backdrop-filter: blur(12px)` | Blurs content behind element (frosted) | `backdrop-blur-md` |
+| `border: 1px solid rgba(255,255,255,0.2)` | Subtle glass edge | `border border-white/20` |
+| `box-shadow: 0 4px 6px...` | Soft floating shadow | `shadow-lg` |
+| `transition: all 0.2s` | Smooth animation | `transition-all duration-200` |
+| `transform: translateY(-1px)` on hover | Tactile lift | (custom hover) |
+
+### What's next
+1. **Run 8 garbage-topic cleanup** (`buka-nangis-baru`, `child-has-the`, `menangis tidur-mampu-suka bagus`) — URGENT for demo.
+2. **Viva sweep (unpaid checks):**
+   - Run 7-print live test for Signal 1 guard (`if instance.topic.status != 'active': return`).
+   - Answer: why `form_tag = False` in crispy helper? What happens if `True`?
+   - Answer: if `{{ block.super }}` removed from changelist template, what disappears?
+3. **DRF endpoints** in Sentiri (2 weeks).
+4. **FastAPI microservice** (2 weeks after DRF).
+5. **Quarto portfolio piece** (1 week).
+6. **Fix README broken LinkedIn link** (`yourusername` → real URL).
+7. **Card-style dashboard** (`/dashboard/<role>/`) — parked until DRF is wired.
+8. **Deloitte reapply Q1 2027** with DRF + FastAPI added to skill list.

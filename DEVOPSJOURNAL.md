@@ -309,3 +309,10 @@ but only if the operation single not a bulk operation
 > return summary of dictionary with key and values
 
 
+## using forms.py
+
+```
+for not foreing key we can use forms.ChoiceField but for foreign key forms.ModelChoiceField thats why this modelchoicefield need queryset
+```
+
+
