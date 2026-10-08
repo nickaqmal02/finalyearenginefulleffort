@@ -316,3 +316,27 @@ for not foreing key we can use forms.ChoiceField but for foreign key forms.Model
 ```
 
 
+
+## why in forms have the __init__.py ?? and having *args **kwargs
+
+```python
+class ClientForm(forms.Form):
+    name = forms.CharField(
+        widget=UnfoldAdminTextInputWidget,
+        help_text="bla bla "
+    )
+
+    def __init__(self, *args, **kwargs):
+        # why ??
+        # because 
+    # *args theres for capturing the request like request.POST, request.FILES and 
+    # meanwhile **kwargs for capturing extra parameter
+    # then why ?
+        super().__init__(*args, **kwargs)
+        # this will ensure that we will send the data when using this form or returning it 
+        # form_tag=False, to make us being able to control our font like enctype or not, 
+
+
+
+
+```

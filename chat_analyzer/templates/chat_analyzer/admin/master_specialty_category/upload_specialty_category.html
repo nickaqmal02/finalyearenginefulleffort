@@ -1,0 +1,25 @@
+{% extends "admin/base_site.html" %}
+{% load unfold %}
+{% load crispy_forms_tags %}
+
+
+{% block extrahead %}
+<scripts src="https://cdn.tailwindcss.com">
+    </script>
+    {% endblock %}
+
+
+    {% block content %}
+    <div id="content-main">
+        <div style="max-width: 600px;margin: 20px auto;">
+            <p> Create Doctor Specialty Category </p>
+
+            <form method="post">
+                {% csrf_token %}
+                {% crispy form form.helper "unfold_crispy" %}
+
+            </form>
+        </div>
+    </div>
+
+    {% endblock %}

@@ -6,7 +6,7 @@ from crispy_forms.helper import FormHelper
 from django.conf import settings
 from django.forms import inlineformset_factory
 from .utils import normalize_phone_number
-from .models import Conversation, DiagnosisDocument, AutismDiagnosis, MasterSpecifier, MasterSpecialtyCategory, MasterSpecialtyCategory
+from .models import Conversation, DiagnosisDocument, AutismDiagnosis, MasterSpecifier, MasterSpecialtyCategory, MasterSpecialtyCategory, ClientContact, ClientSpecifier, DoctorSpecialty, MasterSpecialty
 from unfold.widgets import UnfoldAdminSelectWidget, UnfoldAdminTextInputWidget, UnfoldAdminFileFieldWidget
 from unfold.layout import Submit, Button
 from crispy_forms.layout import Layout, Fieldset, HTML
@@ -621,7 +621,7 @@ class MasterSpecialtyCategoryForm(forms.Form):
         help_text="e.g. CA_01",
     )
     category_description = forms.CharField(
-        widget=forms.Textarea(attrs={'rows': 4}),
+        widget=UnfoldAdminTextInputWidget,
         help_text="the doctor have professional cert in this fields",
     )
     is_active = forms.BooleanField(
@@ -645,9 +645,224 @@ class MasterSpecialtyCategoryForm(forms.Form):
                 'cancel',
                 'Cancel',
                 css_class="!ml-2 !rounded-full",
-                onclick='window.location.href="/admin/chat_analyzer/marterspecialtycategory"',
+                onclick='window.location.href="/admin/chat_analyzer/masterspecialtycategory"',
             )
         )
+
+# ╔════════════════════════════════════════════╗ 
+# ║         CLIENTCONTACTFORM [ADMIN]          ║ 
+# ╚════════════════════════════════════════════╝ 
+class ClientContactForm(forms.Form):
+    
+    client = forms.ModelChoiceField(
+        queryset=User.objects.filter(
+            role='client',
+            is_active=True,
+        ),
+        widget=UnfoldAdminSelectWidget,
+        help_text="client for this phone numbers",
+    )
+
+    contact_type = forms.ChoiceField(
+        choices=ClientContact.CONTACT_TYPES,
+        widget=UnfoldAdminSelectWidget,
+        help_text="e.g. Father ? ",
+    )
+
+    name = forms.CharField(
+        widget=UnfoldAdminTextInputWidget,
+        help_text="name for this contact number",
+    )
+
+    phone_number = forms.CharField(
+        widget=UnfoldAdminTextInputWidget,
+        help_text="Contact phone number",
+    )
+
+    is_primary = forms.BooleanField(
+        required=False,
+    )
+
+    notes = forms.CharField(
+        widget=UnfoldAdminTextInputWidget,
+        help_text="Additional notes about this contact",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.layout = Layout(
+            Fieldset(
+                'Client Contact',
+                'client',
+                'contact_type',
+                'name',
+                'phone_number',
+                'is_primary',
+                'notes',
+            ),
+            Submit('submit', 'Submit', css_class="!mx-6 !rounded-full"),
+            Button(
+                'cancel',
+                'Cancel',
+                css_class = "!mx-6 !rounded-full",
+                onclick='window.location.href="/admin/chat_analyzer/clientcontact"',
+            )
+        )
+
+# ╔════════════════════════════════════════════╗ 
+# ║        ClientSpecifiersForm [admin]        ║ 
+# ╚════════════════════════════════════════════╝ 
+class ClientSpecifierForm(forms.Form):
+    """ Form for linking a specifier to a client's autism diagnosis"""
+    
+    autism_diagnosis = forms.ModelChoiceField(
+        queryset=AutismDiagnosis.objects.filter(
+            is_active=True,
+        ),
+        widget=UnfoldAdminSelectWidget,
+        help_text="select the client's autism diagnosis",
+    )
+
+    specifier = forms.ModelChoiceField(
+        queryset=MasterSpecifier.objects.filter(
+            is_active=True,
+        ),
+        widget=UnfoldAdminSelectWidget,
+        help_text="Select the specifier from the master list",
+    )
+
+    severity = forms.ChoiceField(
+        choices=ClientSpecifier.SEVERITY_CHOICES,
+        widget=UnfoldAdminSelectWidget,
+        required=False,
+        help_text="Severity level (if applicable)",
+    )
+
+    is_present = forms.BooleanField(
+        required=False,
+        help_text="True = client has this specifier, False = Client does NOT have it",
+    )
+
+    clinical_notes = forms.CharField(
+        widget=UnfoldAdminTextInputWidget,
+        required=False,
+        help_text="Clinical description of how this specifier presents",
+    )
+
+    stated_by = forms.ModelChoiceField(
+        queryset = User.objects.filter(role='doctor', is_active=True),
+        required=False,
+        help_text="Doctor who stated this specifier on this client",
+    )
+
+    stated_date = forms.DateField(
+        widget=forms.DateInput(attrs={'type': 'date'}),
+        required=False,
+        help_text="When this specifier was stated",
+    )
+
+    is_approved = forms.BooleanField(
+        required=False,
+        help_text="check if already approved (default=False)",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper=FormHelper()
+        self.form_tag=False,
+        self.helper.layout=Layout(
+            Fieldset(
+                'CLIENT AUTISM SPECIFIERS',
+                'autism_diagnosis',
+                'specifier',
+                'severity',
+                'is_present',
+                'clinical_notes',
+                'stated_by',
+                'stated_date',
+                'is_approved',
+            ),
+            Submit('submit', 'Submit', css_class="!mx-6 !rounded-full"),
+            Button(
+                'cancel',
+                'Cancel',
+                css_class="!rounded-full",
+                onclick='window.location.href="/admin/chat_analyzer/clientspecifier"',
+            )
+        )
+
+# ╔════════════════════════════════════════════╗ 
+# ║        EachDoctorSpecialty [admin]         ║ 
+# ╚════════════════════════════════════════════╝ 
+class DoctorSpecialtyForm(forms.Form):
+
+    doctor=forms.ModelChoiceField(
+        queryset=User.objects.filter(
+            role='doctor',
+            is_active=True,
+        ),
+        widget=UnfoldAdminSelectWidget,
+        help_text="doctor's who own this specialty",
+    )
+
+    specialty=forms.ModelChoiceField(
+        queryset=MasterSpecialty.objects.filter(
+            is_active=True,
+        ),
+        widget=UnfoldAdminSelectWidget,
+        help_text="The specialty that this doctor's own"
+    )
+
+    is_board_certified=forms.BooleanField(
+        required=False,
+    )
+
+    certification_date=forms.DateField(
+        widget=forms.DateInput(attrs={'type': 'date'}),
+        required=False,
+        help_text="the date of doctor's certificate",
+    )
+
+    certification_expires=forms.DateField(
+        widget=forms.DateInput(attrs={'type': 'date'}),
+        required=False,
+        help_text="Date of the doctor's certificate expired",
+    )
+
+    is_primary_specialty=forms.BooleanField(
+        required=False,
+    )
+
+    # so to connect and allowing parsing value between this forms and another files we need to define __init__ method
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper=FormHelper()
+        self.form_tag=False
+        self.helper.layout=Layout(
+            Fieldset(
+                'Doctor Specialty Assignment',
+                'doctor',
+                'specialty',
+                'is_board_certified',
+                'certification_date',
+                'certification_expires',
+                'is_primary_specialty',
+            ),
+            Submit('submit', 'Submit', css_class="!mx-6 !rounded-full"),
+            Button(
+                'cancel',
+                'Cancel',
+                css_class="!rounded-full",
+                onclick='window.location.href="/admin/doctorspecialty"',
+            ),
+        )
+
+
+
+
+
 
 
 

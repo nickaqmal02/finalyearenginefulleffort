@@ -1,4 +1,4 @@
-{% extends "admin/change_list.html" %}
+{% extends 'admin/change_list.html' %}
 
 {% block extrahead %}
 <script src="https://cdn.tailwindcss.com"></script>
@@ -6,11 +6,11 @@
 
 {% block object-tools-items %}
 <li>
-    <a href="{% url 'admin:chat_analyzer_masterspecialty_upload' %}" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full
+    <a href="{% url 'admin:chat_analyzer_clientspecifier_upload' %}" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full
               bg-white/70 backdrop-blur-md border border-white/20 shadow-lg
               text-sm font-medium text-gray-800 hover:bg-white/90
               transition-all duration-200">
-        📄 Upload New Doctor Specialty
+        📄 Create Client Autism Details
     </a>
 </li>
 {{ block.super }}

@@ -4,10 +4,10 @@ from unfold.views import UnfoldModelAdminViewMixin
 from django.views.generic import View
 from django.shortcuts import redirect
 from django.http import Http404
-from .forms import UploadChatForm, UploadDocumentForm
+from .forms import UploadChatForm, UploadDocumentForm, ClientSpecifierForm, DoctorSpecialtyForm
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth import get_user_model
-from .forms import CustomUserCreationForm, CustomUserChangeForm, AutismDiagnosisForm, MasterSpecifierForm, MasterSpecialtyForm, MasterSpecialtyCategoryForm
+from .forms import CustomUserCreationForm, CustomUserChangeForm, AutismDiagnosisForm, MasterSpecifierForm, MasterSpecialtyForm, MasterSpecialtyCategoryForm, ClientContactForm
 import csv
 from django.http import HttpResponse
 from django.utils.safestring import mark_safe
@@ -165,10 +165,81 @@ class CustomUserAdmin(UserAdmin, ModelAdmin):
 
 @admin.register(ClientContact)
 class ClientContactAdmin(admin.ModelAdmin):
+    change_list_template = 'chat_analyzer/admin/client_contact/change_list.html'
     list_display = ['name', 'client', 'contact_type', 'phone_number', 'is_primary']
     list_filter = ['contact_type', 'is_primary']
     search_fields = ['name', 'phone_number', 'client__first_name', 'client__last_name']
     raw_id_fields = ['client']
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path(
+                'upload_client_contact/',
+                self.admin_site.admin_view(ClientContactView.as_view()),
+                name='chat_analyzer_clientcontact_upload'
+            )
+        ]
+        return custom + urls
+# ╔════════════════════════════════════════════╗ 
+# ║         ClientContactForm [Admin]          ║ 
+# ╚════════════════════════════════════════════╝ 
+class ClientContactView(UnfoldModelAdminViewMixin, View):
+    
+    title = "Creating new client contact"
+    permission_required = "chat_analyzer.view_clientcontact"
+    
+    def get(self, request, *args, **kwargs):
+        form = ClientContactForm()
+        return self.render_template(request, 'chat_analyzer/admin/client_contact/upload_client_contact.html', {
+            'form': form,
+            'title': self.title,
+        })
+    
+    def post(self, request, *args, **kwargs):
+        form = ClientContactForm(self.POST)
+        if form.is_valid():
+            
+            clientcontact = ClientContact.objects.create(
+                client = form.cleaned_data['client'],
+                contact_type = form.cleaned_data['contact_type'],
+                name = form.cleaned_data['name'],
+                phone_number = form.cleaned_data['phone_number'],
+                is_primary = form.cleaned_data['is_primary'],
+                notes = form.cleaned_data['notes'],
+            )
+
+            messages.success(
+                request,
+                f" successfully created contact for this {clientcontact.client} "
+            )
+            return redirect('admin:chat_analyzer_clientcontact_changelist')
+        # if form is not valid
+        return self.render_template(request, 'chat_analyzer/admin/client_contact/upload_client_contact.html', {
+            'form': form,
+            'title': self.title,
+        })
+
+    def render_template(self, request, template_name, context):
+        """handling method"""
+        from django.template.loader import render_to_string
+        from django.http import HttpResponse
+        from django.contrib import admin
+
+        admin_site=admin.site
+        admin_context=admin_site.each_context(request)
+        context.update(admin_context)
+
+        context.update({
+            'opts': ClientContact._meta,
+            'app_label': ClientContact._meta.app_label,
+            'has_change_permission': True,
+            'has_view_permission': True,
+            'has_add_permission': True,
+            'has_permission': True,
+            'is_popup': False,
+        })
+        return HttpResponse(render_to_string(template_name, context, request))
 
 
 # ╔════════════════════════════════════════════╗ 
@@ -342,6 +413,7 @@ class MasterSpecifierView(UnfoldModelAdminViewMixin, View):
 #
 @admin.register(ClientSpecifier)
 class ClientSpecifierAdmin(admin.ModelAdmin):
+    change_list_template = "chat_analyzer/admin/client_specifier/change_list.html"
     list_display=[
         'autism_diagnosis',
         'specifier',
@@ -354,6 +426,76 @@ class ClientSpecifierAdmin(admin.ModelAdmin):
     search_fields = ['autism_diagnosis__client__first_name', 'specifier__specifier_name']
     raw_id_fields = ['autism_diagnosis', 'specifier', 'stated_by', 'proposed_by', 'approved_by']
 
+    def get_urls(self):
+        """custom urls path"""
+        urls = super().get_urls()
+        custom = [
+            path(
+                'upload_client_specifier/',
+                self.admin_site.admin_view(ClientSpecifierView.as_view()),
+                name='chat_analyzer_clientspecifier_upload',
+            )
+        ]
+        return custom + urls
+# ╔════════════════════════════════════════════╗ 
+# ║        ClientSpecifierView [admin]         ║ 
+# ╚════════════════════════════════════════════╝ 
+class ClientSpecifierView(UnfoldModelAdminViewMixin, View):
+    
+    title = "Detail Of Client Specifier"
+    permission_required = "chat_analyzer.view_clientspecifier"
+
+    def get(self, request, *args, **kwargs):
+        form = ClientSpecifierForm()
+        return self.render_template(request, 'chat_analyzer/admin/client_specifier/upload_client_specifier.html', {
+            'form': form,
+            'title': self.title,
+        })
+
+    def post(self, request, *args, **kwargs):
+        form = ClientSpecifierForm(request.POST)
+        if form.is_valid():
+            clientspecifier = ClientSpecifier.objects.create(
+                autism_diagnosis=form.cleaned_data['autism_diagnosis'],
+                specifier=form.cleaned_data['specifier'],
+                severity=form.cleaned_data['severity'],
+                is_present=form.cleaned_data['is_present'],
+                clinical_notes=form.cleaned_data['clinical_notes'],
+                stated_by=form.cleaned_data['stated_by'],
+                stated_date=form.cleaned_data['stated_date'],
+                is_approved=form.cleaned_data['is_approved'],
+            )
+
+            messages.success(
+                request,
+                f" successfully created specifier for {clientspecifier.autism_diagnosis} !"
+            )
+            return redirect('admin:chat_analyzer_clientspecifier_changelist')
+        # then if form is invalid
+        return self.render_template(request, 'chat_analyzer/admin/client_specifier/upload_client_specifier.html', {
+            'form': form,
+            'title': self.title,
+        })
+
+    def render_template(self, request, template_name, context):
+        """helper method"""
+        from django.template.loader import render_to_string
+        from django.http import HttpResponse
+        from django.contrib import admin
+
+        admin_site=admin.site
+        admin_context=admin_site.each_context(request)
+        context.update(admin_context)
+
+        context.update({
+            'opts': ClientSpecifier._meta,
+            'app_label': ClientSpecifier._meta.app_label,
+            'has_change_permission': True,
+            'has_add_permission': True,
+            'has_permission': True,
+            'is_popup': False,
+        })
+        return HttpResponse(render_to_string(template_name, context, request))
 
 # ╔════════════════════════════════════════════╗ 
 # ║         6. DIAGNOSIS DOCUMENT ✨          ║ 
@@ -439,15 +581,27 @@ class UploadDocumentView(UnfoldModelAdminViewMixin, View):
 # ╚════════════════════════════════════════════╝ 
 #
 @admin.register(MasterSpecialtyCategory)
-class MasterSpecialtyCategory(admin.ModelAdmin):
-    list_display = ['category_name', 'category_code', 'display_order', 'is_active']
+class MasterSpecialtyCategoryAdmin(admin.ModelAdmin):
+    change_list_template = 'chat_analyzer/admin/master_specialty_category/change_list.html'
+    list_display = ['category_name', 'category_code', 'is_active']
     list_filter = ['is_active']
     search_fields = ['category_name', 'category_code']
 
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path(
+                'upload_specialty_category/',
+                self.admin_site.admin_view(MasterSpecialtyCategoryView.as_view()),
+                name='chat_analyzer_masterspecialtycategory_upload',
+            )
+        ]
+        return custom + urls
+    
 # ╔════════════════════════════════════════════╗ 
 # ║        MasterSpecialtyCategoryView         ║ 
 # ╚════════════════════════════════════════════╝ 
-class MasterSpecialtyCategoryView(UnfoldModelAdminViewmixin, View):
+class MasterSpecialtyCategoryView(UnfoldModelAdminViewMixin, View):
     
     title = "Add New Doctor Specialty Category"
     permission_required = "chat_analyzer.view_masterspecialtycategory"
@@ -458,6 +612,51 @@ class MasterSpecialtyCategoryView(UnfoldModelAdminViewmixin, View):
             'form': form,
             'title': self.title,
         })
+
+    def post(self, request, *args, **kwargs):
+        form = MasterSpecialtyCategoryForm(request.POST)
+        if form.is_valid():
+            
+            specialtycategory = MasterSpecialtyCategory.objects.create(
+                category_name = form.cleaned_data['category_name'],
+                category_code = form.cleaned_data['category_code'],
+                category_description = form.cleaned_data['category_description'],
+                is_active = form.cleaned_data['is_active'],
+            )
+            messages.success(
+                request,
+                f"You have successfully create {specialtycategory.category_name} !"
+            )
+            return redirect('admin:chat_analyzer_masterspecialtycategory_changelist')
+        # if not valid
+        return self.render_template(request, 'chat_analyzer/admin/master_specialty_category/upload_specialty_category.html',{
+            'form': form,
+            'title': self.title,
+        })
+
+    def render_template(self, request, template_name, context):
+        """helper method to render template"""
+        from django.template.loader import render_to_string
+        from django.http import HttpResponse
+        from django.contrib import admin
+
+        admin_site=admin.site
+        admin_context=admin_site.each_context(request)
+        context.update(admin_context)
+
+        context.update({
+            'opts': MasterSpecialtyCategory._meta,
+            'app_label': MasterSpecialtyCategory._meta.app_label,
+            'has_change_permission': True,
+            'has_view_permission': True,
+            'has_add_permission': True,
+            'has_permission': True,
+            'is_popup': False,
+        })
+        return HttpResponse(render_to_string(template_name, context, request))
+
+        
+
 
 
 
@@ -510,7 +709,7 @@ class MasterSpecialtyView(UnfoldModelAdminViewMixin, View):
                 f" Successfully Created {specialty.specialty_name} !"
             )
         # invalid forms error
-        return render.render_template(request, 'chat_analyzer/admin/master_specialty/upload_specialty.html', {
+        return self.render_template(request, 'chat_analyzer/admin/master_specialty/upload_specialty.html', {
             'form': form,
             'title': self.title,
         })
@@ -540,11 +739,81 @@ class MasterSpecialtyView(UnfoldModelAdminViewMixin, View):
     
 # = adding the specialty to doctor =
 @admin.register(DoctorSpecialty)
-class DoctorSpecialty(admin.ModelAdmin):
+class DoctorSpecialtyAdmin(admin.ModelAdmin):
+    change_list_template = "chat_analyzer/admin/doctor_specialty/change_list.html"
     list_display = ['doctor', 'specialty', 'is_board_certified', 'is_primary_specialty']
     list_filter = ['is_board_certified', 'is_primary_specialty']
     search_fields = ['doctor__first_name', 'doctor__last_name', 'specialty__specialty_name']
     raw_id_fields = ['doctor', 'specialty']
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path(
+                'upload_doctor_specialty/',
+                self.admin_site.admin_view(DoctorSpecialtyView.as_view()),
+                name="chat_analyzer_doctorspecialty_upload",
+            )
+        ]
+        return custom + urls
+
+# ╔════════════════════════════════════════════╗ 
+# ║        DoctorSpecialtyView [admin]         ║ 
+# ╚════════════════════════════════════════════╝ 
+class DoctorSpecialtyView(UnfoldModelAdminViewMixin, View):
+    title="Doctor Specialty Details"
+    permission_required = "chat_analyzer.view_doctorspecialty"
+
+    def get(self, request, *args, **kwargs):
+        form = DoctorSpecialtyForm()
+        return self.render_template(request, 'chat_analyzer/admin/doctor_specialty/upload_doctor_specialty.html',{
+            'form': form,
+            'title': self.title,
+        })
+
+    def post(self, request, *args, **kwargs):
+        form = DoctorSpecialtyForm(request.POST)
+        if form.is_valid():
+            doctorspecialty=DoctorSpecialty.objects.create(
+                doctor=form.cleaned_data['doctor'],
+                specialty=form.cleaned_data['specialty'],
+                is_board_certified=form.cleaned_data['is_board_certified'],
+                certification_date=form.cleaned_data['certification_date'],
+                certification_expires=form.cleaned_data['certification_expires'],
+                is_primary_specialty=form.cleaned_data['is_primary_specialty'],
+            )
+            messages.success(
+                request,
+                f" You have successfully assign this {doctorspecialty.doctor} his specialty !"
+            )
+            return redirect('admin:chat_analyzer_doctorspecialty_changelist')
+
+        # if not valid
+        return render_template(request, 'chat_analzyer/admin/doctor_specialty/upload_doctor_specialty.html', {
+            'form': form,
+            'title': self.title,
+        })
+
+    def render_template(self, request, template_name, context):
+        
+        from django.template.loader import render_to_string
+        from django.http import HttpResponse
+        from django.contrib import admin
+
+        admin_site=admin.site
+        admin_context=admin_site.each_context(request)
+        context.update(admin_context)
+
+        context.update({
+            'opts': DoctorSpecialty._meta,
+            'app_label': DoctorSpecialty._meta.app_label,
+            'has_change_permission': True,
+            'has_view_permission': True,
+            'has_add_permission': True,
+            'has_permission': True,
+            'is_popup': False,
+        })
+        return HttpResponse(render_to_string(template_name, context, request))
 
 # ╔════════════════════════════════════════════╗ 
 # ║        8. CONVERSATION SECTON 💬         ║ 
