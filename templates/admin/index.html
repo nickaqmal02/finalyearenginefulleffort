@@ -1,0 +1,67 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n unfold %}
+
+{% block title %}Sentiri Dashboard | {{ site_title }}{% endblock %}
+
+{% block branding %}
+{% include "unfold/helpers/site_branding.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="flex flex-col gap-6">
+
+    <!-- KPI card rows -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div
+            class="bg-white border border-base-200 rounded-default p-6 shadow-xs dark:bg-base-900 dark:border-base-800">
+            <p class="text-subtle text-sm">Total Clients</p>
+            <p class="text-3xl font-bold text-important mt-2">{{ total_clients }}</p>
+        </div>
+        <div
+            class="bg-white border border-base-200 rounded-default p-6 shadow-xs dark:bg-base-900 dark:border-base-800">
+            <p class="text-subtle text-sm">Conversations</p>
+            <p class="text-3xl font-bold text-important mt-2">{{ total_conversations }}</p>
+        </div>
+        <div
+            class="bg-white border border-base-200 rounded-default p-6 shadow-xs dark:bg-base-900 dark:border-base-800">
+            <p class="text-subtle text-sm">Active Topics</p>
+            <p class="text-3xl font-bold text-important mt-2">{{ total_topics }}</p>
+        </div>
+        <div
+            class="bg-white border border-base-200 rounded-default p-6 shadow-xs dark:bg-base-900 dark:border-base-800">
+            <p class="text-subtle text-sm">Documents</p>
+            <p class="text-3xl font-bold text-important mt-2">{{ total_documents }}</p>
+        </div>
+    </div>
+
+    <div class="flex flex-col gap-3 rounded-b-lg">
+        <h2 class="text-lg font-semibold text-center"> Topic Sentiment Analysis </h2>
+        {% component "unfold/components/chart/cohort.html" with data=topic_sentiment_data %}
+        {% endcomponent %}
+    </div>
+
+    <!-- Charts Row: Doughnut + Radar side by side -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+        <!-- Doughnut: Sentiment Breakdown -->
+        <div
+            class="bg-white border border-base-200 rounded-default p-6 shadow-xs dark:bg-base-900 dark:border-base-800">
+            <h3 class="font-semibold mb-4">Sentiment Overview</h3>
+            <div class="relative w-full" style="height: 300px;">
+                <canvas class="chart" data-type="doughnut" data-value='{{ sentiment_doughnut|safe }}'
+                    data-responsive="true"></canvas>
+            </div>
+        </div>
+
+        <!-- radar topic distribution -->
+        <div
+            class="bg-white border border-base-200 rounded-default p-6 shadow-xs dark:bg-base-900 dark:border-base-800">
+            <h3 class="font-semibold mb-4">Topic Distribution</h3>
+            <div class="relative w-full" style="height: 300px;">
+                <canvas class="chart" data-type="radar" data-value='{{ topic_radar|safe }}'
+                    data-responsive="true"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

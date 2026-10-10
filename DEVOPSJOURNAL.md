@@ -340,3 +340,7 @@ class ClientForm(forms.Form):
 
 
 ```
+
+ok how do reverse_lazy work ?? 
+when we called admin:index it will automatically send defaul django admin panel
+

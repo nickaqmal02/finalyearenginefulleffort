@@ -1,4 +1,6 @@
 import os
+from django.urls import reverse_lazy
+from django.utils.translation import gettext_lazy as _
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -182,6 +184,37 @@ UNFOLD = {
         "2xl": "1rem",
         "3xl": "1.5rem",
     },
+    "SIDEBAR": {
+        "show_search": True,
+        "show_all_applications": True,
+        "navigation": [
+            {
+                "title": _("Dashboard"),
+                "separator": True,
+                "collapsible": False,
+                "items": [
+                    {
+                        "title": _("Analytics Dashboard"),
+                        "icon": "dashboard",
+                        "link": reverse_lazy("admin:index"),
+                    },
+                ]
+            },
+            {
+                "title": _("Clients"),
+                "separator": False,
+                "collapsible": False,
+                "items": [
+                    {
+                        "title": _("Client Cards"),
+                        "icon": "group",
+                        "link": reverse_lazy("admin:chat_analyzer_client_cards"),
+                    },
+                ]
+            }
+        ]
+    },
+    "DASHBOARD_CALLBACK": "chat_analyzer.dashboard.dashboard_callback",
 }
 
 

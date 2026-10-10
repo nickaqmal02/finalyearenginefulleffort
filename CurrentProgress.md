@@ -589,5 +589,15 @@ After 2 months, **Therapist Jane** observes head-banging during meltdowns and pr
 - the mental model [ forms -> ] 
 
 
+[10 10 26] Saturday
+[finish]
+- finish the graph visualization for client card section
+
+[in list]
+- finish main page select role login
+- 
+
+
+
 
 

@@ -158,7 +158,17 @@ class CustomUserAdmin(UserAdmin, ModelAdmin):
 
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
-
+    def get_urls(self):
+        from django.urls import path
+        urls = super().get_urls()
+        custom = [
+            path(
+                'client-cards/',
+                self.admin_site.admin_view(ClientCardView.as_view()),
+                name='chat_analyzer_client_cards',
+            ),
+        ]
+        return custom + urls
 # ╔════════════════════════════════════════════╗ 
 # ║             2. CLIENT CONTACT              ║ 
 # ╚════════════════════════════════════════════╝ 
@@ -291,7 +301,7 @@ class UploadAutismDiagnosisView(UnfoldModelAdminViewMixin, View):
                 client=form.cleaned_data['client'],
                 support_level = form.cleaned_data['support_level'],
                 diagnosed_by = form.cleaned_data['diagnosed_by'],
-                diagnoses_date = form.cleaned_data['diagnoses_date'],
+                diagnosis_date = form.cleaned_data['diagnosis_date'],
                 clinical_notes = form.cleaned_data['clinical_notes'],
                 is_active = form.cleaned_data['is_active'],
             )
@@ -1159,6 +1169,132 @@ class MessageTopicAdmin(admin.ModelAdmin):
     list_filter = ['topic', 'analyzed_at']
     search_fields = ['conversation__client__first_name', 'topic__name']
     raw_id_fields = ['conversation', 'topic']
+
+
+# ╔════════════════════════════════════════════╗ 
+# ║           CLIENTCARDVIEWSETUP []           ║ 
+# ╚════════════════════════════════════════════╝ 
+class ClientCardView(UnfoldModelAdminViewMixin, View):
+    """card-style client overview with line charts."""
+    title = "Client Cards"
+    permission_required = "chat_analyzer.view_user"
+
+    def get(self, request, *args, **kwargs):
+        from django.db.models import Count, Sum, Q
+        import json
+
+        clients = User.objects.filter(role='client', is_active=True)
+
+        cards = []
+        for client in clients:
+            # diagnosis first
+            diagnosis = AutismDiagnosis.objects.filter(
+                 client=client, is_active=True
+            ).first()
+
+            # Document + specifiers count
+            doc_count = DiagnosisDocument.objects.filter(client=client).count()
+            specifier_count = ClientSpecifier.objects.filter(
+                autism_diagnosis__client=client
+            ).count()
+
+            specifiers = ClientSpecifier.objects.filter(
+                autism_diagnosis__client=client,
+                autism_diagnosis__is_active=True,
+            ).select_related('specifier')[:5]
+
+            # then after we get the queryset we need to create the list of the specifier for this client
+            specifier_data = [
+                {
+                    "name": cs.specifier.specifier_name,
+                    "severity": cs.severity,
+                    "present": cs.is_present,
+                }
+                for cs in specifiers
+            ]
+            # topic breakdown (from ClientTopicScore)
+            topic_scores = ClientTopicScore.objects.filter(
+                client=client, topic__status='active'
+            ).select_related('topic').order_by('-score')[:5]
+
+            topics_data = [
+                {"name": ts.topic.name, "count": ts.message_count, "score": ts.score}
+                for ts in topic_scores
+            ]
+
+            # sentiment totals
+            convs = Conversation.objects.filter(client=client, sentiment__isnull=False)
+            sentiment_totals = convs.aggregate(
+                positive=Count('id', filter=Q(sentiment='positive')),
+                negative=Count('id', filter=Q(sentiment='negative')),
+                neutral=Count('id', filter=Q(sentiment='neutral')),
+            )
+
+            # line chart data 5 topic lines over time
+            progress = (
+                Conversation.objects
+                .filter(client=client, sentiment__isnull=False, date__isnull=False)
+                .values('date', 'topics__topic__name')
+                .annotate(
+                    score=Sum('sentiment_score'),
+                    positive=Count('id', filter=Q(sentiment='positive')),
+                    negative=Count('id', filter=Q(sentiment='negative')),
+                    neutral=Count('id', filter=Q(sentiment='neutral')),
+                )
+                .order_by('date')
+            )
+
+            date_strings = [p['date'].strftime('%Y-%m-%d') for p in progress]
+            scores = [p['score'] for p in progress]
+
+            chart_data = json.dumps({
+                "labels": date_strings,
+                "datasets": [{
+                    "label": "Sentiment Progress",
+                    "data": scores,
+                    "borderColor": "#10b981",
+                    "backgroundColor": "rgba(16, 185, 129, 0.1)",
+                    "fill": True,
+                    "tension": 0.3,
+                }],
+            })
+
+            cards.append({
+                'client': client,
+                'diagnosis': diagnosis,
+                'doc_count': doc_count,
+                'specifier_count': specifier_count,
+                'specifier_data': specifier_data,
+                'topics_data': topics_data,
+                'sentiment': sentiment_totals,
+                'chart_data': chart_data,
+            })
+
+        return self.render_template(
+            request,
+            'chat_analyzer/admin/client_cards/client_card.html',
+            {'cards': cards, 'title': self.title}
+        )
+
+    def render_template(self, request, template_name, context):
+        from django.template.loader import render_to_string
+        from django.http import HttpResponse
+        from django.contrib import admin
+
+        admin_site = admin.site
+        admin_context = admin_site.each_context(request)
+        context.update(admin_context)
+
+        from chat_analyzer.models import User
+        context.update({
+            'opts': User._meta,
+            'app_label': User._meta.app_label,
+            'has_change_permission': True,
+            'has_view_permission': True,
+            'has_add_permission': True,
+            'is_popup': False,
+        })
+        return HttpResponse(render_to_string(template_name, context, request))
 
 # ╔════════════════════════════════════════════╗ 
 # ║ADMIN CONFIGURATION SITE OVERRIDE THE DEFAUL║ 

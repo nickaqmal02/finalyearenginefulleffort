@@ -356,15 +356,106 @@
 | `transition: all 0.2s` | Smooth animation | `transition-all duration-200` |
 | `transform: translateY(-1px)` on hover | Tactile lift | (custom hover) |
 
-### What's next
-1. **Run 8 garbage-topic cleanup** (`buka-nangis-baru`, `child-has-the`, `menangis tidur-mampu-suka bagus`) — URGENT for demo.
-2. **Viva sweep (unpaid checks):**
-   - Run 7-print live test for Signal 1 guard (`if instance.topic.status != 'active': return`).
-   - Answer: why `form_tag = False` in crispy helper? What happens if `True`?
-   - Answer: if `{{ block.super }}` removed from changelist template, what disappears?
-3. **DRF endpoints** in Sentiri (2 weeks).
-4. **FastAPI microservice** (2 weeks after DRF).
-5. **Quarto portfolio piece** (1 week).
-6. **Fix README broken LinkedIn link** (`yourusername` → real URL).
-7. **Card-style dashboard** (`/dashboard/<role>/`) — parked until DRF is wired.
-8. **Deloitte reapply Q1 2027** with DRF + FastAPI added to skill list.
+---
+
+## 2026-10-07 — Admin forms marathon: 5 custom views built solo (AutismDiagnosis → ClientSpecifier)
+
+### What we did today
+- Built 5 custom admin forms following the 5-layer pattern (Form → View → Template → URL → Button):
+  1. **AutismDiagnosisForm** — client FK (autocomplete), diagnosed_by FK (doctor), support_level (ChoiceField), diagnosis_date (DateInput), clinical_notes (Textarea), is_active (Checkbox). No file — no `enctype`. First form without a FileField.
+  2. **MasterSpecifierForm** — specifier_name, specifier_category, is_positive_specifier, dsm_code, is_active. All text/checkbox fields.
+  3. **MasterSpecialtyForm** — specialty_name, specialty_code, category (ModelChoiceField to MasterSpecialtyCategory), is_active.
+  4. **MasterSpecialtyCategoryForm** — category_name, category_code, category_description, is_active.
+  5. **ClientSpecifierForm** — the complex one: autism_diagnosis FK (filtered is_active=True), specifier FK, severity (ChoiceField), is_present (BooleanField), clinical_notes (Textarea), stated_by FK (doctor), stated_date (DateInput), is_approved (BooleanField). Bridge table — no `client` field because client is derived through `autism_diagnosis.client`.
+- Each form built with the same architecture: `forms.Form` + `FormHelper` + `Layout` + `Fieldset` + `HTML()` for raw glassmorphism buttons. All views extend `UnfoldModelAdminViewMixin` + `View`. All templates extend `admin/base_site.html`. All URLs wired via `get_urls()` in the respective `ModelAdmin`. All buttons via `change_list_template` override.
+- Taught: `ModelChoiceField` (FK, needs `queryset=`) vs `ChoiceField` (static `choices=`). `UnfoldAdminTextInputWidget` (single-line `<input>`) vs `forms.Textarea` (multi-line `<textarea>`). `DateInput(attrs={'type': 'date'})` for native browser date picker. `BooleanField(required=False)` for checkboxes (otherwise form can't submit unchecked).
+- Taught: `render_to_string(template_name, context, request)` — 3rd param is `request` for context processors (historical backward compat). `render(request, template_name, context)` is the modern shortcut — different arg order, returns HttpResponse.
+- Taught: `form_tag = False` — crispy_forms doesn't render its own `<form>` tag. Template already has one. Without `False`, you get nested forms (invalid HTML).
+- Taught: `permission_required` — maps to Django's 4 auto-generated model permissions (view/add/change/delete). Superusers bypass. For create forms, use `add_<model>`.
+- Taught: `__init__(*args, **kwargs)` — `*args` carries `request.POST`/`request.FILES`, `**kwargs` carries extra options. `super().__init__(*args, **kwargs)` forwards to Django's `BaseForm` so `is_valid()` and `cleaned_data` work.
+- Taught: ClientSpecifier bridge table design — no `client` field because client is reachable through `autism_diagnosis.client`. Adding a separate `client` FK would be denormalization (redundant, inconsistent risk). Third normal form.
+- Taught: `MasterSpecialtyCategory` FK on `MasterSpecialty` uses `ModelChoiceField` with `queryset=MasterSpecialtyCategory.objects.filter(is_active=True)`. Dropdown renders each category as `<option>`.
+
+### What Nik learned
+- **The 5-layer pattern is now muscle memory.** Built ClientSpecifier (rep 7) completely solo — form, view, template, URL, button — without me spec'ing a single line.
+- **Bridge tables don't need redundant FKs.** ClientSpecifier links AutismDiagnosis → MasterSpecifier. The client is derived through `autism_diagnosis.client`, not stored separately. Normalization principle.
+- **`ModelChoiceField` vs `ChoiceField`:** FK → ModelChoiceField + `queryset=`. Static choices → ChoiceField + `choices=`. Mixing them up = `TypeError: missing 1 required positional argument: 'queryset'`.
+- **Trailing comma turns string into tuple:** `change_list_template = 'path',` → tuple, not string. Django silently breaks. Check trailing commas.
+- **Missing `return` in `get_urls()`:** Python returns `None` by default. Django URL resolver gets `None` → `ImproperlyConfigured: URLconf 'None'`. Every `get_urls()` must end with `return custom + urls`.
+- **Admin class name shadowing:** `class MasterSpecialtyCategory(admin.ModelAdmin)` shadows the model class. After line runs, `MasterSpecialtyCategory` points to admin class (no `_meta`). Always use `Admin` suffix: `MasterSpecialtyCategoryAdmin`.
+- **`form_tag = False`:** crispy_forms doesn't render `<form>` tag. Template already has one. Without `False`, nested forms (invalid HTML).
+- **`*args, **kwargs` in `__init__`:** Forwards `request.POST`/`request.FILES` to Django's `BaseForm`. Without `super().__init__(*args, **kwargs)`, form is unbound — `is_valid()` always fails, `cleaned_data` is empty.
+- **`permission_required`:** Maps to Django's model-level permissions (view/add/change/delete). Superusers bypass. For create forms: `add_<model>`.
+- **`render_to_string` arg order:** `(template_name, context, request)` — `request` is 3rd for historical backward compat. Needed for context processors to fire (`{{ user }}`, `{{ messages }}`).
+- **DaisyUI + unfold:** DaisyUI is a Tailwind plugin (not a separate engine). Loading DaisyUI CDN adds component classes without conflicting with unfold's built-in Tailwind. Fine for FYP demo; compile into Tailwind build for production.
+- **DOM mastery > React:** Nik realized understanding DOM/CSS is the foundation; React is a DOM generator on top. Learning DOM first makes React easy later. Senior insight.
+- **Nik's career positioning locked:** AI Engineer (not ML Engineer). Builds systems that USE models — pipelines, APIs, infrastructure. PersonalRAG + Sentiri = textbook AI Engineer portfolio.
+
+### What we went through together
+- Nik hit 8 bugs across 5 forms. Each bug was a single-character or single-line mistake (typo, missing return, trailing comma, class name shadowing). Diagnosed each from the traceback, fixed, moved on.
+- Nik's growing confidence visible: rep 7 (ClientSpecifier) built completely solo. "wuhuuu ahahahha done everything working really well" = competence registering in body.
+- Reinforced: function first, polish later. Glassmorphism buttons come after the form works end-to-end.
+- Nik asked "am I great?" — honest answer: not great yet, but on the path. Consistency > talent. 4 years of showing up > raw IQ.
+
+## 2026-10-08 — Admin dashboard + client cards + charts (KPI, doughnut, radar, cohort, progress line)
+
+### What we did today
+- Built the unfold admin dashboard (`templates/admin/index.html` + `chat_analyzer/dashboard.py`):
+  - **KPI cards:** total clients, conversations, active topics, documents (4 stat boxes)
+  - **Doughnut chart:** overall sentiment breakdown (positive/negative/neutral) using Chart.js
+  - **Radar chart:** topic distribution (messages per active topic)
+  - **Cohort table:** topic × sentiment matrix with color-coded cells (green/red/gray/blue, rounded-xl)
+- Wired `DASHBOARD_CALLBACK` in settings.py pointing to `chat_analyzer.dashboard.dashboard_callback`
+- Added "Analytics Dashboard" to unfold SIDEBAR navigation with `reverse_lazy` (not `reverse` — settings loads before URLs)
+- Built **Client Card View** (`ClientCardView` in admin.py):
+  - Card grid: 9 clients, 3 per row, responsive
+  - Per-card data: name, phone, avatar initials, autism diagnosis (level + display), document count, specifier count
+  - Topic breakdown badges (from `ClientTopicScore`): color-coded by score (green > 1, red < 0, gray = 0)
+  - **Single-line progress chart:** daily summed sentiment_score over time (XLM-R confidence-weighted), one green line with filled area
+  - Sentiment totals footer: positive / negative / neutral counts
+- Added "Client Cards" to unfold SIDEBAR navigation
+- Fixed `json.dumps()` bug: Python dict → single quotes → `JSON.parse()` fails. Must `json.dumps()` before passing to template for Chart.js.
+- Fixed `return` indentation bug: `return self.render_template(...)` was inside `for client` loop → only rendered 1 card. Dedented outside loop → all 9 cards render.
+- Fixed `.count()` bug on `total_clients`: `User.objects.filter(...)` returns queryset, not number. Must `.count()`.
+
+### What Nik learned
+- **`reverse_lazy` vs `reverse`:** settings.py loads before URL patterns are defined. `reverse()` tries to resolve immediately → `NoReverseMatch`. `reverse_lazy()` returns a deferred object that resolves later when the sidebar renders.
+- **`json.dumps()` for Chart.js:** Django template renders Python dicts with single quotes (Python `str()`). Chart.js calls `JSON.parse()` which requires double-quoted JSON. Must `json.dumps()` in the view before passing to template. This is the #1 cause of "chart doesn't render" bugs.
+- **Cohort component data structure:** `{"headers": [{"title": ..., "subtitle": ...}], "rows": [{"header": {...}, "cols": [{"value": ..., "color": "...tailwind classes..."}]}]}`. The `color` key on each cell applies Tailwind classes directly — unfold's cohort template reads `col.color` and injects it.
+- **Unfold's built-in Chart.js:** Unfold ships Chart.js in its JS bundle. Supports `data-type="bar"`, `"line"`, `"doughnut"`, `"radar"`, `"pie"`. The JS reads `data-value` attribute on `<canvas class="chart">` and calls `new Chart(ctx, {type: ..., data: JSON.parse(data-value)})`.
+- **Progress chart design — single line vs 5 lines:** Started with 5 topic lines (complex, messy). Simplified to 1 line (overall sentiment progress). Y-axis = `Sum(sentiment_score)` per date. Rising = improving, falling = declining. The `sentiment_score` is XLM-R's confidence-weighted score from -1.0 to +1.0.
+- **`next(iterator, default)`:** Python built-in. Returns first matching item from an iterator, or `default` if no match. Used for looking up a topic's score for a specific date in the progress data. (Replaced by simpler single-line query.)
+- **Return indentation in loops:** A `return` inside a `for` loop exits after the first iteration. Must dedent `return` OUTSIDE the loop so all iterations complete. Same bug pattern as missing `return custom + urls` in `get_urls()`.
+- **Admin template resolution order:** project `templates/` > app `templates/` > Django built-ins. `templates/admin/index.html` (project root) overrides unfold's default. `chat_analyzer/templates/chat_analyzer/admin/...` is app-specific.
+- **`DASHBOARD_CALLBACK`:** Unfold setting that points to a function receiving `(request, context)`. Function adds data to context dict → template renders it. Called before `admin/index.html` renders.
+- **`{{ variable|safe }}` template filter:** Tells Django not to HTML-escape the output. Required for JSON data passed to `data-value` attributes — without `|safe`, Django escapes quotes as `&quot;` and `JSON.parse()` fails.
+- **Unfold SIDEBAR navigation config:** `UNFOLD["SIDEBAR"]["navigation"]` is a list of sections. Each section has `title`, `separator`, `collapsible`, `items`. Each item has `title`, `icon` (material-symbols-outlined name), `link` (use `reverse_lazy`).
+- **DaisyUI + unfold:** DaisyUI is a Tailwind plugin (not a separate engine). Can load DaisyUI CDN alongside unfold without conflict. Adds component classes (`btn`, `card`, `badge`, `table-zebra`).
+
+### Bugs hit today
+| Bug | Root cause | Fix |
+|---|---|---|
+| Charts not rendering | Python dict → single quotes → `JSON.parse()` fails | `json.dumps()` in view |
+| Only 1 card rendered | `return` inside `for client` loop | Dedent `return` outside loop |
+| `total_clients` not showing | `User.objects.filter(...)` returns queryset, not number | Add `.count()` |
+| `chart_data` built per topic | `chart_data` + `cards.append` inside topic loop | Dedent outside topic loop |
+| `date` vs `d` variable mismatch | `for d in dates:` but checking `p['date'] == date` | Change `date` to `d` |
+| `card.client_get_full_name` | Missing dot between `client` and `get_full_name` | `card.client.get_full_name` |
+| Duplicate "No active diagnosis" text | Copy-paste error in template | Remove duplicate line |
+
+### MVP gap analysis
+- Created `MVP_GAP_ANALYSIS.md` at project root. Audited proposal vs codebase:
+  - **15 features completed** (user mgmt, WhatsApp import, sentiment, topic modeling, admin dashboard, clinical models, etc.)
+  - **8 features missing** (client-facing dashboard, therapist dashboard, DRF, test suite, evaluation metrics, RBAC view enforcement, per-client detail, TopicTrend population)
+  - **5 features partial** (topic quality, signal guard verification, ClientTopicScore recompute, RBAC, batch UI)
+  - MVP completion: ~65%. Recommended 5-6 week build plan to demo day.
+
+### What's next (from MVP_GAP_ANALYSIS.md)
+1. **Run 8: Kill garbage topics** — `buka-nangis-baru`, `child-has-the`, `menangis tidur-mampu-suka bagus`. Fix cleaner (English stopwords), fix c-TF-IDF. URGENT for demo.
+2. **Viva sweep:** Run 7-print signal guard test. Answer unpaid viva questions.
+3. **Client-facing dashboard** — separate from admin. Clients log in, see own data only.
+4. **Therapist dashboard** — filtered to assigned clients only.
+5. **RBAC view-level enforcement** — therapist sees assigned clients, doctor sees diagnosed clients, client sees own data.
+6. **Per-client detail page** — drill-down with trend chart + topic breakdown.
+7. **Tests + evaluation metrics** — smoke tests + sentiment accuracy + topic coherence.
+8. **DRF endpoints** — serializers + views + role-based permissions. Deloitte reapply strength.

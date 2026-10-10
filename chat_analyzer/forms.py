@@ -476,7 +476,7 @@ class AutismDiagnosisForm(forms.Form):
         widget=UnfoldAdminSelectWidget,
         help_text="who diagnosed this ?",
     )
-    diagnoses_date = forms.DateField(
+    diagnosis_date = forms.DateField(
         widget=forms.DateInput(attrs={'type': 'date'}),
     )
 
@@ -499,16 +499,16 @@ class AutismDiagnosisForm(forms.Form):
                 'client',
                 'diagnosed_by',
                 'support_level',
-                'diagnoses_date',
+                'diagnosis_date',
                 'is_active',
                 'clinical_notes',
             ),
-            Submit('submit', 'Upload Document', css_class='!mx-6 mt-2 !rounded-full'),
+            Submit('submit', 'Upload Diagnosis', css_class='!mx-6 mt-2 !rounded-full'),
             Button(
                 'cancel',
                 'Cancel',
                 css_class='ml-2 !rounded-full',
-                onclick='window.location.href="/admin/chat_analyzer/diagnosisdocument/";'
+                onclick='window.location.href="/admin/chat_analyzer/autismdiagnosis/";'
             )
         )
 # ╔════════════════════════════════════════════╗ 

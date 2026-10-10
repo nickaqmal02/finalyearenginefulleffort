@@ -417,7 +417,12 @@ class MasterSpecifier(models.Model):
         null=True,
         help_text="DSM-5 reference code (e.g., 'DSM-5-01')"
     )
-    
+
+    definition = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Plain English explanation of this specifier"
+    )
 
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
