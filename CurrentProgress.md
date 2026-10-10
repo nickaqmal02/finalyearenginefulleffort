@@ -595,7 +595,10 @@ After 2 months, **Therapist Jane** observes head-banging during meltdowns and pr
 
 [in list]
 - finish main page select role login
-- 
+- fill all data that required in our main db ?
+- client full setup
+- therapist full setup
+- doctor setup 
 
 
 

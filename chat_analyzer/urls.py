@@ -9,7 +9,7 @@ urlpatterns = [
 # ╔════════════════════════════════════════════╗ 
 # ║            WELCOMING VIEW 🙃               ║ 
 # ╚════════════════════════════════════════════╝ 
-    path("welcome/", views.welcome_view, name="welcome_view"),
+    path("", views.welcome_view, name="welcome_view"),
 
 # ╔════════════════════════════════════════════╗ 
 # ║        AUTHENTICATION SECTION 🥸           ║ 

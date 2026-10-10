@@ -39,21 +39,28 @@
             </div>
 
             <!-- Specifier Details -->
+            <!-- Specifier Details -->
             {% if card.specifier_data %}
             <div class="mb-3">
                 <p class="text-sm font-medium mb-1">Specifiers</p>
                 <div class="flex flex-col gap-1">
                     {% for spec in card.specifier_data %}
-                    <div class="flex items-center justify-between text-xs px-2 py-1 rounded-default 
-                    {% if spec.present %}bg-green-50 text-green-700
-                    {% else %}bg-red-50 text-red-700 {% endif %}">
-                    <span>{{ spec.name }}</span>
-                    <span class="font-medium uppercase">{{ spec.severity|default:"N/A" }}</span>
+                    <div class="text-xs px-2 py-1.5 rounded-default
+                        {% if spec.present %}bg-green-50 text-green-700
+                        {% else %}bg-red-50 text-red-700{% endif %}">
+                        <div class="flex items-center justify-between">
+                            <span class="font-medium">{{ spec.name }}</span>
+                            <span class="font-medium uppercase">{{ spec.severity|default:"N/A" }}</span>
+                        </div>
+                        {% if spec.definition %}
+                        <p class="text-xs text-gray-400 mt-0.5 leading-snug">{{ spec.definition }}</p>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
-            </div>
             </div>
             {% endif %}
+
             <!-- Topic Breakdown -->
             <div class="mb-3">
                 <p class="text-sm font-medium mb-1">Topic Breakdown</p>

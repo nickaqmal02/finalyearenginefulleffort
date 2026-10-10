@@ -13,7 +13,6 @@ from django.http import HttpResponse
 from django.utils.safestring import mark_safe
 from django import forms
 from django.urls import path
-from chat_analyzer.services.upload_service import process_whatsapp_upload
 from .models import(
     User,
     ClientContact,
@@ -383,6 +382,7 @@ class MasterSpecifierView(UnfoldModelAdminViewMixin, View):
                 is_positive_specifier = form.cleaned_data['is_positive_specifier'],
                 dsm_code = form.cleaned_data['dsm_code'],
                 is_active = form.cleaned_data['is_active'],
+                definition = form.cleaned_data['definition'],
             )
             messages.success(
                 request,
@@ -830,6 +830,7 @@ class DoctorSpecialtyView(UnfoldModelAdminViewMixin, View):
 # ╚════════════════════════════════════════════╝ 
 # ── Unfold-styled Upload View ─────────────────────────────
 class UploadChatsView(UnfoldModelAdminViewMixin, View):
+    from chat_analyzer.services.upload_service import process_whatsapp_upload
     """Custom view: therapist/admin uploads WhatsApp .txt from admin panel.
     Uses UnfoldModelAdminViewMixin so Unfold's CSS/JS/theme is injected."""
     title = "Upload WhatsApp Chat"
@@ -1209,6 +1210,7 @@ class ClientCardView(UnfoldModelAdminViewMixin, View):
                     "name": cs.specifier.specifier_name,
                     "severity": cs.severity,
                     "present": cs.is_present,
+                    "definition": cs.specifier.definition,
                 }
                 for cs in specifiers
             ]

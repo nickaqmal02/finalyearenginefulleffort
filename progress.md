@@ -459,3 +459,40 @@
 6. **Per-client detail page** — drill-down with trend chart + topic breakdown.
 7. **Tests + evaluation metrics** — smoke tests + sentiment accuracy + topic coherence.
 8. **DRF endpoints** — serializers + views + role-based permissions. Deloitte reapply strength.
+
+---
+
+## 2026-10-08 (evening) — DSM-5 specifiers seeded + definition field + specifier display on client cards
+
+### What we did
+- Extracted official DSM-5 Autism Spectrum Disorder specifiers from the DSM-5 PDF (page 88, 299.00 / F84.0). 10 specifiers total:
+  - With/without accompanying intellectual impairment (Intellectual)
+  - With/without accompanying language impairment (Language)
+  - Associated with known medical/genetic condition (Medical)
+  - Associated with known environmental factor (Environmental)
+  - Associated with another neurodevelopmental disorder (Neurodevelopmental)
+  - Associated with another mental disorder (Mental)
+  - Associated with another behavioral disorder (Behavioral)
+  - With catatonia (Behavioral)
+- Created `seed_specifiers.py` management command with all 10 DSM-5 specifiers + DSM codes.
+- Added `definition = models.TextField(blank=True, null=True)` to `MasterSpecifier` model. Migration applied.
+- Updated seed command: switched `get_or_create` → `update_or_create` so existing specifier rows get the `definition` field updated (get_or_create wouldn't update existing rows).
+- Updated `ClientCardView` to pass `cs.specifier.definition` in `specifier_data` dict.
+- Updated `client_card.html` template: definition shown as small gray text below each specifier name (Option D — always visible, no JS needed).
+- Taught all 10 DSM-5 specifiers in detail: what each means, clinical examples, why each matters for treatment planning.
+
+### What Nik learned
+- **DSM-5 specifiers individualize the autism diagnosis:** "with/without" specifiers define cognitive/language profile. "Associated with" specifiers identify co-occurring conditions. "With catatonia" flags a medical emergency.
+- **`get_or_create` vs `update_or_create`:** get_or_create only creates if not exists — won't update. update_or_create updates existing rows with new field values. Needed update_or_create to add definitions to already-seeded specifiers.
+- **`definition` field = clinical decision support:** therapists see the specifier name AND its plain-English explanation on the client card. The system teaches the clinician — that's the product value proposition.
+- **DSM-5 specifiers affect treatment:** knowing a client has "with intellectual impairment" + "associated with ADHD" changes the therapy plan. The specifiers aren't labels — they're action items.
+
+### What's next (unchanged from MVP_GAP_ANALYSIS.md)
+1. Run 8: Kill garbage topics — URGENT for demo
+2. Viva sweep: signal guard test + unpaid questions
+3. Client-facing dashboard
+4. Therapist dashboard
+5. RBAC view-level enforcement
+6. Per-client detail page
+7. Tests + evaluation metrics
+8. DRF endpoints

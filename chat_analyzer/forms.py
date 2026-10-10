@@ -539,6 +539,11 @@ class MasterSpecifierForm(forms.Form):
         required=False,
     )
 
+    definition = forms.CharField(
+        widget=UnfoldAdminTextInputWidget,
+        help_text="definition of this specifier why this exists ?"
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
@@ -551,6 +556,7 @@ class MasterSpecifierForm(forms.Form):
                 'is_positive_specifier',
                 'dsm_code',
                 'is_active',
+                'definition',
             ),
             Submit('submit', 'Submit', css_class="!mx-6 !mt-2 !rounded-full"),
             Button(

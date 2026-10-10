@@ -1,50 +1,121 @@
-{% extends "chat_analyzer/base.html" %}
 {% load static %}
-{% load heroicons %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentiri — Autism Therapy System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
+    <style>
+        /* 3D hover effect */
+        .role-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            transform-style: preserve-3d;
+        }
+        .role-card:hover {
+            transform: translateY(-8px) rotateX(5deg) rotateY(5deg);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+        .role-card svg {
+            transition: transform 0.3s ease;
+        }
+        .role-card:hover svg {
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
 
-{% block title %}Welcoming Page{% endblock %}
+    <div class="w-full max-w-4xl">
 
-{% block content %}
+        <!-- Logo + Title -->
+        <div class="text-center mb-12">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4">
+                <svg class="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+            </div>
+            <h1 class="text-4xl font-bold text-gray-900 dark:text-white">Sentiri</h1>
+            <p class="mt-2 text-gray-500 dark:text-gray-400">Autism Therapy Management System</p>
+        </div>
 
-<body class="bg-blue-300 min-h-screen">
+        <!-- Role Cards Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
 
-<div class="grid grid-cols-3 gap-4 pt-50 pb-50 pl-2 pr-2 bg-blue-50 font-sans text-center ">
-  <div class="glass col-span-3 text-4xl font-bold flex items-center justify-center h-16">
-    {% heroicon_outline "user-group" class="w-10 h-10 text-blue-600 mr-2" %} Your Role 
-  </div>
-  <!-- Therapist Card -->
-  <a href="#" class="glass rounded-2xl h-96 flex flex-col items-center justify-center p-4 hover:scale-105 transition-transform cursor-pointer">
-    {% heroicon_outline "user-circle" class="w-16 h-16 text-green-500 mb-2" %}
-    <span class="text-xl font-semibold">Therapist</span>
-    <span class="text-sm text-gray-600 mt-2">Provide therapy sessions</span>
-  </a>
-  <a href="#" class="glass rounded-2xl flex flex-col items-center justify-center p-4 hover:scale-105 transition-transform cursor-pointer">
-    {% heroicon_outline "user" class="w-16 h-16 mb-2" %}
-    <span class="text-xl font-semibold">Client</span>
-    <span class="text-sm text-gray-500 mt-2">See your current progress ! <span>
-  </a>
-  <a href="#" class="glass rounded-2xl flex flex-col items-center justify-center p-4 hover:scale-105 transition-transform cursor-pointer">
-    {% heroicon_outline "user-plus" class="w-16 h-16 mb-2" %}
-    <span class="text-xl font-semibold">Doctor</span>
-    <span class="text-sm text-gray-500 mt-2">See your patient progress 😊 ! <span>
-  </a>
+            <!-- Admin Card -->
+            <a href="{% url 'chat_analyzer:login_view' %}?role=admin" class="role-card block bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 text-center border border-gray-100 dark:border-gray-700">
+                <div class="flex justify-center mb-4">
+                    <!-- Admin SVG: person with gear/shield -->
+                    <svg class="w-20 h-20" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="50" cy="50" r="48" fill="#3b82f6" fill-opacity="0.1"/>
+                        <path d="M50 25c-8 0-14 6-14 14s6 14 14 14 14-6 14-14-6-14-14-14z" fill="#3b82f6"/>
+                        <path d="M30 75c0-11 9-20 20-20s20 9 20 20" fill="#3b82f6"/>
+                        <rect x="68" y="28" width="12" height="12" rx="2" fill="#1d4ed8"/>
+                        <path d="M74 24v-4M74 40v-4M70 32h-4M86 32h-4M71 29l-3-3M80 38l-3-3M71 35l-3 3M80 26l-3 3" stroke="#1d4ed8" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <h3 class="font-bold text-lg text-gray-900 dark:text-white">Admin</h3>
+                <p class="text-sm text-gray-400 mt-1">Manage System</p>
+            </a>
 
-  <!-- Admin - full width clickable card -->
-  <a href="{% url 'chat_analyzer:login_view' %}" class="glass col-span-3 text-center p-4 flex items-center justify-center gap-4 hover:scale-105 transition-transform cursor-pointer no-underline">
-    {% heroicon_outline "cog-6-tooth" class="w-8 h-8 text-red-500" %}
-    <span class="text-xl font-semibold">Admin</span>
-    <span class="text-sm text-gray-600">System administrator</span>
-  </a>
+            <!-- Therapist Card -->
+            <a href="{% url 'chat_analyzer:login_view' %}?role=therapist" class="role-card block bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 text-center border border-gray-100 dark:border-gray-700">
+                <div class="flex justify-center mb-4">
+                    <!-- Therapist SVG: person with heart/communication -->
+                    <svg class="w-20 h-20" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="50" cy="50" r="48" fill="#10b981" fill-opacity="0.1"/>
+                        <path d="M50 25c-8 0-14 6-14 14s6 14 14 14 14-6 14-14-6-14-14-14z" fill="#10b981"/>
+                        <path d="M30 75c0-11 9-20 20-20s20 9 20 20" fill="#10b981"/>
+                        <path d="M62 40c0 0 6-4 10 0 4 4 0 8-10 16-10-8-14-12-10-16 4-4 10 0 10 0z" fill="#059669"/>
+                    </svg>
+                </div>
+                <h3 class="font-bold text-lg text-gray-900 dark:text-white">Therapist</h3>
+                <p class="text-sm text-gray-400 mt-1">Track Progress</p>
+            </a>
 
-</div>
-<!-- lesson learned ( a "a" tag also can consider as div ) -->
+            <!-- Doctor Card -->
+            <a href="{% url 'chat_analyzer:login_view' %}?role=doctor" class="role-card block bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 text-center border border-gray-100 dark:border-gray-700">
+                <div class="flex justify-center mb-4">
+                    <!-- Doctor SVG: person with stethoscope/cross -->
+                    <svg class="w-20 h-20" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="50" cy="50" r="48" fill="#8b5cf6" fill-opacity="0.1"/>
+                        <path d="M50 25c-8 0-14 6-14 14s6 14 14 14 14-6 14-14-6-14-14-14z" fill="#8b5cf6"/>
+                        <path d="M30 75c0-11 9-20 20-20s20 9 20 20" fill="#8b5cf6"/>
+                        <!-- Medical cross -->
+                        <rect x="64" y="28" width="10" height="10" rx="1" fill="#6d28d9"/>
+                        <path d="M69 25v6M66 31h6" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <h3 class="font-bold text-lg text-lg text-gray-900 dark:text-white">Doctor</h3>
+                <p class="text-sm text-gray-400 mt-1">Diagnose & Approve</p>
+            </a>
+
+            <!-- Client Card -->
+            <a href="{% url 'chat_analyzer:login_view' %}?role=client" class="role-card block bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 text-center border border-gray-100 dark:border-gray-700">
+                <div class="flex justify-center mb-4">
+                    <!-- Client SVG: child/person with speech bubble -->
+                    <svg class="w-20 h-20" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="50" cy="50" r="48" fill="#f59e0b" fill-opacity="0.1"/>
+                        <path d="M50 28c-7 0-12 5-12 12s5 12 12 12 12-5 12-12-5-12-12-12z" fill="#f59e0b"/>
+                        <path d="M35 72c0-9 7-16 15-16s15 7 15 16" fill="#f59e0b"/>
+                        <!-- Speech bubble -->
+                        <rect x="60" y="22" width="14" height="10" rx="2" fill="#d97706"/>
+                        <path d="M63 32l-2 4 4-2" stroke="#d97706" stroke-width="1.5" fill="#d97706"/>
+                    </svg>
+                </div>
+                <h3 class="font-bold text-lg text-gray-900 dark:text-white">Client</h3>
+                <p class="text-sm text-gray-400 mt-1">View Progress</p>
+            </a>
+
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center mt-12">
+            <p class="text-sm text-gray-400">© 2026 Sentiri. Final Year Project by Nik Abdul Aqmal.</p>
+        </div>
+
+    </div>
 
 </body>
-
-
-
-
-
-{% endblock %}
-
-
+</html>
