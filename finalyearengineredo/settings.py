@@ -26,7 +26,7 @@ ALLOWED_HOSTS = ['*']
 
 CSRF_COOKIE_SECURE = False 
 CSRF_COOKIE_HTTPONLY = False
-CSRF_TRUSTED_ORIGINS = []
+CSRF_TRUSTED_ORIGINS = ['http://172.53.7.155:300', 'http://localhost:3000']
 
 # Application definition
 
@@ -45,7 +45,8 @@ INSTALLED_APPS = [
     'crispy_forms',
     #'crispy_tailwind',
     'django_tailwind_cli',
-    'chat_analyzer'
+    'chat_analyzer',
+    'livereload',
 ]
 
 #crispy forms configuration TAILWIND
@@ -60,7 +61,8 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware'
+
 ]
 
 ROOT_URLCONF = 'finalyearengineredo.urls'
@@ -146,6 +148,9 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 AUTH_USER_MODEL = 'chat_analyzer.User'
 
+LOGIN_REDIRECT_URL = '/admin/'
+LOGOUT_REDIRECT_URL = '/'
+
 
 # ====================================
 # UNFOLD ADMIN THEME CONFIGURATION
@@ -189,7 +194,7 @@ UNFOLD = {
         "show_all_applications": True,
         "navigation": [
             {
-                "title": _("Dashboard"),
+                "title":_("Dashboard"),
                 "separator": True,
                 "collapsible": False,
                 "items": [

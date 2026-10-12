@@ -48,3 +48,7 @@ g kena buat untuk bantu to increase the vurnerability, security consultant
 > registry entries: cache utk machine
 >
 > caro nk acquire ram: OSXPmem 
+
+
+
+172.53.7.155:8000

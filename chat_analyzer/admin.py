@@ -45,10 +45,20 @@ except admin.sites.NotRegistered:
 @admin.register(User)
 class CustomUserAdmin(UserAdmin, ModelAdmin):
     """Custom User admin with all fields."""
-    
+    @admin.action(description="Reset password to 'changeme123'")
+    def reset_password(self, request, queryset):
+        """Reset the selected users passwords to a default."""
+        for user in queryset:
+            user.set_password('changeme123')
+            user.save()
+        self.message_user(
+            request,
+            f"  Reset {queryset.count()} password(s) to 'changeme123'. User must change on next login."
+        )
     # ✅ Use custom forms
     add_form = CustomUserCreationForm
     form = CustomUserChangeForm
+    actions = ['reset_password']
     
     list_display = [
         'username',

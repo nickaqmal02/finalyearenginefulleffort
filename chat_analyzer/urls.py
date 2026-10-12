@@ -47,7 +47,7 @@ urlpatterns = [
 # ╔════════════════════════════════════════════╗ 
 # ║          CLIENT SECTION PATH 😃          ║ 
 # ╚════════════════════════════════════════════╝ 
-
+    path("dashboard/client/documents/", views.client_documents, name='client_documents'),
 
 
 

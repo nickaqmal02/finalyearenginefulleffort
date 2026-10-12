@@ -1,0 +1,208 @@
+{% extends 'chat_analyzer/client/base_client.html' %}
+{% load static %}
+
+{% block title %}Sentiri - My Dashboard {% endblock %}
+
+{% block content %}
+
+
+<!-- header setup -->
+<div class="flex items-center justify-between mb-8">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">Welcome Back, {{ client_user.first_name }}</h1>
+        <p class="text-gray-400 text-sm mt-1">Here's your therapy progress overview</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <div class="text-right">
+            <p class="text-sm font-medium text-gray-900">{{ client_user.get_full_name }}</p>
+            <p class="text-xs text-gray-400">Client</p>
+        </div>
+        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
+            {{ client_user.first_name|first }}{{ client_user.last_name|first }}
+        </div>
+    </div>
+</div>
+<!-- TOP ROW GRID: 3 columns -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <!-- diagnostic card (Column 1) -->
+    <div class="glass rounded-3xl p-6 card-shadow">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-gray-900">My diagnosis</h3>
+            <span class="pill-badge bg-purple-100 text-purple-700">DSM-5</span>
+        </div>
+        {% if diagnoses %}
+        {% for diag in diagnoses %}
+        <div class="space-y-3">
+            <div>
+                <p class="text-xs text-gray-400">Support Level</p>
+                <p class="text-lg font-bold text-purple-600">Level {{ diag.support_level }}</p>
+                <p class="text-sm text-gray-500">{{ diag.get_support_level_display }}</p>
+            </div>
+        </div>
+        {% endfor %}
+        <div class="pt-2 border-t border-gray-200/50">
+            <p class="text-xs text-gray-400 mb-1">Specifiers</p>
+            <div class="space-y-1.5">
+                {% for spec in specifiers %}
+                <div class="flex items-center justify-between text-xs px-3 py-2
+                {% if spec.is_present %}bg-green-50{% else %}bg-red-50{% endif %} rounded-xl">
+                    <span class="font-medium text-gray-700">{{ spec.specifier.specifier_name }}</span>
+                    <span class="text-gray-400 uppercase">{{ spec.severity|default:"N/A"}}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400">No active diagnosis</p>
+        {% endif %}
+    </div>
+    <!-- sentiment summary section (Column 2) -->
+    <div class="glass rounded-3xl p-6 card-shadow">
+        <h3 class="font-semibold text-gray-900 mb-4">Sentiment Summary</h3>
+        <div class="flex items-center justify-center mb-4">
+            <div class="relative w-52 h-62">
+                <!-- doughnut chart canvas -->
+                <canvas class="chart"
+                        data-type="doughnut"
+                        data-value='{"labels": ["Positive", "Negative", "Neutral"], "datasets": [{"data": [{{ sentiment.positive }}, {{ sentiment.negative }}, {{ sentiment.neutral }}], "backgroundColor": ["#10b981", "#ef4444", "#9ca3af"]}]}'
+                        data-responsive="true">
+                </canvas>
+            </div>
+        </div>
+        <div class="grid grid-cols-3 gap-2 text-center">
+            <div>
+                <p class="text-lg font-bold text-green-500">{{ sentiment.positive }}</p>
+                <p class="text-xs text-gray-400">Positive</p>
+            </div>
+            <div>
+                <p class="text-lg font-bold text-red-500">{{ sentiment.negative }}</p>
+                <p class="text-xs text-gray-400">Negative</p>
+            </div>
+            <div>
+                <p class="text-lg font-bold text-gray-500">{{ sentiment.neutral }}</p>
+                <p class="text-xs text-gray-400">Neutral</p>
+            </div>
+        </div>
+    </div>
+    <!-- Placeholder for 3rd card (Column 3) -->
+    <div class="glass rounded-3xl p-6 card-shadow">
+        <h3 class="font-semibold text-gray-900 mb-4">My Topics</h3>
+        <div class="space-y-3">
+            {% for ts in topic_scores %}
+                <div>
+                    <div class="flex justify-between text-sm mb-1">
+                    <span class="text-gray-700">{{ ts.topic.name }}</span>
+                    <span class="font-medium text-gray-900">{{ ts.message_count }}</span>
+                </div>
+                <div class="w-full bg-gray-100 rounded-full h-2">
+                    <div class="h-2 rounded-full
+                        {% if ts.score > 1 %}bg-green-500
+                        {% elif ts.score < 0 %}bg-red-500
+                        {% else %}bg-gray-400{% endif %}"
+                        style="width: {% widthratio ts.message_count 65 100 %}%">
+                    </div>
+                </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+    <!-- progress charts -->
+    <div class="glass rounded-3xl p-6 card-shadow-lg mb-6">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h3 class="font-semibold text-gray-900">Sentiment Progress Over Time</h3>
+            <p class="text-sm text-gray-400 mt-1">Daily sentiment score from your conversations</p>
+        </div>
+    </div>
+    <div class="relative w-full" style="height: 250px;">
+        <canvas class="chart" data-type="line" data-value='{{ chart_data|safe }}' data-responsive="true"></canvas>
+    </div>
+    </div>
+
+
+<!-- Bottom Row: Documents + Therapist -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Documents -->
+    <div class="glass rounded-3xl p-6 card-shadow">
+        <h3 class="font-semibold text-gray-900 mb-4">My Documents</h3>
+        <div class="space-y-2">
+            {% for doc in documents %}
+            <div class="flex items-center gap-3 p-3 bg-white/50 rounded-xl">
+                <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                    <svg class="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <p class="text-sm font-medium text-gray-900">{{ doc.file.name|cut:"diagnosis_documents/" }}</p>
+                    <p class="text-xs text-gray-400">{{ doc.upload_date|date:"M j, Y" }}</p>
+                </div>
+                <a href="{{ doc.file.url }}" target="_blank" class="text-blue-500 text-sm font-medium">View</a>
+            </div>
+            {% empty %}
+            <p class="text-sm text-gray-400">No documents uploaded</p>
+            {% endfor %}
+        </div>
+    </div>
+    <!-- Therapist Info -->
+    <div class="glass rounded-3xl p-6 card-shadow">
+        <h3 class="font-semibold text-gray-900 mb-4">My Therapist</h3>
+        {% if client_user.assigned_therapist %}
+        <div class="flex items-center gap-4 mb-4">
+            <div class="w-14 h-14 rounded-full bg-gradient-to-br from-green-400 to-teal-500 flex items-center justify-center text-white font-bold text-lg">
+                {{ client_user.assigned_therapist.first_name|first }}{{ client_user.assigned_therapist.last_name|first }}
+            </div>
+            <div>
+                <p class="font-medium text-gray-900">{{ client_user.assigned_therapist.get_full_name }}</p>
+                <p class="text-sm text-gray-400">Therapist</p>
+                <p class="text-xs text-gray-400 mt-1">📞 {{ client_user.assigned_therapist.phone|default:"No phone" }}</p>
+            </div>
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400">No therapist assigned</p>
+        {% endif %}
+    </div>
+</div>
+
+
+
+
+<script>
+    // Wait for the page to load
+    document.addEventListener('DOMContentLoaded', function () {
+        // Find all canvases with the class 'chart'
+        const charts = document.querySelectorAll('canvas.chart');
+        charts.forEach(function(canvas) {
+            // Get the data from the HTML attributes we set
+            const chartType = canvas.getAttribute('data-type');
+            const rawValue = canvas.getAttribute('data-value');
+            // Decode the HTML entities back into real JSON
+            // (This fixes the &quot; we used earlier!)
+            const decodedValue = rawValue.replace(/&quot;/g, '"');
+            const chartData = JSON.parse(decodedValue);
+            // Draw the Chart!
+            new Chart(canvas, {
+                type: chartType,
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        });
+    });
+</script>
+
+
+
+{% endblock %}
+
+

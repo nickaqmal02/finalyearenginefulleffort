@@ -1,4 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from typing import Any
+from django.db.models import QuerySet
 from django.contrib import messages
 from datetime import datetime
 from django.contrib.auth import login, authenticate, logout
@@ -33,10 +35,10 @@ def welcome_view(request):
 @csrf_protect
 def login_view(request):
     """ for better customization in future """
-
+    
     # for if user already logged in
     if request.user.is_authenticated:
-        messages.success(request, f"Welcome back {username} !")
+        messages.success(request, f"Welcome back !")
         if request.user.is_admin:
             return redirect('chat_analyzer:admin_dashboard')
 
@@ -179,12 +181,121 @@ def doctor_dashboard(request):
     return render(request, 'chat_analyzer/doctor/doctor_dashboard.html', context)
 
 @client_required
-def client_dashboard(request):
-    """Client dashboard"""
-    context = {
-        'assigned_therapist': request.user.assigned_therapist,
+def client_dashboard(request: HttpRequest) -> HttpResponse:
+    """
+    Displays the dashboard for a specific client.
+    Shows their info and recent conversation topics.
+    """
+    from .models import AutismDiagnosis, ClientSpecifier, DiagnosisDocument, Conversation, ClientTopicScore, User
+    from django.db.models import Count, Sum, Q
+    import json
+    
+    # 1.fetch the the client from db
+    client: User = request.user
+
+    # 2. diagnosis
+    diagnoses: QuerySet[AutismDiagnosis] = AutismDiagnosis.objects.filter(
+        client=client
+    ).order_by('diagnosis_date')
+
+    specifiers: QuerySet[ClientSpecifier] = ClientSpecifier.objects.filter(
+        autism_diagnosis__client=client,
+        autism_diagnosis__is_active=True
+    ).select_related('specifier')[:5]
+    # 3. diagnosis docuemnts
+    documents: QuerySet[DiagnosisDocument] = DiagnosisDocument.objects.filter(
+        client=client
+    ).order_by('-upload_date')
+
+    # 4. sentiment totals
+    convs: QuerySet[Conversation] = Conversation.objects.filter(client=client, sentiment__isnull=False)
+
+    sentiment_totals: dict[str, int] = convs.aggregate(
+        positive=Count('id', filter=Q(sentiment='positive')),
+        negative=Count('id', filter=Q(sentiment='negative')),
+        neutral=Count('id', filter=Q(sentiment='neutral')),
+    )
+    total_messages: int = convs.count()
+
+    # 5. Topic breakdown
+    topic_scores: QuerySet[ClientTopicScore] = ClientTopicScore.objects.filter(
+        client=client,
+        topic__status='active',
+    ).select_related('topic').order_by('-message_count')[:5]
+
+    # 6 progress chart data
+    progress: QuerySet[dict] = (
+        Conversation.objects
+        .filter(client=client, sentiment__isnull=False, date__isnull=False)
+        .values('date')
+        .annotate(score=Sum('sentiment_score'))
+        .order_by('date')
+    )
+    # then why ? this progress is dict ? because ...
+    """
+        we return the QuerySet of 
+        [   
+            {'date': datetime(2024, 1, 1), 'score':15},
+
+        ]
+        # we use .annotate() if we want to send Sum, Avg, Count, Max
+        but may we actually declaring 4 key ?? yes ..
+
+        progress: QuerySet[dict] = (
+            Conversation.objects
+            .filter(client=client, sentiment__isnull=False, date__isnull=False)
+            .values('date','channel') -> this represent 2 keys
+            .annotate(
+                total_scores=Sum('sentiment_score'),
+                message_count=Count('id')
+            ) -> we use annotate to store some match calculation result if not we just stack it at values
+            .order_by('date')
+        )
+    """
+    # we use strftime to ensure that our date got pass into beautifull format "2024-01-15"
+    date_strings: list[str] = [p['date'].strftime('%Y-%m-%d') for p in progress]
+    scores: list[int] = [p['score'] for p in progress]
+
+    chart_data: str = json.dumps({
+        "labels": date_strings,
+        "datasets": [{
+            "label": "Sentiment Progress",
+            "data": scores,
+            "borderColor": "#10b981",
+            "backgroundColor": "rgba(16, 185, 129, 0.1)",
+            "fill": True,
+            "tension": 0.3,
+        }],
+    })
+
+    context: dict[str, Any] = {
+        'client_user': client,
+        'diagnoses': diagnoses,
+        'specifiers': specifiers,
+        'documents': documents,
+        'sentiment': sentiment_totals,
+        'total_messages': total_messages,
+        'topic_scores': topic_scores,
+        'chart_data': chart_data,
     }
     return render(request, 'chat_analyzer/client/client_dashboard.html', context)
+
+@client_required
+def client_documents(request: HttpRequest) -> HttpResponse:
+    """
+    custom client document setup
+    """
+    from .models import DiagnosisDocument
+    
+    documents: QuerySet[DiagnosisDocument] = DiagnosisDocument.objects.filter(client=request.user).order_by('-upload_date')
+
+    context: dict[str, Any] = {
+        'documents': documents,
+    }
+
+
+    return render(request, 'chat_analyzer/client/client_documents.html', context)
+
 
 
 
