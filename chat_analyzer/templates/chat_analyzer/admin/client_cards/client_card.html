@@ -1,60 +1,92 @@
 {% extends "admin/base_site.html" %}
 {% load i18n unfold %}
 
+{% block extrahead %}
+{{ block.super }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  .cc-card {
+    transition: transform 0.6s cubic-bezier(0.25, 0.1, 0.25, 1),
+                box-shadow 0.6s cubic-bezier(0.25, 0.1, 0.25, 1);
+    position: relative;
+    overflow: hidden;
+  }
+  .cc-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05), 0 12px 32px rgba(0,0,0,0.08);
+  }
+  .cc-avatar {
+    background: #0071e3;
+  }
+  .cc-page-title {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Inter", sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="flex flex-col gap-6">
-    <h1 class="text-2xl font-bold"> Client Overview </h1>
+    <div class="flex items-center justify-between">
+        <h1 class="cc-page-title text-2xl">Client Overview</h1>
+        <span class="inline-flex items-center px-3 py-1 rounded-full bg-[#e8f8ef] text-[#1d7a3f] text-sm font-medium">
+            <span class="w-2 h-2 bg-[#34c759] rounded-full mr-2 animate-pulse"></span>
+            {{ cards|length }} active clients
+        </span>
+    </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {% for card in cards %}
-        <div class="bg-white border border-b-rose-200 rounded-default p-6 shadow-xs dark:bg-base-900 dark:border-base-800">
+        <div class="cc-card bg-white border border-base-200 rounded-[18px] p-6 shadow-sm dark:bg-base-900 dark:border-base-800">
 
             <!-- name + phone -->
             <div class="flex items-center gap-3 mb-4">
-                <div class="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center text-white font-bold">
-                    {{ card.client.first_name|first }}{{ card.client.last_name }}
+                <div class="w-12 h-12 rounded-full cc-avatar flex items-center justify-center text-white font-bold text-lg">
+                    {{ card.client.first_name|first }}{{ card.client.last_name|first }}
                 </div>
-                <div>
-                    <h3 class="font-semibold">{{ card.client.get_full_name }}</h3>
-                    <p class="text-sm text-base-400"> {{ card.client.phone|default:"No phone"}}
+                <div class="flex-1">
+                    <h3 class="font-semibold text-gray-900 dark:text-white">{{ card.client.get_full_name }}</h3>
+                    <p class="text-sm text-gray-400">{{ card.client.phone|default:"No phone" }}</p>
                 </div>
-            </div>
-
-            <!-- Diagnosis -->
-            {% if card.diagnosis %}
-            <div class="mb-3 text-sm">
-                <span class="inline-flex items-center px-2 py-1 rounded-default bg-primary-50 text-primary-700">
-                    Level {{ card.diagnosis.support_level }}
+                <span class="inline-flex items-center px-2 py-1 rounded-full bg-[#f5f5f7] text-[#6e6e73] text-xs font-medium">
+                    {{ card.total_messages }} msgs
                 </span>
-                <span class="ml-2 text-base-400">{{ card.diagnosis.get_support_level_display }}</span>
-            </div>
-            {% else %}
-            <div class="mb-3 text-sm text-base-400">No active diagnosis</div>
-            {% endif %}
-
-            <!-- docs + specifiers -->
-            <div class="mb-3 text-sm text-base-400">
-                <span> {{ card.doc_count }} documents </span>
-                <span> {{ card.specifier_count }} specifiers </span>
             </div>
 
-            <!-- Specifier Details -->
-            <!-- Specifier Details -->
+            <!-- Diagnosis + docs/specifiers -->
+            <div class="flex items-center justify-between mb-3">
+                <div class="text-sm">
+                    {% if card.diagnosis %}
+                    <span class="inline-flex items-center px-2 py-1 rounded-lg bg-[#f0f0f5] text-[#5e5ce6] font-medium">
+                        Level {{ card.diagnosis.support_level }}
+                    </span>
+                    <span class="ml-2 text-gray-400 text-xs">{{ card.diagnosis.get_support_level_display }}</span>
+                    {% else %}
+                    <span class="text-gray-400 text-xs">No active diagnosis</span>
+                    {% endif %}
+                </div>
+                <div class="text-xs text-gray-400">
+                    <span class="mr-2">📄 {{ card.doc_count }} docs</span>
+                    <span>🏷️ {{ card.specifier_count }} specs</span>
+                </div>
+            </div>
+
+            <!-- Specifiers -->
             {% if card.specifier_data %}
             <div class="mb-3">
-                <p class="text-sm font-medium mb-1">Specifiers</p>
+                <p class="text-xs font-medium text-gray-400 mb-1.5 uppercase tracking-wide">Specifiers</p>
                 <div class="flex flex-col gap-1">
                     {% for spec in card.specifier_data %}
-                    <div class="text-xs px-2 py-1.5 rounded-default
-                        {% if spec.present %}bg-green-50 text-green-700
-                        {% else %}bg-red-50 text-red-700{% endif %}">
+                    <div class="text-xs px-2.5 py-1.5 rounded-lg
+                        {% if spec.present %}bg-[#e8f8ef] text-[#1d7a3f]
+                        {% else %}bg-[#ffe5ea] text-[#d70015]{% endif %}">
                         <div class="flex items-center justify-between">
                             <span class="font-medium">{{ spec.name }}</span>
-                            <span class="font-medium uppercase">{{ spec.severity|default:"N/A" }}</span>
+                            <span class="font-semibold uppercase text-[10px]">{{ spec.severity|default:"N/A" }}</span>
                         </div>
-                        {% if spec.definition %}
-                        <p class="text-xs text-gray-400 mt-0.5 leading-snug">{{ spec.definition }}</p>
-                        {% endif %}
                     </div>
                     {% endfor %}
                 </div>
@@ -63,40 +95,98 @@
 
             <!-- Topic Breakdown -->
             <div class="mb-3">
-                <p class="text-sm font-medium mb-1">Topic Breakdown</p>
-                <div class="flex flex-wrap gap-1">
+                <p class="text-xs font-medium text-gray-400 mb-1.5 uppercase tracking-wide">Topic Breakdown</p>
+                <div class="flex flex-wrap gap-1.5">
                     {% for topic in card.topics_data %}
-                    <span class="inline-block px-2 py-0.5 rounded-full text-xs
-                        {% if topic.score > 1 %}bg-green-100 text-green-700
-                        {% elif topic.score < 0 %}bg-red-100 text-red-700
-                        {% else %}bg-gray-100 text-gray-600{% endif %}">
-                        {{ topic.name }}: {{ topic.count }}
+                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium
+                        {% if topic.score > 1 %}bg-[#e8f8ef] text-[#1d7a3f]
+                        {% elif topic.score < 0 %}bg-[#ffe5ea] text-[#d70015]
+                        {% else %}bg-[#f5f5f7] text-[#6e6e73]{% endif %}">
+                        <span class="font-semibold">{{ topic.count }}</span>
+                        {{ topic.name }}
                     </span>
                     {% endfor %}
                 </div>
             </div>
 
-            <!-- Line Chart -->
+            <!-- Progress chart (line + bar combo) -->
             <div class="mb-3">
-                <p class="text-sm font-medium mb-1">Progress Over Time</p>
-                <div class="relative w-full" style="height: 120px;">
-                    <canvas class="chart" data-type="line"
-                        data-value='{{ card.chart_data|safe }}'
-                        data-responsive="true"></canvas>
+                <p class="text-xs font-medium text-gray-400 mb-1.5 uppercase tracking-wide">Progress Over Time</p>
+                <div class="relative w-full" style="height: 140px;">
+                    <canvas class="cc-chart"
+                        data-value='{{ card.chart_data|safe }}'></canvas>
                 </div>
             </div>
 
-            <!-- Sentiment Totals -->
-            <div class="flex justify-between text-sm border-t border-base-200 pt-2 dark:border-base-800 font-bold">
-                <span class="text-green-600"> {{ card.sentiment.positive }}</span>
-                <span class="text-red-600"> {{ card.sentiment.negative }}</span>
-                <span class="text-gray-500"> {{ card.sentiment.neutral }}</span>
+            <!-- Sentiment totals -->
+            <div class="flex justify-between items-center text-sm border-t border-base-200 pt-3 dark:border-base-800">
+                <span class="text-[#1d7a3f] font-bold">😊 {{ card.sentiment.positive }} <span class="text-xs font-normal text-gray-400">({{ card.positive_pct }}%)</span></span>
+                <span class="text-[#d70015] font-bold">😔 {{ card.sentiment.negative }} <span class="text-xs font-normal text-gray-400">({{ card.negative_pct }}%)</span></span>
+                <span class="text-[#6e6e73] font-bold">😐 {{ card.sentiment.neutral }}</span>
             </div>
 
-        </div>        
+        </div>
         {% endfor %}
-
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    function decode(str) {
+        return str.replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#39;/g, "'");
+    }
+
+    document.querySelectorAll('canvas.cc-chart').forEach(function(canvas) {
+        var raw = canvas.getAttribute('data-value');
+        var chartData = JSON.parse(decode(raw));
+
+        new Chart(canvas, {
+            type: 'line',
+            data: chartData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        align: 'end',
+                        labels: { usePointStyle: true, padding: 8, font: { size: 9 } }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                if (ctx.dataset.label === 'Messages') {
+                                    return 'Messages: ' + ctx.parsed.y;
+                                }
+                                return 'Sentiment: ' + ctx.parsed.y;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 8 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 6 }
+                    },
+                    y: {
+                        type: 'linear',
+                        position: 'left',
+                        grid: { color: 'rgba(0,0,0,0.04)' },
+                        ticks: { font: { size: 8 } }
+                    },
+                    y1: {
+                        type: 'linear',
+                        position: 'right',
+                        grid: { drawOnChartArea: false },
+                        ticks: { font: { size: 8 } }
+                    }
+                }
+            }
+        });
+    });
+});
+</script>
 
 {% endblock %}

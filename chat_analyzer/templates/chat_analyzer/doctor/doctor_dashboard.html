@@ -1,0 +1,160 @@
+{% extends 'chat_analyzer/base.html' %}
+{% load static %}
+
+{% block title %}Doctor Dashboard - Sentiri{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Inter", sans-serif;
+        letter-spacing: -0.01em;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        background: #f5f5f7;
+    }
+    .d-card {
+        background: #ffffff;
+        border: 1px solid #e5e5ea;
+        border-radius: 18px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03), 0 8px 24px rgba(0, 0, 0, 0.05);
+        transition: transform 0.6s cubic-bezier(0.25, 0.1, 0.25, 1),
+                    box-shadow 0.6s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .d-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05), 0 12px 32px rgba(0, 0, 0, 0.08);
+    }
+    .d-title {
+        font-weight: 700;
+        font-size: 1.9rem;
+        letter-spacing: -0.02em;
+        color: #1d1d1f;
+    }
+    .d-subtitle { color: #6e6e73; }
+    .d-label { color: #86868b; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    .d-pill {
+        display: inline-flex; align-items: center;
+        padding: 4px 12px; border-radius: 980px;
+        font-size: 12px; font-weight: 500;
+    }
+    .fade-up { animation: fadeUp 0.8s cubic-bezier(0.25, 0.1, 0.25, 1) both; }
+    @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen p-6 md:p-8">
+    <div class="max-w-6xl mx-auto">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-8 fade-up">
+            <div>
+                <h1 class="d-title">Welcome, Dr. {{ doctor.first_name }}</h1>
+                <p class="d-subtitle mt-1">Document approvals and diagnosed clients</p>
+            </div>
+            <a href="{% url 'chat_analyzer:logout_view' %}"
+               class="d-pill bg-[#f5f5f7] text-[#6e6e73] hover:bg-[#e5e5ea] transition-colors duration-300">
+                Logout
+            </a>
+        </div>
+
+        <!-- Messages -->
+        {% if messages %}
+        <div class="mb-6 space-y-2">
+            {% for message in messages %}
+            <div class="d-card p-4 text-sm
+                {% if message.tags == 'success' %}bg-[#e8f8ef] text-[#1d7a3f] border-[#c8f0d8]
+                {% elif message.tags == 'error' %}bg-[#ffe5ea] text-[#d70015] border-[#ffd0d8]
+                {% else %}bg-[#f5f5f7] text-[#6e6e73] border-[#e5e5ea]{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- KPI Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div class="d-card p-5 fade-up">
+                <p class="d-label">Pending Approvals</p>
+                <p class="text-3xl font-bold text-[#d70015] mt-1">{{ pending_count }}</p>
+            </div>
+            <div class="d-card p-5 fade-up">
+                <p class="d-label">Approved Documents</p>
+                <p class="text-3xl font-bold text-[#1d7a3f] mt-1">{{ approved_count }}</p>
+            </div>
+            <div class="d-card p-5 fade-up">
+                <p class="d-label">Active Diagnoses</p>
+                <p class="text-3xl font-bold text-[#0071e3] mt-1">{{ diagnosis_count }}</p>
+            </div>
+        </div>
+
+        <!-- Pending Approvals -->
+        <h2 class="text-lg font-semibold text-[#1d1d1f] mb-4 fade-up">Pending Document Approvals</h2>
+
+        {% if pending_docs %}
+        <div class="space-y-3 mb-8">
+            {% for doc in pending_docs %}
+            <div class="d-card p-5 flex items-center gap-4 fade-up">
+                <div class="w-12 h-12 bg-[#ffe5ea] rounded-xl flex items-center justify-center shrink-0">
+                    <svg class="w-6 h-6 text-[#d70015]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <p class="font-semibold text-[#1d1d1f]">{{ doc.client.get_full_name }}</p>
+                    <p class="text-sm text-[#6e6e73]">{{ doc.get_document_type_display }}</p>
+                    <p class="text-xs text-[#86868b] mt-0.5">Uploaded {{ doc.upload_date|date:"M j, Y" }} by {{ doc.uploaded_by.get_full_name|default:"Admin" }}</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <a href="{{ doc.file.url }}" target="_blank"
+                       class="d-pill bg-[#f5f5f7] text-[#0071e3] hover:bg-[#e5e5ea] transition-colors duration-300">
+                        View
+                    </a>
+                    <a href="{% url 'chat_analyzer:doctor_approve_document' doc.id %}"
+                       class="d-pill bg-[#0071e3] text-white hover:bg-[#0077ed] transition-colors duration-300">
+                        Approve
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="d-card p-10 text-center mb-8 fade-up">
+            <p class="text-[#86868b]">No pending approvals.</p>
+            <p class="text-sm text-[#a1a1a6] mt-1">Documents awaiting your review will appear here.</p>
+        </div>
+        {% endif %}
+
+        <!-- Diagnosed Clients -->
+        <h2 class="text-lg font-semibold text-[#1d1d1f] mb-4 fade-up">My Diagnosed Clients</h2>
+
+        {% if diagnoses %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for diag in diagnoses %}
+            <div class="d-card p-5 fade-up">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-10 h-10 bg-[#0071e3] rounded-full flex items-center justify-center text-white font-bold">
+                        {{ diag.client.first_name|first }}{{ diag.client.last_name|first }}
+                    </div>
+                    <div>
+                        <p class="font-semibold text-[#1d1d1f]">{{ diag.client.get_full_name }}</p>
+                        <p class="text-xs text-[#86868b]">{{ diag.diagnosis_date|date:"M j, Y" }}</p>
+                    </div>
+                </div>
+                <span class="d-pill bg-[#f0f0f5] text-[#5e5ce6]">Level {{ diag.support_level }}</span>
+                <span class="text-xs text-[#86868b] ml-2">{{ diag.get_support_level_display }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="d-card p-10 text-center fade-up">
+            <p class="text-[#86868b]">No diagnoses recorded yet.</p>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+{% endblock %}

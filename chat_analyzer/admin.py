@@ -1242,33 +1242,46 @@ class ClientCardView(UnfoldModelAdminViewMixin, View):
                 neutral=Count('id', filter=Q(sentiment='neutral')),
             )
 
-            # line chart data 5 topic lines over time
+            # line chart data — daily sentiment score (one point per date)
             progress = (
                 Conversation.objects
                 .filter(client=client, sentiment__isnull=False, date__isnull=False)
-                .values('date', 'topics__topic__name')
+                .values('date')
                 .annotate(
                     score=Sum('sentiment_score'),
-                    positive=Count('id', filter=Q(sentiment='positive')),
-                    negative=Count('id', filter=Q(sentiment='negative')),
-                    neutral=Count('id', filter=Q(sentiment='neutral')),
+                    count=Count('id'),
                 )
                 .order_by('date')
             )
 
             date_strings = [p['date'].strftime('%Y-%m-%d') for p in progress]
-            scores = [p['score'] for p in progress]
+            scores = [round(p['score'], 2) for p in progress]
+            counts = [p['count'] for p in progress]
 
             chart_data = json.dumps({
                 "labels": date_strings,
-                "datasets": [{
-                    "label": "Sentiment Progress",
-                    "data": scores,
-                    "borderColor": "#10b981",
-                    "backgroundColor": "rgba(16, 185, 129, 0.1)",
-                    "fill": True,
-                    "tension": 0.3,
-                }],
+                "datasets": [
+                    {
+                        "label": "Sentiment",
+                        "data": scores,
+                        "borderColor": "#34c759",
+                        "backgroundColor": "rgba(52, 199, 89, 0.12)",
+                        "fill": True,
+                        "tension": 0.35,
+                        "pointRadius": 3,
+                        "pointHoverRadius": 5,
+                        "borderWidth": 2,
+                        "yAxisID": "y",
+                    },
+                    {
+                        "label": "Messages",
+                        "data": counts,
+                        "type": "bar",
+                        "backgroundColor": "rgba(0, 113, 227, 0.18)",
+                        "borderRadius": 3,
+                        "yAxisID": "y1",
+                    },
+                ],
             })
 
             cards.append({
@@ -1280,6 +1293,9 @@ class ClientCardView(UnfoldModelAdminViewMixin, View):
                 'topics_data': topics_data,
                 'sentiment': sentiment_totals,
                 'chart_data': chart_data,
+                'total_messages': convs.count(),
+                'positive_pct': round(sentiment_totals['positive'] / convs.count() * 100) if convs.count() else 0,
+                'negative_pct': round(sentiment_totals['negative'] / convs.count() * 100) if convs.count() else 0,
             })
 
         return self.render_template(

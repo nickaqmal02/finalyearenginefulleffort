@@ -2,18 +2,588 @@
 {% load static %}
 {% load heroicons %}
 
-{% block title %}Admin Dashboard{% endblock %}
+{% block title %}Admin Analytics Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+  body { font-family: 'Inter', system-ui, sans-serif; }
+
+  .glass {
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+  }
+  .card-shadow {
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+  }
+  .card-shadow-lg {
+    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.02);
+  }
+  .pill-badge {
+    display: inline-flex; align-items: center;
+    padding: 4px 12px; border-radius: 9999px;
+    font-size: 12px; font-weight: 500;
+  }
+
+  /* KPI card hover */
+  .kpi-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+  .kpi-card:hover { transform: translateY(-2px); }
+
+  /* Gradient text */
+  .gradient-text {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6, #ec4899);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Toggle button */
+  .toggle-btn {
+    transition: all 0.2s ease;
+  }
+  .toggle-btn.active {
+    background: #6366f1;
+    color: white;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+  }
+
+  /* Heatmap cell */
+  .heat-cell {
+    transition: background-color 0.3s ease;
+  }
+
+  /* Animated gradient border for hero KPI */
+  .hero-kpi {
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-kpi::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 4px;
+    background: linear-gradient(90deg, #6366f1, #8b5cf6, #ec4899, #6366f1);
+    background-size: 200% 100%;
+    animation: gradient-shift 4s ease infinite;
+  }
+  @keyframes gradient-shift {
+    0% { background-position: 0% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  /* Progress bar */
+  .progress-bar {
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+</style>
+{% endblock %}
 
 {% block content %}
 
-<div class="flex flex-row ">
-
-  <div class="flex flex-col">
-    
-  </div>
-
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- HEADER -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="flex items-center justify-between mb-6">
   <div>
+    <h1 class="text-3xl font-extrabold gradient-text">Sentiri Analytics</h1>
+    <p class="text-gray-400 text-sm mt-1">Clinic-wide therapy intelligence overview</p>
+  </div>
+  <div class="flex items-center gap-2">
+    <span class="pill-badge bg-green-100 text-green-700">
+      <span class="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
+      Live Data
+    </span>
+    <span class="pill-badge bg-blue-100 text-blue-700">{{ total_conversations }} Messages</span>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- KPI CARDS — Row 1 -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+
+  <!-- Total Users -->
+  <div class="kpi-card glass rounded-2xl p-4 card-shadow hero-kpi">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+        {% heroicon_outline "users" class="w-6 h-6 text-indigo-600" %}
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-gray-900">{{ total_users }}</p>
+        <p class="text-xs text-gray-400">Total Users</p>
+      </div>
+    </div>
   </div>
 
-</div
+  <!-- Clients -->
+  <div class="kpi-card glass rounded-2xl p-4 card-shadow">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+        {% heroicon_outline "user-group" class="w-6 h-6 text-blue-600" %}
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-gray-900">{{ total_clients }}</p>
+        <p class="text-xs text-gray-400">Clients</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Therapists -->
+  <div class="kpi-card glass rounded-2xl p-4 card-shadow">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+        {% heroicon_outline "heart" class="w-6 h-6 text-green-600" %}
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-gray-900">{{ total_therapists }}</p>
+        <p class="text-xs text-gray-400">Therapists</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Doctors -->
+  <div class="kpi-card glass rounded-2xl p-4 card-shadow">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+        {% heroicon_outline "academic-cap" class="w-6 h-6 text-purple-600" %}
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-gray-900">{{ total_doctors }}</p>
+        <p class="text-xs text-gray-400">Doctors</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conversations -->
+  <div class="kpi-card glass rounded-2xl p-4 card-shadow">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+        {% heroicon_outline "chat-bubble-left-right" class="w-6 h-6 text-amber-600" %}
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-gray-900">{{ total_conversations }}</p>
+        <p class="text-xs text-gray-400">Messages</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Avg Sentiment -->
+  <div class="kpi-card glass rounded-2xl p-4 card-shadow">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 bg-pink-100 rounded-xl flex items-center justify-center">
+        {% heroicon_outline "chart-bar" class="w-6 h-6 text-pink-600" %}
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-gray-900">{{ avg_sentiment_score }}</p>
+        <p class="text-xs text-gray-400">Avg Sentiment</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- MAIN GRID — Row 2: Sentiment Doughnut + Trend Line -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
+  <!-- Sentiment Distribution Doughnut -->
+  <div class="glass rounded-3xl p-6 card-shadow">
+    <h3 class="font-semibold text-gray-900 mb-4">Sentiment Distribution</h3>
+    <div class="relative w-full" style="height: 220px;">
+      <canvas id="sentimentDoughnut"></canvas>
+    </div>
+    <div class="grid grid-cols-3 gap-2 text-center mt-4">
+      <div>
+        <p class="text-xl font-bold text-green-500">{{ sentiment_totals.positive }}</p>
+        <p class="text-xs text-gray-400">Positive</p>
+      </div>
+      <div>
+        <p class="text-xl font-bold text-gray-500">{{ sentiment_totals.neutral }}</p>
+        <p class="text-xs text-gray-400">Neutral</p>
+      </div>
+      <div>
+        <p class="text-xl font-bold text-red-500">{{ sentiment_totals.negative }}</p>
+        <p class="text-xs text-gray-400">Negative</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sentiment Trend Over Time -->
+  <div class="glass rounded-3xl p-6 card-shadow lg:col-span-2">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h3 class="font-semibold text-gray-900">Sentiment Trend</h3>
+        <p class="text-sm text-gray-400 mt-1">Daily aggregated sentiment scores across all clients</p>
+      </div>
+    </div>
+    <div class="relative w-full" style="height: 250px;">
+      <canvas id="sentimentTrend"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- TOPIC DISTRIBUTION — Row 3 (2D / 3D Toggle) -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="glass rounded-3xl p-6 card-shadow-lg mb-6">
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h3 class="font-semibold text-gray-900 text-lg">Topic Distribution</h3>
+      <p class="text-sm text-gray-400 mt-1">Message volume and sentiment breakdown across {{ topic_distribution|length }} therapy topics</p>
+    </div>
+    <!-- Toggle buttons -->
+    <div class="flex gap-2 p-1 bg-gray-100 rounded-xl">
+      <button id="btn-2d" class="toggle-btn active px-4 py-2 rounded-lg text-sm font-medium">
+        2D Bar Chart
+      </button>
+      <button id="btn-3d" class="toggle-btn px-4 py-2 rounded-lg text-sm font-medium text-gray-500">
+        3D Bubble Map
+      </button>
+    </div>
+  </div>
+
+  <!-- 2D Bar Chart View -->
+  <div id="view-2d" class="w-full">
+    <div class="relative w-full" style="height: 320px;">
+      <canvas id="topicBarChart"></canvas>
+    </div>
+  </div>
+
+  <!-- 3D Bubble View -->
+  <div id="view-3d" class="hidden w-full">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <!-- Bubble Chart (2/3 width) -->
+      <div class="lg:col-span-2">
+        <p class="text-xs text-gray-400 mb-2">Bubble size = total messages · X = positive count · Y = negative count</p>
+        <div class="relative w-full" style="height: 320px;">
+          <canvas id="topicBubbleChart"></canvas>
+        </div>
+      </div>
+      <!-- Legend / Detail panel (1/3 width) -->
+      <div class="space-y-2">
+        {% for ts in topic_sentiment_matrix %}
+        <div class="p-3 bg-white/50 rounded-xl border border-gray-100">
+          <div class="flex items-center gap-2 mb-2">
+            <div class="w-3 h-3 rounded-full" style="background: {% cycle '#6366f1' '#10b981' '#f59e0b' '#ef4444' '#8b5cf6' %};"></div>
+            <span class="text-sm font-medium text-gray-900 flex-1">{{ ts.name }}</span>
+            <span class="text-xs text-gray-400">{{ ts.total }} msgs</span>
+          </div>
+          <div class="flex gap-2 text-xs">
+            <span class="pill-badge bg-green-50 text-green-600">{{ ts.positive }} pos ({{ ts.pos_pct }}%)</span>
+            <span class="pill-badge bg-red-50 text-red-600">{{ ts.negative }} neg ({{ ts.neg_pct }}%)</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- Row 4: Diagnosis Distribution + Topic Sentiment Heatmap -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+  <!-- Diagnosis Distribution -->
+  <div class="glass rounded-3xl p-6 card-shadow">
+    <h3 class="font-semibold text-gray-900 mb-4">DSM-5 Support Level Distribution</h3>
+    <div class="flex items-center gap-6">
+      <div class="relative" style="width: 180px; height: 180px;">
+        <canvas id="diagnosisChart"></canvas>
+      </div>
+      <div class="flex-1 space-y-3">
+        {% for d in diagnosis_levels %}
+        <div class="flex items-center justify-between p-2 bg-white/50 rounded-lg">
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full"
+              style="background: {% cycle '#10b981' '#f59e0b' '#ef4444' %};"></div>
+            <span class="text-sm text-gray-700">Level {{ d.level }}</span>
+          </div>
+          <span class="font-bold text-gray-900">{{ d.count }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Topic × Sentiment Heatmap -->
+  <div class="glass rounded-3xl p-6 card-shadow">
+    <h3 class="font-semibold text-gray-900 mb-4">Topic × Sentiment Heatmap</h3>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-xs text-gray-400">
+            <th class="text-left py-2 px-3">Topic</th>
+            <th class="text-center py-2 px-3">Positive</th>
+            <th class="text-center py-2 px-3">Neutral</th>
+            <th class="text-center py-2 px-3">Negative</th>
+            <th class="text-center py-2 px-3">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ts in topic_sentiment_matrix %}
+          <tr class="border-t border-gray-100">
+            <td class="py-2 px-3 font-medium text-gray-700">{{ ts.name }}</td>
+            <td class="text-center py-2 px-3">
+              <span class="heat-cell inline-block px-2 py-1 rounded-lg"
+                style="background: rgba(16, 185, 129, {{ ts.pos_pct|floatformat:2|stringformat:'s' }}); color: {% if ts.pos_pct > 50 %}white{% else %}#374151{% endif %};">
+                {{ ts.positive }}
+              </span>
+            </td>
+            <td class="text-center py-2 px-3">
+              <span class="heat-cell inline-block px-2 py-1 rounded-lg bg-gray-100 text-gray-600">
+                {{ ts.neutral }}
+              </span>
+            </td>
+            <td class="text-center py-2 px-3">
+              <span class="heat-cell inline-block px-2 py-1 rounded-lg"
+                style="background: rgba(239, 68, 68, {{ ts.neg_pct|floatformat:2|stringformat:'s' }}); color: {% if ts.neg_pct > 50 %}white{% else %}#374151{% endif %};">
+                {{ ts.negative }}
+              </span>
+            </td>
+            <td class="text-center py-2 px-3 font-bold text-gray-900">{{ ts.total }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- Row 5: Therapist Workload + Top Topics List -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+  <!-- Therapist Workload Chart -->
+  <div class="glass rounded-3xl p-6 card-shadow">
+    <h3 class="font-semibold text-gray-900 mb-4">Therapist Workload</h3>
+    <div class="relative w-full" style="height: 220px;">
+      <canvas id="therapistChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Top Topics by Message Volume -->
+  <div class="glass rounded-3xl p-6 card-shadow">
+    <h3 class="font-semibold text-gray-900 mb-4">Topic Volume Ranking</h3>
+    <div class="space-y-3">
+      {% for t in topic_distribution %}
+      <div>
+        <div class="flex justify-between text-sm mb-1">
+          <span class="text-gray-700">{{ t.name }}</span>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-gray-400">{{ t.client_count }} clients</span>
+            <span class="font-medium text-gray-900">{{ t.total_msgs }} msgs</span>
+          </div>
+        </div>
+        <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+          <div class="progress-bar h-2.5 rounded-full"
+            style="width: {% widthratio t.total_msgs 65 100 %}%; background: {{ t.color }};">
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- JavaScript -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];
+
+  // ── Decode HTML entities ──
+  function decode(str) {
+    return str.replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#39;/g, "'");
+  }
+
+  // ── Base chart options ──
+  const baseOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: true,
+        position: 'bottom',
+        labels: { usePointStyle: true, padding: 15, font: { size: 11 } }
+      }
+    }
+  };
+
+  // ═══ 1. Sentiment Doughnut ═══
+  new Chart(document.getElementById('sentimentDoughnut'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Positive', 'Neutral', 'Negative'],
+      datasets: [{
+        data: [{{ sentiment_totals.positive }}, {{ sentiment_totals.neutral }}, {{ sentiment_totals.negative }}],
+        backgroundColor: ['#10b981', '#9ca3af', '#ef4444'],
+        borderWidth: 0,
+        hoverOffset: 8,
+      }]
+    },
+    options: {
+      ...baseOptions,
+      cutout: '70%',
+      plugins: {
+        legend: { display: true, position: 'bottom', labels: { usePointStyle: true, padding: 12, font: { size: 11 } } }
+      }
+    }
+  });
+
+  // ═══ 2. Sentiment Trend Line ═══
+  const trendData = JSON.parse(decode('{{ trend_data|safe }}'));
+  new Chart(document.getElementById('sentimentTrend'), {
+    type: 'line',
+    data: trendData,
+    options: {
+      ...baseOptions,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              return 'Score: ' + ctx.parsed.y;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } },
+        y: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+
+  // ═══ 3. Topic Bar Chart (2D) ═══
+  const topicBarData = JSON.parse(decode('{{ topic_chart_data|safe }}'));
+  const barChart = new Chart(document.getElementById('topicBarChart'), {
+    type: 'bar',
+    data: topicBarData,
+    options: {
+      ...baseOptions,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              return ctx.parsed.y + ' messages';
+            }
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+
+  // ═══ 4. Topic Bubble Chart (3D) ═══
+  const bubbleData = JSON.parse(decode('{{ bubble_data|safe }}'));
+  const bubbleChart = new Chart(document.getElementById('topicBubbleChart'), {
+    type: 'bubble',
+    data: bubbleData,
+    options: {
+      ...baseOptions,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              const d = ctx.raw;
+              return [
+                d.topic_name,
+                'Total: ' + d.total,
+                'Positive: ' + d.positive,
+                'Negative: ' + d.negative,
+                'Neutral: ' + d.neutral
+              ];
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Positive Messages', font: { size: 11 } },
+          grid: { color: 'rgba(0,0,0,0.04)' },
+          ticks: { font: { size: 10 } }
+        },
+        y: {
+          title: { display: true, text: 'Negative Messages', font: { size: 11 } },
+          grid: { color: 'rgba(0,0,0,0.04)' },
+          ticks: { font: { size: 10 } }
+        }
+      }
+    }
+  });
+
+  // ═══ 5. Toggle 2D / 3D ═══
+  const btn2d = document.getElementById('btn-2d');
+  const btn3d = document.getElementById('btn-3d');
+  const view2d = document.getElementById('view-2d');
+  const view3d = document.getElementById('view-3d');
+
+  btn2d.addEventListener('click', function() {
+    btn2d.classList.add('active');
+    btn2d.classList.remove('text-gray-500');
+    btn3d.classList.remove('active');
+    btn3d.classList.add('text-gray-500');
+    view2d.classList.remove('hidden');
+    view3d.classList.add('hidden');
+  });
+
+  btn3d.addEventListener('click', function() {
+    btn3d.classList.add('active');
+    btn3d.classList.remove('text-gray-500');
+    btn2d.classList.remove('active');
+    btn2d.classList.add('text-gray-500');
+    view3d.classList.remove('hidden');
+    view2d.classList.add('hidden');
+  });
+
+  // ═══ 6. Diagnosis Doughnut ═══
+  const diagnosisData = JSON.parse(decode('{{ diagnosis_chart_data|safe }}'));
+  new Chart(document.getElementById('diagnosisChart'), {
+    type: 'doughnut',
+    data: diagnosisData,
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '65%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              return ctx.parsed + ' clients';
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // ═══ 7. Therapist Workload Chart ═══
+  const therapistData = JSON.parse(decode('{{ therapist_chart_data|safe }}'));
+  new Chart(document.getElementById('therapistChart'), {
+    type: 'bar',
+    data: therapistData,
+    options: {
+      ...baseOptions,
+      plugins: {
+        legend: { display: true, position: 'bottom', labels: { usePointStyle: true, padding: 12, font: { size: 10 } } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+});
+</script>
+
 {% endblock %}

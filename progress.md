@@ -496,3 +496,85 @@
 6. Per-client detail page
 7. Tests + evaluation metrics
 8. DRF endpoints
+
+---
+
+## Session: E-Commerce Stripe Project (2026-10-14)
+
+### What we built
+Built a complete Django e-commerce app with Stripe payment gateway from scratch. Separate learning project at `~/degree/ecommerce_project` (git: `nickaqmal02/django_ecommerce_stripe`).
+
+### Features implemented
+- Product catalog with categories (Apparel, Accessories, Home Goods)
+- Multiple images per product (ProductImage inline admin)
+- Session-based shopping cart (add/remove/update quantity)
+- Checkout form (email, name, phone, shipping address)
+- Stripe Checkout integration (card + FPX)
+- Webhook handling (PENDING → PAID) with CSRF exemption + signature verification
+- Email receipt via Mailtrap sandbox (HTML email template)
+- PDF receipt generation via WeasyPrint
+- Order tracking page (enter order ID → see courier + tracking number)
+- Admin: courier dropdown + tracking number (inline editable)
+- django-unfold dark admin theme
+- Category gallery on homepage (hover overlay, 3-column landscape)
+- Secrets moved to .env (python-dotenv)
+- Production prep: render.yaml, build.sh, Procfile, gunicorn, dj_database_url
+- Dynamic URLs (get_base_url) for production deployment
+
+### Key lessons learned
+- **Stripe `payment_method_types` deprecated** — payment methods now managed in Dashboard
+- **Stripe SDK uses `.id` not `.get('id')`** — Session objects aren't dicts
+- **Webhook needs `@csrf_exempt`** — Stripe POST has no CSRF token
+- **Two terminals required** — Django server + `stripe listen` for webhooks
+- **SSH key in project dir = bad** — must live in `~/.ssh/`, never in git
+- **Git filter-branch** removes secrets from history: filter → clean refs → gc → force push
+- **Money stored as IntegerField (sen)** — floating point errors make floats unsafe for currency
+- **Render free tier = no credit card** — but Malaysian debit cards get blocked for international charges
+
+### What's next
+1. Call bank to enable international card transactions
+2. Deploy on Render (render.yaml ready, env vars prepped)
+3. Set up production Stripe webhook (add endpoint in Stripe dashboard)
+4. Push latest code to GitHub (SSH key re-added to GitHub)
+
+---
+
+## 2026-10-15 — Frontend polish marathon: Apple design system across all role dashboards
+
+### What we did
+- **Client portal fixes:** Patched 2 template bugs — `client_therapist.html` (missing `=` before `{{ }}`, therapist name invisible) and `client_settings.html` (broken `<div class="flex" </div>` tag). Verified therapist name "Aina Razak" renders.
+- **Admin analytics dashboard rebuilt** (`templates/admin/index.html` + `dashboard.py`): 6 KPI cards, sentiment doughnut + trend line, topic distribution with 2D bar / 3D toggle, DSM-5 doughnut, topic×sentiment heatmap, therapist workload.
+- **3D graph saga (the hard-won lesson):** Wanted an Obsidian-style 3D network. Tried `graph3D` series → **doesn't exist in ECharts GL** (blank chart). Tried `lines3D` (plural) → **broken in echarts-gl@2.0.9**, crashes `Cannot read properties of undefined (reading '0')`. Tried `{coords:...}` vs `{value:...}` data formats. **The working combo: `scatter3D` (nodes) + `line3D` (singular, connections).** Also hit the classic ECharts hidden-container bug — chart renders tiny (quarter-size) when init'd inside `display:none`, fixed with `chart3d.resize()` on toggle reveal.
+- **Client cards** (`client_card.html`): fixed duplicate-date chart bug (was grouping by topic, creating duplicate x-labels), added combo chart (line+bar dual axis), message count pill, sentiment percentages.
+- **Login page** polished: glassmorphism card, gradient blob background, "Back to Main Page" link to welcome view.
+- **Welcome page** — role-themed backgrounds on hover (admin=indigo, therapist=green, doctor=blue, client=orange), then rebuilt in **Apple design language** (SF Pro, #f5f5f7, 18px radius, cubic-bezier easing).
+- **Created `docs/apple-design-system.md`** — the canonical reusable design system (font stack, palette, typography scale, card/chip components, the Apple easing curve, entrance animations, role-swap JS, application checklist).
+- **Applied Apple system to admin dashboard + client cards** — removed ALL gradients, flat #fff cards, #0071e3 accents, #f5f5f7 neutrals.
+- **Therapist side rebuilt** (`MainTherapist/dashboard.html` + `ClientTherapist/client_detail.html`): old Bootstrap template used non-existent fields (`parent_name`, `child_name`, `status`). Rebuilt with actual model fields + Apple design. Added KPIs, client cards grid, drill-down detail page.
+- **Therapist chat upload** (`therapist_upload_chat`): therapists can now upload WhatsApp .txt for their OWN assigned clients. Created `TherapistUploadChatForm` (client field scoped to `assigned_therapist`), chat_type dropdown (individual/group/admin), auto-assigns therapist=self. Reuses `process_whatsapp_upload` + `train_topics()`. Verified end-to-end: 25 messages saved with `chat_type=group`, `uploaded_by=therapist1`.
+- **Created `docs/therapist-role.md`** — full therapist capability doc.
+- **Therapist sample login:** all therapists password reset to `therapist123` (therapist1=Aina Razak 3 clients, therapist2=Daniel Tan 3, therapist3=Farah Ismail 2, therapist4=Kumar Raj 2, therapist05=ain shahirah 0).
+
+### What Nik learned
+- **ECharts GL series types are a trap:** `graph3D` doesn't exist. `lines3D` (plural) is broken. Only `scatter3D`, `line3D` (singular), `bar3D`, `surface` are reliable. Read the actual option-gl docs, don't guess series names.
+- **Hidden-container chart bug:** any Chart.js/ECharts chart initialized inside `display:none` measures 0×0 → renders tiny. Always `resize()` after the container becomes visible.
+- **Template variable typos are invisible bugs:** missing `=` before `{{ }}` renders the name as an HTML attribute (invisible), not text. Django doesn't error — it just silently renders wrong.
+- **`json.dumps()` before template + `|safe` filter + `decode()` in JS** = the three-part contract for passing Python data to Chart.js.
+- **Form field scoping = security:** `ModelChoiceField(queryset=...)` limited to `assigned_therapist=request.user` prevents a therapist uploading for another therapist's client.
+
+### What's next (unchanged priorities)
+1. Run 8 garbage-topic cleanup (URGENT for demo)
+2. Doctor dashboard (still renders broken `doctor_dashboard.html` — same treatment as therapist)
+3. Viva sweep: signal guard test + unpaid questions
+4. Tests + evaluation metrics
+5. DRF endpoints
+
+---
+
+## 2026-10-15 (evening) — Therapist role + chat upload complete
+
+### What we did
+- Built therapist dashboard + client detail + upload chat (documented above).
+- Therapist upload verified: `chat_client10.txt` uploaded for FauziArif as `group` chat by therapist1 — 25 messages saved, sentiment applied, topic retraining kicked off (MPS/XLM-R).
+- Left the test data in place (Nik's call: "leave it mate") — FauziArif now has +25 messages from the test upload.
+

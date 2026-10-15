@@ -111,8 +111,9 @@ class MalayTopicModeler:
                 continue
             cleaned = msg.strip()
 
-            # skip the word if too shorts
-            if len(cleaned.split()) >= 1:
+            # skip near-empty texts: fewer than 2 content words carry no topic signal
+            # (fixes 'sesuatu' / 'mampu' / 'terima kasih' junk clusters)
+            if len(cleaned.split()) >= 2:
                 processed.append(cleaned)
 
         # Remove duplicates
@@ -350,6 +351,39 @@ class MalayTopicModeler:
             traceback.print_exc()
             return None
 
+    def _topic_name_from_keywords(self, keywords):
+        """Build a clean human-readable topic name from raw c-TF-IDF keywords.
+
+        Rules (order matters):
+          1. Skip stopwords (they win over domain words — kills 'child', 'staff')
+          2. Skip multi-word phrases (bigrams like 'menangis tidur') — names should be single concepts
+          3. Keep domain words + content words (len > 2)
+          4. Take up to 3, fall back to raw top-3 if everything got filtered
+        """
+        stopwords = self.topic_stopwords or set()
+        domain_words = self.domain_words or set()
+
+        filtered = []
+        for word, score in keywords[:10]:
+            word_lower = word.lower()
+            # Skip stopwords FIRST (prevents 'child-has-the' style junk)
+            if word_lower in stopwords:
+                continue
+            # Skip bigrams / multi-word phrases — names should be single concepts
+            if ' ' in word_lower or '-' in word_lower:
+                continue
+            # Keep domain words or content words (length > 2)
+            if word_lower in domain_words or len(word_lower) > 2:
+                filtered.append(word)
+
+            if len(filtered) >= 3:
+                break
+
+        if not filtered:
+            filtered = [w for w, _ in keywords[:3]]
+
+        return " - ".join(filtered)
+
     def get_topic_name(self, topic_id):
         """Get cleaner human readable name for topic."""
         if topic_id == -1:
@@ -359,29 +393,7 @@ class MalayTopicModeler:
         if not keywords:
             return f"Topic_{topic_id}"
 
-        # Filter out stopwords from topic names
-        stopwords = self.topic_stopwords
-        domain_words = self.domain_words
-
-        filtered_keywords = []
-
-        for word, score in keywords[:10]:
-            word_lower = word.lower()
-
-            # Keep domain words and non-stopwords
-            if word_lower in domain_words:
-                filtered_keywords.append((word, score))
-            elif word_lower not in stopwords and len(word) > 2:
-                filtered_keywords.append((word, score))
-
-            if len(filtered_keywords) >= 3:
-                break
-
-        # If no filtered keywords, use the top ones
-        if not filtered_keywords:
-            filtered_keywords = keywords[:3]
-
-        return " - ".join([word for word, _ in filtered_keywords])
+        return self._topic_name_from_keywords(keywords)
 
     def save_model(self):
         """Save the trained topic model"""
@@ -462,7 +474,8 @@ class MalayTopicModeler:
             else:
                 # nothing match then we discovered topic
                 fallback_keywords = [word for word, _ in keywords[:5] if word.strip()]
-                topic_name = "-".join(fallback_keywords[:3])
+                # Use the SAME clean naming logic as get_topic_name()
+                topic_name = self._topic_name_from_keywords(keywords)
 
                 topic_obj, created = Topic.objects.get_or_create(
                     name=topic_name[:100],

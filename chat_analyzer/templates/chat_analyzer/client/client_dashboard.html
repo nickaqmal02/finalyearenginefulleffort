@@ -5,9 +5,8 @@
 
 {% block content %}
 
-
 <!-- header setup -->
-<div class="flex items-center justify-between mb-8">
+<div class="flex items-center justify-between mb-6">
     <div>
         <h1 class="text-2xl font-bold text-gray-900">Welcome Back, {{ client_user.first_name }}</h1>
         <p class="text-gray-400 text-sm mt-1">Here's your therapy progress overview</p>
@@ -22,8 +21,62 @@
         </div>
     </div>
 </div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- KPI CARDS ROW -->
+<!-- ═══════════════════════════════════════════════ -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="glass rounded-2xl p-5 card-shadow">
+        <div class="flex items-center gap-3">
+            <div class="w-11 h-11 bg-blue-100 rounded-xl flex items-center justify-center">
+                <svg class="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+            </div>
+            <div>
+                <p class="text-2xl font-bold text-gray-900">{{ total_messages }}</p>
+                <p class="text-xs text-gray-400">Total Messages</p>
+            </div>
+        </div>
+    </div>
+    <div class="glass rounded-2xl p-5 card-shadow">
+        <div class="flex items-center gap-3">
+            <div class="w-11 h-11 bg-green-100 rounded-xl flex items-center justify-center">
+                <svg class="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+            </div>
+            <div>
+                <p class="text-2xl font-bold text-gray-900">{{ avg_client_sentiment }}</p>
+                <p class="text-xs text-gray-400">Avg Sentiment</p>
+            </div>
+        </div>
+    </div>
+    <div class="glass rounded-2xl p-5 card-shadow">
+        <div class="flex items-center gap-3">
+            <div class="w-11 h-11 bg-purple-100 rounded-xl flex items-center justify-center">
+                <svg class="w-6 h-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+            </div>
+            <div>
+                <p class="text-2xl font-bold text-gray-900">{{ topic_scores|length }}</p>
+                <p class="text-xs text-gray-400">Active Topics</p>
+            </div>
+        </div>
+    </div>
+    <div class="glass rounded-2xl p-5 card-shadow">
+        <div class="flex items-center gap-3">
+            <div class="w-11 h-11 bg-amber-100 rounded-xl flex items-center justify-center">
+                <svg class="w-6 h-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            </div>
+            <div>
+                <p class="text-2xl font-bold text-gray-900">
+                    {% if diagnoses %}{{ diagnoses.0.support_level }}{% else %}-{% endif %}
+                </p>
+                <p class="text-xs text-gray-400">Support Level</p>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- TOP ROW GRID: 3 columns -->
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
     <!-- diagnostic card (Column 1) -->
     <div class="glass rounded-3xl p-6 card-shadow">
         <div class="flex items-center justify-between mb-4">
@@ -56,71 +109,68 @@
         <p class="text-sm text-gray-400">No active diagnosis</p>
         {% endif %}
     </div>
+
     <!-- sentiment summary section (Column 2) -->
     <div class="glass rounded-3xl p-6 card-shadow">
         <h3 class="font-semibold text-gray-900 mb-4">Sentiment Summary</h3>
         <div class="flex items-center justify-center mb-4">
-            <div class="relative w-52 h-62">
-                <!-- doughnut chart canvas -->
-                <canvas class="chart"
-                        data-type="doughnut"
-                        data-value='{"labels": ["Positive", "Negative", "Neutral"], "datasets": [{"data": [{{ sentiment.positive }}, {{ sentiment.negative }}, {{ sentiment.neutral }}], "backgroundColor": ["#10b981", "#ef4444", "#9ca3af"]}]}'
-                        data-responsive="true">
-                </canvas>
+            <div class="relative w-44 h-44">
+                <canvas id="sentimentDoughnut"></canvas>
+                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span class="text-3xl font-bold text-gray-900">{{ total_messages }}</span>
+                    <span class="text-xs text-gray-400">messages</span>
+                </div>
             </div>
         </div>
         <div class="grid grid-cols-3 gap-2 text-center">
             <div>
                 <p class="text-lg font-bold text-green-500">{{ sentiment.positive }}</p>
-                <p class="text-xs text-gray-400">Positive</p>
+                <p class="text-xs text-gray-400">Positive ({{ sentiment_pct.positive }}%)</p>
             </div>
             <div>
                 <p class="text-lg font-bold text-red-500">{{ sentiment.negative }}</p>
-                <p class="text-xs text-gray-400">Negative</p>
+                <p class="text-xs text-gray-400">Negative ({{ sentiment_pct.negative }}%)</p>
             </div>
             <div>
                 <p class="text-lg font-bold text-gray-500">{{ sentiment.neutral }}</p>
-                <p class="text-xs text-gray-400">Neutral</p>
+                <p class="text-xs text-gray-400">Neutral ({{ sentiment_pct.neutral }}%)</p>
             </div>
         </div>
     </div>
-    <!-- Placeholder for 3rd card (Column 3) -->
+
+    <!-- Topic radar (Column 3) -->
     <div class="glass rounded-3xl p-6 card-shadow">
-        <h3 class="font-semibold text-gray-900 mb-4">My Topics</h3>
-        <div class="space-y-3">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-gray-900">My Topics</h3>
+            <span class="pill-badge bg-purple-100 text-purple-700">Radar</span>
+        </div>
+        <div class="relative w-full" style="height: 200px;">
+            <canvas id="topicRadar"></canvas>
+        </div>
+        <div class="space-y-2 mt-4">
             {% for ts in topic_scores %}
-                <div>
-                    <div class="flex justify-between text-sm mb-1">
-                    <span class="text-gray-700">{{ ts.topic.name }}</span>
-                    <span class="font-medium text-gray-900">{{ ts.message_count }}</span>
-                </div>
-                <div class="w-full bg-gray-100 rounded-full h-2">
-                    <div class="h-2 rounded-full
-                        {% if ts.score > 1 %}bg-green-500
-                        {% elif ts.score < 0 %}bg-red-500
-                        {% else %}bg-gray-400{% endif %}"
-                        style="width: {% widthratio ts.message_count 65 100 %}%">
-                    </div>
-                </div>
-                </div>
+            <div class="flex justify-between items-center text-sm">
+                <span class="text-gray-700 truncate">{{ ts.topic.name }}</span>
+                <span class="font-medium text-gray-900">{{ ts.message_count }} msgs</span>
+            </div>
             {% endfor %}
         </div>
     </div>
 </div>
 
-    <!-- progress charts -->
-    <div class="glass rounded-3xl p-6 card-shadow-lg mb-6">
+<!-- progress charts -->
+<div class="glass rounded-3xl p-6 card-shadow-lg mb-6">
     <div class="flex items-center justify-between mb-6">
         <div>
             <h3 class="font-semibold text-gray-900">Sentiment Progress Over Time</h3>
-            <p class="text-sm text-gray-400 mt-1">Daily sentiment score from your conversations</p>
+            <p class="text-sm text-gray-400 mt-1">Daily sentiment score and message volume from your conversations</p>
         </div>
+        <span class="pill-badge bg-blue-50 text-blue-600">Line + Bar</span>
     </div>
-    <div class="relative w-full" style="height: 250px;">
-        <canvas class="chart" data-type="line" data-value='{{ chart_data|safe }}' data-responsive="true"></canvas>
+    <div class="relative w-full" style="height: 280px;">
+        <canvas id="progressChart"></canvas>
     </div>
-    </div>
-
+</div>
 
 <!-- Bottom Row: Documents + Therapist -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -160,49 +210,122 @@
                 <p class="text-xs text-gray-400 mt-1">📞 {{ client_user.assigned_therapist.phone|default:"No phone" }}</p>
             </div>
         </div>
+        {% if latest_conversation %}
+        <div class="bg-white/50 rounded-xl p-3">
+            <p class="text-xs text-gray-400 mb-1">Last Session</p>
+            <p class="text-sm font-medium text-gray-900">{{ latest_conversation.date|date:"F j, Y" }}</p>
+        </div>
+        {% endif %}
         {% else %}
         <p class="text-sm text-gray-400">No therapist assigned</p>
         {% endif %}
     </div>
 </div>
 
-
-
-
 <script>
-    // Wait for the page to load
     document.addEventListener('DOMContentLoaded', function () {
-        // Find all canvases with the class 'chart'
-        const charts = document.querySelectorAll('canvas.chart');
-        charts.forEach(function(canvas) {
-            // Get the data from the HTML attributes we set
-            const chartType = canvas.getAttribute('data-type');
-            const rawValue = canvas.getAttribute('data-value');
-            // Decode the HTML entities back into real JSON
-            // (This fixes the &quot; we used earlier!)
-            const decodedValue = rawValue.replace(/&quot;/g, '"');
-            const chartData = JSON.parse(decodedValue);
-            // Draw the Chart!
-            new Chart(canvas, {
-                type: chartType,
-                data: chartData,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: true,
-                            position: 'bottom'
+        function decode(str) {
+            return str.replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#39;/g, "'");
+        }
+
+        // 1. Sentiment Doughnut with center total
+        new Chart(document.getElementById('sentimentDoughnut'), {
+            type: 'doughnut',
+            data: JSON.parse(decode('{{ sentiment_doughnut|safe }}')),
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '72%',
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'bottom',
+                        labels: { usePointStyle: true, padding: 12, font: { size: 11 } }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                var total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                var pct = Math.round(ctx.parsed / total * 100);
+                                return ctx.label + ': ' + ctx.parsed + ' (' + pct + '%)';
+                            }
                         }
                     }
                 }
-            });
+            }
+        });
+
+        // 2. Topic Radar Chart
+        new Chart(document.getElementById('topicRadar'), {
+            type: 'radar',
+            data: JSON.parse(decode('{{ topic_radar|safe }}')),
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0,0,0,0.06)' },
+                        angleLines: { color: 'rgba(0,0,0,0.06)' },
+                        pointLabels: { font: { size: 10 }, color: '#6b7280' },
+                        ticks: { display: false }
+                    }
+                }
+            }
+        });
+
+        // 3. Progress Chart (line + bar with dual axis)
+        new Chart(document.getElementById('progressChart'), {
+            type: 'line',
+            data: JSON.parse(decode('{{ chart_data|safe }}')),
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        align: 'end',
+                        labels: { usePointStyle: true, padding: 15, font: { size: 11 } }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                if (ctx.dataset.label === 'Messages') {
+                                    return 'Messages: ' + ctx.parsed.y;
+                                }
+                                return 'Sentiment Score: ' + ctx.parsed.y;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }
+                    },
+                    y: {
+                        type: 'linear',
+                        position: 'left',
+                        title: { display: true, text: 'Sentiment Score', font: { size: 10 } },
+                        grid: { color: 'rgba(0,0,0,0.04)' },
+                        ticks: { font: { size: 10 } }
+                    },
+                    y1: {
+                        type: 'linear',
+                        position: 'right',
+                        title: { display: true, text: 'Messages', font: { size: 10 } },
+                        grid: { drawOnChartArea: false },
+                        ticks: { font: { size: 10 } }
+                    }
+                }
+            }
         });
     });
 </script>
 
-
-
 {% endblock %}
-
-

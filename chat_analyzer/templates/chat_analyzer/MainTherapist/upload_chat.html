@@ -1,0 +1,132 @@
+{% extends 'chat_analyzer/base.html' %}
+{% load static %}
+
+{% block title %}Upload Chat - Sentiri{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Inter", sans-serif;
+        letter-spacing: -0.01em;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        background: #f5f5f7;
+    }
+    .t-card {
+        background: #ffffff;
+        border: 1px solid #e5e5ea;
+        border-radius: 18px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03), 0 8px 24px rgba(0, 0, 0, 0.05);
+    }
+    .t-title {
+        font-weight: 700;
+        font-size: 1.8rem;
+        letter-spacing: -0.02em;
+        color: #1d1d1f;
+    }
+    .t-subtitle { color: #6e6e73; }
+    .t-pill {
+        display: inline-flex; align-items: center;
+        padding: 4px 12px; border-radius: 980px;
+        font-size: 12px; font-weight: 500;
+    }
+    .t-field {
+        width: 100%;
+        background: #ffffff;
+        border: 1px solid #e5e5ea;
+        border-radius: 12px;
+        padding: 10px 14px;
+        font-size: 14px;
+        color: #1d1d1f;
+        transition: border-color 0.3s cubic-bezier(0.25, 0.1, 0.25, 1),
+                    box-shadow 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .t-field:focus {
+        outline: none;
+        border-color: #0071e3;
+        box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.15);
+    }
+    .t-btn {
+        background: #0071e3;
+        color: #ffffff;
+        border-radius: 980px;
+        padding: 10px 24px;
+        font-weight: 600;
+        font-size: 14px;
+        transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .t-btn:hover {
+        background: #0077ed;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 113, 227, 0.3);
+    }
+    .errorlist {
+        color: #d70015;
+        font-size: 12px;
+        margin-top: 4px;
+        list-style: none;
+        padding: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen p-6 md:p-8 flex items-center justify-center">
+    <div class="w-full max-w-xl">
+
+        <a href="{% url 'chat_analyzer:therapist_dashboard' %}"
+           class="t-pill bg-[#f5f5f7] text-[#6e6e73] hover:bg-[#e5e5ea] transition-colors duration-300 mb-4 inline-block">
+            ← Back to Dashboard
+        </a>
+
+        <div class="t-card p-8">
+            <h1 class="t-title">Upload WhatsApp Chat</h1>
+            <p class="t-subtitle mt-1 mb-6">Import a chat transcript for one of your clients</p>
+
+            {% if messages %}
+                {% for message in messages %}
+                <div class="p-3 mb-4 text-sm rounded-xl {% if message.tags == 'success' %}bg-[#e8f8ef] text-[#1d7a3f]{% elif message.tags == 'error' %}bg-[#ffe5ea] text-[#d70015]{% else %}bg-[#f5f5f7] text-[#6e6e73]{% endif %}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="post" enctype="multipart/form-data" class="space-y-5">
+                {% csrf_token %}
+
+                <!-- Client -->
+                <div>
+                    <label for="id_client" class="block text-sm font-medium text-[#1d1d1f] mb-1.5">
+                        Client
+                    </label>
+                    <select name="client" id="id_client" class="t-field">
+                        {% for client in form.fields.client.queryset %}
+                        <option value="{{ client.id }}">{{ client.get_full_name }} ({{ client.username }})</option>
+                        {% endfor %}
+                    </select>
+                    {% if form.client.errors %}{{ form.client.errors }}{% endif %}
+                </div>
+
+                <!-- Static chat type note -->
+                <div class="p-3 bg-[#f5f5f7] rounded-xl text-sm text-[#6e6e73]">
+                    <span class="font-medium text-[#1d1d1f]">Chat type:</span> 1-on-1 Chat
+                    <span class="block text-xs text-[#86868b] mt-0.5">Therapist chats are always individual sessions with your client.</span>
+                </div>
+
+                <!-- File -->
+                <div>
+                    <label for="id_chat_file" class="block text-sm font-medium text-[#1d1d1f] mb-1.5">
+                        WhatsApp .txt file
+                    </label>
+                    <input type="file" name="chat_file" id="id_chat_file" accept=".txt"
+                           class="t-field" style="padding: 8px;">
+                    <p class="text-xs text-[#86868b] mt-1">Export your chat from WhatsApp → More → Export chat → Without media</p>
+                    {% if form.chat_file.errors %}{{ form.chat_file.errors }}{% endif %}
+                </div>
+
+                <button type="submit" class="t-btn w-full">Upload & Process</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

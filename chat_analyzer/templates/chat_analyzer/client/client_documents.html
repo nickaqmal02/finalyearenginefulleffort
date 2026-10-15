@@ -1,1 +1,62 @@
 {% extends 'chat_analyzer/client/base_client.html' %}
+
+{% block content %}
+<div class="mb-8">
+    <h1 class="text-2xl font-bold text-gray-900">My Documents</h1>
+    <p class="text-gray-400 text-sm mt-1">Your uploaded diagnostic reports and medical records</p>
+</div>
+
+<!-- Documents List -->
+<div class="glass rounded-3xl p-6 card-shadow-lg">
+    <div class="space-y-3">
+        {% for doc in documents %}
+        <div class="flex items-center gap-4 p-4 bg-white/50 rounded-2xl border border-gray-100">
+            <!-- Icon based on type -->
+            <div class="w-12 h-12 rounded-xl flex items-center justify-center
+                {% if doc.document_type == 'diagnostic_report' %}bg-red-100{% else %}bg-blue-100{% endif %}">
+                <svg class="w-6 h-6 {% if doc.document_type == 'diagnostic_report' %}text-red-500{% else %}text-blue-500{% endif %}"
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+            </div>
+            <!-- file info -->
+            <div class="flex-1">
+                <p class="font-medium text-gray-900">{{ doc.file.name|cut:"diagnosis_documents/" }}</p>
+                <p class="text-sm text-gray-400">
+                    {{ doc.get_document_type_display }} Uploaded {{ doc.upload_date|date:"M j, Y" }}
+                </p>
+            </div>
+            <!-- status and view button -->
+            <div class="flex items-center gap-4">
+                {% if doc.is_approved %}
+                <span class="pill-badge bg-green-100 text-green-700 hidden sm:inline-flex">Approved</span>
+                {% else %}
+                <span class="pill-badge bg-amber-100 text-amber-700 hidden sm:inline-flex">Pending Review</span>
+                {% endif %}
+
+                <a href="{{ doc.file.url }}" target="_blank"
+                    class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
+                    <svg class="s-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>View
+                </a>
+            </div>
+        </div>
+        {% empty %}
+        <div class="p-12 text-center">
+            <svg class="w-12 h-12 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V16a2 2 0 01-2 2H6a2 2 0 01-2-2z" />
+            </svg>
+            <h3 class="font-medium text-gray-900">No documents yet</h3>
+            <p class="text-sm text-gray-400 mt-1">Your medical records will appear here once uploaded by the admin or
+                doctor.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

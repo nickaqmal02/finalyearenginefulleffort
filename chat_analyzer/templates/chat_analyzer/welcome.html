@@ -3,89 +3,249 @@
 
 {% block title %}Sentiri — Welcome{% endblock %}
 
+{% block extra_css %}
+<style>
+    * {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Inter", sans-serif;
+        letter-spacing: -0.01em;
+        transition: background 1s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+
+    /* Apple-style neutral background */
+    .bg-role-default {
+        background: #f5f5f7;
+    }
+    /* Role backgrounds — deep, refined, single-hue (Apple keynote style) */
+    .bg-role-admin { background: #1d1d1f; }
+    .bg-role-therapist { background: #0b3d2e; }
+    .bg-role-doctor { background: #0a3552; }
+    .bg-role-client { background: #4a2311; }
+
+    /* Glassmorphism card (Apple card style) */
+    .apple-card {
+        background: #ffffff;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06);
+        transition: transform 0.6s cubic-bezier(0.25, 0.1, 0.25, 1),
+                    box-shadow 0.6s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+
+    .role-card:hover .apple-card {
+        transform: translateY(-10px) scale(1.02);
+    }
+
+    /* Role-specific glow shadows */
+    .role-card[data-role="admin"]:hover .apple-card { box-shadow: 0 4px 16px rgba(0,0,0,0.08), 0 20px 48px rgba(120, 120, 128, 0.35); }
+    .role-card[data-role="therapist"]:hover .apple-card { box-shadow: 0 4px 16px rgba(0,0,0,0.08), 0 20px 48px rgba(52, 199, 89, 0.35); }
+    .role-card[data-role="doctor"]:hover .apple-card { box-shadow: 0 4px 16px rgba(0,0,0,0.08), 0 20px 48px rgba(10, 132, 255, 0.35); }
+    .role-card[data-role="client"]:hover .apple-card { box-shadow: 0 4px 16px rgba(0,0,0,0.08), 0 20px 48px rgba(255, 149, 0, 0.35); }
+
+    /* Typography */
+    .page-title {
+        font-weight: 700;
+        font-size: 3rem;
+        line-height: 1.1;
+        letter-spacing: -0.03em;
+        color: #1d1d1f;
+        transition: color 1s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .page-eyebrow {
+        font-weight: 600;
+        font-size: 0.85rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #6e6e73;
+        transition: color 1s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .page-subtitle {
+        font-size: 1.1rem;
+        font-weight: 400;
+        color: #6e6e73;
+        transition: color 1s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+
+    .role-title {
+        font-weight: 600;
+        font-size: 1.25rem;
+        color: #1d1d1f;
+        transition: color 1s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .role-desc {
+        font-size: 0.9rem;
+        color: #6e6e73;
+        transition: color 1s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .role-chip {
+        font-size: 0.72rem;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+        padding: 4px 12px;
+        border-radius: 980px;
+        background: #f5f5f7;
+        color: #6e6e73;
+        transition: all 1s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+
+    /* Logo */
+    .logo-box {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        background: #0071e3;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(0, 113, 227, 0.3);
+        transition: background 1s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+
+    .footer-text {
+        font-size: 0.8rem;
+        color: #86868b;
+        transition: color 1s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+
+    /* Dark background text inversion */
+    body.role-active .page-title { color: #f5f5f7 !important; }
+    body.role-active .page-eyebrow { color: #a1a1a6 !important; }
+    body.role-active .page-subtitle { color: #a1a1a6 !important; }
+    body.role-active .footer-text { color: #86868b !important; }
+    body.role-active .logo-box { background: rgba(255, 255, 255, 0.18) !important; box-shadow: none !important; }
+    body.role-active .role-chip { background: rgba(255, 255, 255, 0.14) !important; color: #f5f5f7 !important; }
+
+    /* Subtle fade-in on load */
+    .fade-up {
+        animation: fadeUp 0.9s cubic-bezier(0.25, 0.1, 0.25, 1) both;
+    }
+    .fade-up:nth-child(2) { animation-delay: 0.1s; }
+    .fade-up:nth-child(3) { animation-delay: 0.2s; }
+    .fade-up:nth-child(4) { animation-delay: 0.3s; }
+    @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(24px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 
-<body class="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center p-4">
+<body class="min-h-screen bg-role-default flex items-center justify-center p-6" id="welcomeBody">
 
   <div class="w-full max-w-5xl">
 
     <!-- Logo + Title -->
-    <div class="text-center mb-10">
-      <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4 shadow-lg">
-        <svg class="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+    <div class="text-center mb-12 fade-up">
+      <div class="logo-box mb-5">
+        <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
         </svg>
       </div>
-      <h1 class="text-4xl font-bold text-gray-900">Sentiri</h1>
-      <p class="mt-2 text-gray-500">Autism Therapy Management System</p>
-      <p class="mt-1 text-sm text-gray-400">Select your role to continue</p>
+      <p class="page-eyebrow mb-2">Therapy Intelligence Platform</p>
+      <h1 class="page-title">Sentiri</h1>
+      <p class="page-subtitle mt-3">Autism Therapy Management System</p>
+      <p class="page-subtitle mt-1 text-base">Choose your role to continue</p>
     </div>
 
     <!-- Role Cards Grid -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
 
-      <!-- Admin Card -->
-      <a href="/admin/login/" class="hover-3d block">
-        <figure class="aura aura-dual w-full rounded-2xl shadow-lg overflow-hidden bg-white">
-          <img src="{% static 'chat_analyzer/images/admin3d.jpeg' %}" alt="Admin" class="w-full h-64 object-cover" />
-        </figure>
-        <div class="text-center mt-3">
-          <h3 class="font-bold text-lg text-gray-900">Admin</h3>
-          <p class="text-sm text-gray-400">Manage System</p>
+      <!-- Admin -->
+      <a href="/admin/login/" class="role-card block fade-up" data-role="admin">
+        <div class="apple-card">
+          <div class="h-56 overflow-hidden bg-[#f5f5f7]">
+            <img src="{% static 'chat_analyzer/images/admin3d.jpeg' %}" alt="Admin" class="w-full h-full object-cover" />
+          </div>
+          <div class="p-6 text-center">
+            <h3 class="role-title">Admin</h3>
+            <p class="role-desc mt-1">Manage System</p>
+            <div class="role-chip mt-3 inline-block">System Control</div>
+          </div>
         </div>
-        <!-- 8 empty divs needed for daisyUI 3D effect -->
-        <div></div><div></div><div></div><div></div>
-        <div></div><div></div><div></div><div></div>
       </a>
 
-      <!-- Therapist Card -->
-      <a href="{% url 'chat_analyzer:login_view' %}?role=therapist" class="hover-3d block">
-        <figure class="aura aura-dual w-full rounded-2xl shadow-lg overflow-hidden bg-white">
-          <img src="{% static 'chat_analyzer/images/therapist3d.jpeg' %}" alt="Therapist" class="w-full h-64 object-cover" />
-        </figure>
-        <div class="text-center mt-3">
-          <h3 class="font-bold text-lg text-gray-900">Therapist</h3>
-          <p class="text-sm text-gray-400">Track Progress</p>
+      <!-- Therapist -->
+      <a href="{% url 'chat_analyzer:login_view' %}?role=therapist" class="role-card block fade-up" data-role="therapist">
+        <div class="apple-card">
+          <div class="h-56 overflow-hidden bg-[#f5f5f7]">
+            <img src="{% static 'chat_analyzer/images/therapist3d.jpeg' %}" alt="Therapist" class="w-full h-full object-cover" />
+          </div>
+          <div class="p-6 text-center">
+            <h3 class="role-title">Therapist</h3>
+            <p class="role-desc mt-1">Track Progress</p>
+            <div class="role-chip mt-3 inline-block">Care & Progress</div>
+          </div>
         </div>
-        <div></div><div></div><div></div><div></div>
-        <div></div><div></div><div></div><div></div>
       </a>
 
-      <!-- Doctor Card -->
-      <a href="{% url 'chat_analyzer:login_view' %}?role=doctor" class="hover-3d block">
-        <figure class="aura aura-dual w-full rounded-2xl shadow-lg overflow-hidden bg-white">
-          <img src="{% static 'chat_analyzer/images/doctor3d.jpeg' %}" alt="Doctor" class="w-full h-64 object-cover" />
-        </figure>
-        <div class="text-center mt-3">
-          <h3 class="font-bold text-lg text-gray-900">Doctor</h3>
-          <p class="text-sm text-gray-400">Diagnose & Approve</p>
+      <!-- Doctor -->
+      <a href="{% url 'chat_analyzer:login_view' %}?role=doctor" class="role-card block fade-up" data-role="doctor">
+        <div class="apple-card">
+          <div class="h-56 overflow-hidden bg-[#f5f5f7]">
+            <img src="{% static 'chat_analyzer/images/doctor3d.jpeg' %}" alt="Doctor" class="w-full h-full object-cover" />
+          </div>
+          <div class="p-6 text-center">
+            <h3 class="role-title">Doctor</h3>
+            <p class="role-desc mt-1">Diagnose & Approve</p>
+            <div class="role-chip mt-3 inline-block">Clinical Review</div>
+          </div>
         </div>
-        <div></div><div></div><div></div><div></div>
-        <div></div><div></div><div></div><div></div>
       </a>
 
-      <!-- Client Card -->
-      <a href="{% url 'chat_analyzer:login_view' %}?role=client" class="hover-3d block">
-        <figure class="aura aura-dual w-full rounded-2xl shadow-lg overflow-hidden bg-white">
-          <img src="{% static 'chat_analyzer/images/client3d.jpeg' %}" alt="Client" class="w-full h-64 object-cover" />
-        </figure>
-        <div class="text-center mt-3">
-          <h3 class="font-bold text-lg text-gray-900">Client</h3>
-          <p class="text-sm text-gray-400">View Progress</p>
+      <!-- Client -->
+      <a href="{% url 'chat_analyzer:login_view' %}?role=client" class="role-card block fade-up" data-role="client">
+        <div class="apple-card">
+          <div class="h-56 overflow-hidden bg-[#f5f5f7]">
+            <img src="{% static 'chat_analyzer/images/client3d.jpeg' %}" alt="Client" class="w-full h-full object-cover" />
+          </div>
+          <div class="p-6 text-center">
+            <h3 class="role-title">Client</h3>
+            <p class="role-desc mt-1">View Progress</p>
+            <div class="role-chip mt-3 inline-block">My Journey</div>
+          </div>
         </div>
-        <div></div><div></div><div></div><div></div>
-        <div></div><div></div><div></div><div></div>
       </a>
 
     </div>
 
     <!-- Footer -->
-    <div class="text-center mt-12">
-      <p class="text-sm text-gray-400">© 2026 Sentiri. Final Year Project by Nik Abdul Aqmal.</p>
+    <div class="text-center mt-14 fade-up">
+      <p class="footer-text">© 2026 Sentiri · Final Year Project by Nik Abdul Aqmal</p>
     </div>
 
   </div>
 
 </body>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var body = document.getElementById('welcomeBody');
+        var cards = document.querySelectorAll('.role-card');
+        var roleClasses = ['bg-role-default', 'bg-role-admin', 'bg-role-therapist', 'bg-role-doctor', 'bg-role-client'];
+
+        function setBackground(role) {
+            roleClasses.forEach(function(c) { body.classList.remove(c); });
+            body.classList.remove('role-active');
+
+            if (role && role !== 'default') {
+                body.classList.add('bg-role-' + role);
+                body.classList.add('role-active');
+            } else {
+                body.classList.add('bg-role-default');
+            }
+        }
+
+        cards.forEach(function(card) {
+            var role = card.getAttribute('data-role');
+            card.addEventListener('mouseenter', function() { setBackground(role); });
+            card.addEventListener('mouseleave', function() { setBackground('default'); });
+        });
+    });
+</script>
 
 {% endblock %}

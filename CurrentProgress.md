@@ -603,4 +603,18 @@ After 2 months, **Therapist Jane** observes head-banging during meltdowns and pr
 
 
 
+## ok now I need to find, evaluate model first, or managing the rubbish topic discovered
 
+## Im planning to finish seting uo the topic modeling model and host it on the aws server yup because this is better approach cloud praticioner
+
+## wait so i need to build another pipeline to shows that why we use this XLM-Roberta ? vs Lexicon vs Aspect Based Sentiment Analysis 
+
+## but for topic modeling we need to compare it with LDA ? 
+
+## and then we can start the documentation for the fyp report
+
+## we already have all erd stuff
+
+## model evaluation first right ?? then we need to update our resume state the specific metric evaluation to resume
+
+## prep for the interview tomorrow at 10 am 

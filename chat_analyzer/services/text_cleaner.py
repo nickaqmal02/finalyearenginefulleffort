@@ -279,14 +279,22 @@ class MalayTextCleaner:
         words = text.split()
         filtered = [] # creating array standby to put that fully furnished words
         for word in words:
-            # ALWAYS keep domain words (they ARE the topics we want)
+            # STEM first so 'mengamuk' -> 'amuk'
+            normalized = self.normalize(word)
+
+            # STOPWORDS WIN — drop the word if it's a stopword, EVEN IF it also
+            # appears in domain_words_topic. Prevents junk (e.g. 'child', 'staff')
+            # leaking through the "always keep domain words" bypass.
+            if self.topic_stopwords and normalized in self.topic_stopwords:
+                continue
+
+            # Keep therapy-specific domain words (they define the topics we want)
             if word in self.domain_words_topic:
                 filtered.append(word)
                 continue
-            # STEM firs so 'mengamuk' -> 'amuk' before stopwords check
-            normalized = self.normalize(word)
 
-            if normalized not in self.topic_stopwords and len(normalized) > 2:
+            # Keep other content words (min length 3)
+            if len(normalized) > 2:
                 filtered.append(normalized)
 
         # remove duplicates while preserving

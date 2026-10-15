@@ -70,6 +70,28 @@ class UploadChatForm(forms.Form):
 
     
 
+class TherapistUploadChatForm(forms.Form):
+    """Therapist-facing upload form — client scoped to their assignment, always 1-on-1 chat."""
+
+    client = forms.ModelChoiceField(
+        queryset=User.objects.none(),
+        help_text="Select which client this chat belongs to",
+    )
+    chat_file = forms.FileField(
+        label='WhatsApp .txt file',
+        help_text="Export your WhatsApp chat as a .txt file",
+    )
+
+    def __init__(self, *args, therapist=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.therapist = therapist
+        # Scope clients to this therapist's assigned clients
+        if therapist:
+            self.fields['client'].queryset = User.objects.filter(
+                role='client', is_active=True, assigned_therapist=therapist
+            )
+
+
 # creating our own custom user creation form
 class CustomUserCreationForm(UserCreationForm):
     """Custom form for creating new users in admin"""

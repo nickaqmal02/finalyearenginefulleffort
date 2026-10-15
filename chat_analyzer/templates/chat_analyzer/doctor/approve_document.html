@@ -1,0 +1,105 @@
+{% extends 'chat_analyzer/base.html' %}
+{% load static %}
+
+{% block title %}Approve Document - Sentiri{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Inter", sans-serif;
+        letter-spacing: -0.01em;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        background: #f5f5f7;
+    }
+    .d-card {
+        background: #ffffff;
+        border: 1px solid #e5e5ea;
+        border-radius: 18px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03), 0 8px 24px rgba(0, 0, 0, 0.05);
+    }
+    .d-title {
+        font-weight: 700;
+        font-size: 1.8rem;
+        letter-spacing: -0.02em;
+        color: #1d1d1f;
+    }
+    .d-pill {
+        display: inline-flex; align-items: center;
+        padding: 4px 12px; border-radius: 980px;
+        font-size: 12px; font-weight: 500;
+    }
+    .d-btn {
+        background: #0071e3;
+        color: #ffffff;
+        border-radius: 980px;
+        padding: 10px 24px;
+        font-weight: 600;
+        font-size: 14px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .d-btn:hover {
+        background: #0077ed;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 113, 227, 0.3);
+    }
+    .d-btn-secondary {
+        background: #f5f5f7;
+        color: #6e6e73;
+        border-radius: 980px;
+        padding: 10px 24px;
+        font-weight: 600;
+        font-size: 14px;
+        transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .d-btn-secondary:hover { background: #e5e5ea; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen p-6 md:p-8 flex items-center justify-center">
+    <div class="w-full max-w-lg">
+        <a href="{% url 'chat_analyzer:doctor_dashboard' %}"
+           class="d-pill bg-[#f5f5f7] text-[#6e6e73] hover:bg-[#e5e5ea] transition-colors duration-300 mb-4 inline-block">
+            ← Back to Dashboard
+        </a>
+
+        <div class="d-card p-8">
+            <h1 class="d-title mb-6">Approve Document</h1>
+
+            <div class="space-y-4 mb-8">
+                <div class="flex justify-between border-b border-[#e5e5ea] pb-3">
+                    <span class="text-[#6e6e73]">Client</span>
+                    <span class="font-semibold text-[#1d1d1f]">{{ doc.client.get_full_name }}</span>
+                </div>
+                <div class="flex justify-between border-b border-[#e5e5ea] pb-3">
+                    <span class="text-[#6e6e73]">Document Type</span>
+                    <span class="font-semibold text-[#1d1d1f]">{{ doc.get_document_type_display }}</span>
+                </div>
+                <div class="flex justify-between border-b border-[#e5e5ea] pb-3">
+                    <span class="text-[#6e6e73]">Uploaded</span>
+                    <span class="font-semibold text-[#1d1d1f]">{{ doc.upload_date|date:"M j, Y H:i" }}</span>
+                </div>
+                <div class="flex justify-between border-b border-[#e5e5ea] pb-3">
+                    <span class="text-[#6e6e73]">Uploaded By</span>
+                    <span class="font-semibold text-[#1d1d1f]">{{ doc.uploaded_by.get_full_name|default:"Admin" }}</span>
+                </div>
+                <div class="flex justify-between pb-1">
+                    <span class="text-[#6e6e73]">File</span>
+                    <a href="{{ doc.file.url }}" target="_blank" class="text-[#0071e3] font-medium hover:underline">
+                        View document
+                    </a>
+                </div>
+            </div>
+
+            <form method="post" class="flex items-center gap-3">
+                {% csrf_token %}
+                <button type="submit" class="d-btn flex-1">✓ Approve Document</button>
+                <a href="{% url 'chat_analyzer:doctor_dashboard' %}" class="d-btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
