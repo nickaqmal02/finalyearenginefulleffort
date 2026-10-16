@@ -1,4 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponseForbidden
+from django.utils import timezone
 from typing import Any
 from django.db.models import QuerySet
 from django.contrib import messages
@@ -8,7 +10,7 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie, csrf_exempt
 from django.contrib.auth.forms import AuthenticationForm
 from .forms import CustomLoginForm, CustomSignUpForm, UploadChatForm, UploadDocumentForm
-from .models import User
+from .models import User, ChatThread, ChatMessage
 from .decorators import admin_required, therapist_required, doctor_required, client_required
 # ████████████████████████████████████████████████████████████████████████████████
 # █░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█
@@ -397,6 +399,22 @@ def therapist_dashboard(request):
     total_positive = all_convs.filter(sentiment='positive').count()
     avg_sentiment = all_convs.aggregate(avg=Avg('sentiment_score'))['avg'] or 0
 
+    # Recent chat threads (top 5 by last_message_at) — for dashboard widget
+    from .models import ChatThread, ChatMessage
+    recent_chats = ChatThread.objects.filter(
+        therapist=therapist
+    ).select_related('client').order_by('-last_message_at')[:5]
+
+    # Pre-compute last-message preview for each thread
+    recent_chats_data = []
+    for t in recent_chats:
+        last_msg = t.messages.order_by('-sent_at').first()
+        recent_chats_data.append({
+            'thread': t,
+            'last_message': last_msg.message if last_msg else 'No messages yet',
+            'unread': t.therapist_unread,
+        })
+
     context = {
         'therapist': therapist,
         'clients': client_data,
@@ -404,6 +422,7 @@ def therapist_dashboard(request):
         'total_messages': total_messages,
         'total_positive': total_positive,
         'avg_sentiment': round(avg_sentiment, 2),
+        'recent_chats': recent_chats_data,
     }
     return render(request, 'chat_analyzer/MainTherapist/dashboard.html', context)
 
@@ -518,6 +537,152 @@ def therapist_client_detail(request, client_id):
         'negative_pct': round(sentiment['negative'] / total * 100) if total else 0,
     }
     return render(request, 'chat_analyzer/MainTherapist/ClientTherapist/client_detail.html', context)
+
+@therapist_required
+def therapist_chat_threads(request):
+    threads = ChatThread.objects.filter(
+        therapist=request.user
+    ).select_related('client').order_by('-last_message_at')
+
+    # Pre-compute last-message preview + sender (for the inbox)
+    threads_data = []
+    for t in threads:
+        last_msg = t.messages.order_by('-sent_at').first()
+        threads_data.append({
+            'thread': t,
+            'last_message': last_msg.message if last_msg else None,
+            'last_message_sender': last_msg.sender.get_full_name() if last_msg else None,
+            'last_message_is_mine': last_msg.sender_id == request.user.id if last_msg else False,
+            'last_message_at': t.last_message_at,
+            'unread': t.therapist_unread,
+        })
+
+    context = {
+        'therapist': request.user,
+        'threads': threads_data,
+    }
+    return render(request, 'chat_analyzer/MainTherapist/chat_threads.html', context)
+
+@login_required
+def chat_thread_detail(request, thread_id):
+    """Live chat thread detail — works for BOTH client and therapist (membership check inside)."""
+    thread = get_object_or_404(ChatThread, id=thread_id)
+
+    # SECURITY: only the two people in this thread can view it
+    if request.user != thread.client and request.user != thread.therapist:
+        return HttpResponseForbidden("You are not part of this thread.")
+
+    # Handle "send message" POST
+    if request.method == 'POST':
+        text = request.POST.get('message', '').strip()
+        if text:
+            ChatMessage.objects.create(
+                thread=thread,
+                sender=request.user,
+                message=text,
+            )
+            # Update unread counter (the OTHER person)
+            thread.last_message_at = timezone.now()
+            if request.user == thread.client:
+                thread.therapist_unread += 1
+            else:
+                thread.client_unread += 1
+            thread.save()
+            return redirect('chat_analyzer:chat_thread_detail', thread_id=thread.id)
+
+    # Mark messages from the OTHER person as read
+    ChatMessage.objects.filter(
+        thread=thread,
+        is_read=False,
+    ).exclude(sender=request.user).update(is_read=True, read_at=timezone.now())
+
+    # Reset MY unread counter
+    if request.user == thread.client:
+        thread.client_unread = 0
+    else:
+        thread.therapist_unread = 0
+    thread.save()
+
+    # Redirect client to client template, therapist to therapist template
+    messages = thread.messages.select_related('sender').order_by('sent_at')
+
+    if request.user.role == 'client':
+        template = 'chat_analyzer/client/chat_thread.html'
+    else:
+        template = 'chat_analyzer/MainTherapist/chat_thread.html'
+
+    context = {
+        'thread': thread,
+        'messages': messages,
+        'me': request.user,
+        'other': thread.therapist if request.user == thread.client else thread.client,
+    }
+    return render(request, template, context)
+
+
+@login_required
+def client_messages(request):
+    """Client-side chat history list — mirrors therapist inbox but scoped to the client."""
+    if request.user.role != 'client':
+        return HttpResponseForbidden('Clients only.')
+
+    from .models import ChatThread
+    threads = ChatThread.objects.filter(
+        client=request.user
+    ).select_related('therapist').order_by('-last_message_at')
+
+    threads_data = []
+    for t in threads:
+        last_msg = t.messages.order_by('-sent_at').first()
+        threads_data.append({
+            'thread': t,
+            'last_message': last_msg.message if last_msg else 'No messages yet',
+            'last_message_sender': last_msg.sender.get_full_name() if last_msg else None,
+            'last_message_is_mine': last_msg.sender_id == request.user.id if last_msg else False,
+            'last_message_at': t.last_message_at,
+            'unread': t.client_unread,
+        })
+
+    context = {
+        'client_user': request.user,
+        'threads': threads_data,
+        'unread_client_messages_count': sum(t['unread'] for t in threads_data),
+    }
+    return render(request, 'chat_analyzer/client/messages.html', context)
+
+
+@login_required
+def start_chat_with_therapist(request):
+    """Client-side: find-or-create the thread between me (the client) and my assigned therapist, redirect in."""
+    from .models import User, ChatThread
+    client = request.user
+    if client.role != 'client' or not client.assigned_therapist:
+        return HttpResponseForbidden('No assigned therapist.')
+    thread, _ = ChatThread.objects.get_or_create(
+        client=client,
+        therapist=client.assigned_therapist,
+    )
+    return redirect('chat_analyzer:client_chat_thread', thread_id=thread.id)
+
+
+@therapist_required
+def start_chat_with_client(request, client_id):
+    """Auto-create the thread (one per client-therapist pair) and redirect to it."""
+    from .models import User
+    client = get_object_or_404(User, id=client_id, role='client')
+
+    # Security: only the assigned therapist
+    if client.assigned_therapist != request.user:
+        return HttpResponseForbidden('This client is not assigned to you.')
+
+    thread, created = ChatThread.objects.get_or_create(
+        client=client,
+        therapist=request.user,
+    )
+    return redirect('chat_analyzer:chat_thread_detail', thread_id=thread.id)
+
+
+
 
 @doctor_required
 def doctor_dashboard(request):

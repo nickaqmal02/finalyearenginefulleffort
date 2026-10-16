@@ -116,6 +116,37 @@
             </div>
         </div>
 
+        <!-- Recent Chats widget -->
+        {% if recent_chats %}
+        <h2 class="text-lg font-semibold text-[#1d1d1f] mb-4 fade-up flex items-center gap-2">
+            <svg class="w-5 h-5 text-[#0071e3]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+            Recent Chats
+            <a href="{% url 'chat_analyzer:therapist_chat_threads' %}" class="ml-auto text-sm font-normal text-[#0071e3] hover:underline">View all →</a>
+        </h2>
+        <div class="space-y-2 mb-8">
+            {% for item in recent_chats %}
+            <a href="{% url 'chat_analyzer:chat_thread_detail' item.thread.id %}"
+               class="t-card p-4 flex items-center gap-4 hover:shadow-md block fade-up">
+                <div class="w-10 h-10 rounded-full bg-[#0071e3] flex items-center justify-center text-white font-bold shrink-0">
+                    {{ item.thread.client.first_name|first }}{{ item.thread.client.last_name|first }}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                        <h3 class="font-semibold text-[#1d1d1f] text-sm">{{ item.thread.client.get_full_name }}</h3>
+                        {% if item.unread %}
+                        <span class="t-pill bg-[#d70015] text-white shrink-0 text-[10px]">{{ item.unread }} new</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-xs text-[#6e6e73] mt-0.5 truncate">{{ item.last_message }}</p>
+                </div>
+                <div class="text-right shrink-0 text-[10px] text-[#86868b]">
+                    {% if item.thread.last_message_at %}{{ item.thread.last_message_at|date:"M j, H:i" }}{% endif %}
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
         <!-- Assigned Clients -->
         <h2 class="text-lg font-semibold text-[#1d1d1f] mb-4 fade-up">My Assigned Clients</h2>
 

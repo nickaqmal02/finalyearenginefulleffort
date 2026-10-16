@@ -102,6 +102,17 @@
                     </svg>
                     My Therapist
                 </a>
+                <a href="{% url 'chat_analyzer:client_messages' %}"
+                   class="nav-item {% is_active 'client_messages' %} flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-gray-600">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                    </svg>
+                    Messages
+                    {% if unread_client_messages_count %}
+                    <span class="ml-auto text-xs font-bold text-white bg-[#d70015] rounded-full px-2 py-0.5">{{ unread_client_messages_count }}</span>
+                    {% endif %}
+                </a>
                 <a href="{% url 'chat_analyzer:client_settings' %}"
                    class="nav-item {% is_active 'client_settings' %} flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-gray-600">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

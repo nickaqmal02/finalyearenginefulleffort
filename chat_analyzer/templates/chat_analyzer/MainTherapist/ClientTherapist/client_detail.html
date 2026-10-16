@@ -61,6 +61,10 @@
                 <h1 class="t-title">{{ client.get_full_name }}</h1>
                 <p class="t-subtitle">{{ client.phone|default:"No phone" }}</p>
             </div>
+            <a href="{% url 'chat_analyzer:start_chat_with_client' client.id %}"
+               class="t-pill bg-[#0071e3] text-white hover:bg-[#0077ed] transition-colors duration-300 ml-auto">
+                💬 Message Client
+            </a>
         </div>
 
         <!-- KPI row -->

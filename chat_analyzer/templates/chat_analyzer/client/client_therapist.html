@@ -20,7 +20,7 @@
         </div>
 
         <!-- therapist information -->
-        <div class="text-center sm:text-left">
+        <div class="text-center sm:text-left flex-1">
             <p class="text-xl font-bold text-gray-900">{{ client_user.assigned_therapist.get_full_name }}</p>
             <p class="text-sm text-gray-500 mb-3">Assigned Therapist</p>
 
@@ -38,9 +38,15 @@
                             d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                     {{ client_user.assigned_therapist.email }}
-                </p </div>
+                </p>
             </div>
         </div>
+
+        <!-- chat button -->
+        <a href="{% url 'chat_analyzer:client_start_chat' %}"
+           class="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-5 py-2.5 text-sm font-semibold transition-colors shrink-0">
+            💬 Message
+        </a>
 
         {% else %}
         <!-- empty state -->

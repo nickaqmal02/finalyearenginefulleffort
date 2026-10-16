@@ -42,6 +42,8 @@ urlpatterns = [
 # ╔════════════════════════════════════════════╗ 
 # ║     THERAPIST SECTION PATH 😮‍💨              ║ 
 # ╚════════════════════════════════════════════╝ 
+    path("chat/threads/", views.therapist_chat_threads, name="therapist_chat_threads"),
+    path("chat/threads/<int:thread_id>/", views.chat_thread_detail, name="chat_thread_detail"),
 
 # ╔════════════════════════════════════════════╗ 
 # ║          DOCTOR SECTION PATH 😇            ║ 
@@ -50,7 +52,13 @@ urlpatterns = [
 # ╔════════════════════════════════════════════╗ 
 # ║          CLIENT SECTION PATH 😃          ║ 
 # ╚════════════════════════════════════════════╝ 
+#   
     path("dashboard/client/documents/", views.client_documents, name='client_documents'),
     path("dashboard/client/therapist/", views.client_therapist, name='client_therapist'),
     path("dashboard/client/settings/", views.client_settings, name='client_settings'),
+    path("client/chat/<int:thread_id>/", views.chat_thread_detail, name='client_chat_thread'),
+    path("chat/start/<int:client_id>/", views.start_chat_with_client, name="start_chat_with_client"),
+    path("client/chat/start/", views.start_chat_with_therapist, name="client_start_chat"),
+    path("client/messages/", views.client_messages, name="client_messages"),
+
 ]

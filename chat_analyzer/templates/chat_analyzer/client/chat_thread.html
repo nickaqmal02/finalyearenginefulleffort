@@ -1,0 +1,73 @@
+{% extends 'chat_analyzer/client/base_client.html' %}
+{% load static %}
+
+{% block title %}Chat with {{ other.get_full_name }} - Sentiri{% endblock %}
+
+{% block content %}
+
+<div class="min-h-screen p-6 md:p-8">
+    <div class="max-w-3xl mx-auto">
+
+        <a href="{% url 'chat_analyzer:client_therapist' %}"
+           class="glass rounded-full px-4 py-2 text-sm text-[#6e6e73] inline-block mb-4 hover:bg-white">
+            ← Back to My Therapist
+        </a>
+
+        <div class="glass rounded-3xl card-shadow-lg overflow-hidden">
+            <!-- Thread header -->
+            <div class="flex items-center gap-3 p-5 border-b border-gray-200/50">
+                <div class="w-11 h-11 rounded-full bg-gradient-to-br from-green-400 to-teal-500 flex items-center justify-center text-white font-bold">
+                    {{ other.first_name|first }}{{ other.last_name|first }}
+                </div>
+                <div class="flex-1">
+                    <h2 class="text-xl font-bold text-gray-900">{{ other.get_full_name }}</h2>
+                    <p class="text-xs text-gray-500">Your assigned therapist</p>
+                </div>
+            </div>
+
+            {% if messages %}
+            <div class="p-5 space-y-3" style="max-height: 480px; overflow-y: auto;">
+                {% for msg in messages %}
+                <div class="{% if msg.sender == me %}flex justify-end{% else %}flex justify-start{% endif %}">
+                    <div class="{% if msg.sender == me %}bg-gradient-to-br from-blue-500 to-purple-500 text-white rounded-2xl rounded-br-sm px-4 py-2 max-w-[70%]{% else %}bg-white/70 text-gray-900 rounded-2xl rounded-bl-sm px-4 py-2 max-w-[70%]{% endif %}">
+                        {{ msg.message|linebreaksbr }}
+                        <div class="text-[10px] {% if msg.sender == me %}text-white/70{% else %}text-gray-500{% endif %} mt-1 flex items-center gap-1">
+                            <span>{{ msg.sent_at|time:"H:i" }}</span>
+                            {% if msg.sender == me %}
+                            <svg width="14" height="9" viewBox="0 0 18 12" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block; vertical-align:middle;" aria-label="{% if msg.is_read %}Read{% else %}Delivered{% endif %}">
+                                <path d="M1 6.5L4 9.5L8 4.5"
+                                      stroke="{% if msg.is_read %}#34b7f1{% else %}rgba(255,255,255,0.6){% endif %}"
+                                      stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                                <path d="M7 6.5L10 9.5L17 1.5"
+                                      stroke="{% if msg.is_read %}#34b7f1{% else %}rgba(255,255,255,0.6){% endif %}"
+                                      stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                            </svg>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="p-10 text-center text-gray-500">
+                <p>No messages yet. Start the conversation below.</p>
+            </div>
+            {% endif %}
+
+            <!-- Composer -->
+            <form method="post" class="border-t border-gray-200/50 p-4 flex gap-3">
+                {% csrf_token %}
+                <textarea name="message" rows="2" required placeholder="Type a message..."
+                          class="flex-1 bg-white/70 border border-gray-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 resize-none"
+                          onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); this.form.submit();}"></textarea>
+                <button type="submit"
+                        class="self-end bg-blue-600 hover:bg-blue-700 text-white rounded-full px-5 py-2.5 text-sm font-semibold transition-colors">
+                    Send
+                </button>
+            </form>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}
