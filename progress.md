@@ -578,3 +578,39 @@ Built a complete Django e-commerce app with Stripe payment gateway from scratch.
 - Therapist upload verified: `chat_client10.txt` uploaded for FauziArif as `group` chat by therapist1 — 25 messages saved, sentiment applied, topic retraining kicked off (MPS/XLM-R).
 - Left the test data in place (Nik's call: "leave it mate") — FauziArif now has +25 messages from the test upload.
 
+---
+
+## 2026-10-15 (late) — Topic QUALITY closed: garbage discovered topics eliminated (Run 9)
+
+### Root cause (three stacked leaks, found by live probe — NOT the old memory)
+1. **Domain-words drift (the big one):** `domain_words_topic.txt` (1166 words) had ballooned into a general English wordlist. `child`, `children`, `staff`, `better`, `good`, `great`, `friendly`, `here` etc. were all in the "KEEP" file. The cleaner checked `if word in domain_words_topic` BEFORE stopwords, so any junk in that file bypassed ALL cleaning. That's how `child-has-the` formed.
+2. **Naming bypass:** the discovered-topic fallback used raw c-TF-IDF keywords (`"-".join(keywords[:3])`) with zero filtering — no stopword check, no bigram check. Produced `menangis tidur-mampu-suka bagus`.
+3. **Near-empty texts:** texts cleaning down to 1-2 words (`sesuatu`, `mampu`, `terima kasih`) were still trained, creating coincidence clusters.
+
+### The fixes (3, all in `text_cleaner.py` + `topic_modeler.py`)
+1. **Cleaner precedence flip:** stopwords now WIN over domain words. Order: stem → if in stopwords → skip → if in domain words → keep → if len > 2 → keep.
+2. **Naming unified:** new `_topic_name_from_keywords()` helper — stopwords first, bigrams skipped, " - " join. Both `get_topic_name()` and the discovered-topic fallback route through it.
+3. **Empty-text filter:** `preprocess_messages` drops < 2 content words.
+Plus: added ~130 English stopwords to `topic_stopwords.txt` (was Malay-only, 1235 → 1341).
+
+### The stale-row catch (critical)
+`--clean-first` does NOT clear old topics — only `--clear` does, and `--clear` wipes the 5 active seeded topics too (too destructive). So the old garbage `discovered` rows survived the retrain. Fixed surgically: deleted only `status='discovered'` topics + their MessageTopic links, left the 5 active topics intact.
+
+### Final verified state
+- **5 active topics, 0 discovered (garbage gone):** Behaviour (45), Progress (102), School (32), Sleep (54), Speech (100).
+- Coverage audit of 243 conversations: 127 client-with-topic, 110 staff (correctly excluded), 4 empty/short (fix 3), **2 genuine gaps** (`fokus tunjuk buku tengok`, `sahabat tempat kerja sekolah`) = 0.8% miss rate.
+- Mapper verified working: `malam tidur`→Sleep, `marah`→Behaviour, `perkembangan baik`→Progress, all fire correctly.
+
+### What Nik learned
+- **Data hygiene beats algorithm tuning.** The garbage wasn't HDBSCAN or c-TF-IDF — it was a word-list that drifted into general English. A 5-line precedence flip (stopwords beat domain words) fixed what weeks of "tune the clustering" would not.
+- **`--clean-first` vs `--clear` are different things.** clean-first re-cleans text; clear wipes topic rows. Running clean-first and expecting a fresh topic table = the exact confusion that left stale garbage rows.
+- **Stale rows ≠ model output.** The training printed clean names, but the DB report read old names — because the old rows were never deleted. Always distinguish "what the model produced" from "what the DB still holds."
+- **Coverage isn't "every message gets a topic."** Staff messages are correctly excluded (topics model client behavior, not therapist/admin chat). Counting them as "missed" would be wrong.
+
+### What's next (the real remaining work, now that topics are clean)
+1. Viva sweep: signal guard test + unpaid questions.
+2. Doctor dashboard already built (see above) — verify it renders with the clean 5-topic data.
+3. Tests + evaluation metrics (sentiment accuracy, topic coherence scores).
+4. DRF endpoints.
+
+

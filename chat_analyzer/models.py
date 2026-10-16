@@ -1138,3 +1138,98 @@ class MessageTopic(models.Model):
         return f"{self.conversation.client.get_full_name()} - {self.topic.name}: {self.score:.2f}"
 
 
+# ========================================================================
+# =================== LIVE 1-ON-1 CHAT (Client ↔ Therapist) ================
+# ========================================================================
+# Separate from `Conversation` (which is WhatsApp import-shaped).
+# `ChatMessage` is bidirectional, real-time, with read state.
+
+class ChatThread(models.Model):
+    """A 1-on-1 conversation between one client and their assigned therapist."""
+
+    client = models.ForeignKey(
+        'User',
+        on_delete=models.CASCADE,
+        related_name='chat_threads_as_client',
+        limit_choices_to={'role': 'client'},
+        help_text="The client in this thread",
+    )
+    therapist = models.ForeignKey(
+        'User',
+        on_delete=models.CASCADE,
+        related_name='chat_threads_as_therapist',
+        limit_choices_to={'role': 'therapist'},
+        help_text="The therapist in this thread (must match client.assigned_therapist)",
+    )
+    subject = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Optional subject line (e.g. 'Sleep issues this week')",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_message_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Denormalized: updated on every new message for fast inbox sort",
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Soft-close: therapist can archive a thread without losing history",
+    )
+    # Per-recipient unread counters (recomputed on read; cheap to keep in sync)
+    client_unread = models.PositiveIntegerField(default=0)
+    therapist_unread = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        verbose_name = 'Chat Thread'
+        verbose_name_plural = 'Chat Threads 💬'
+        # One thread per (client, therapist) pair — prevent duplicates
+        constraints = [
+            models.UniqueConstraint(
+                fields=['client', 'therapist'],
+                name='unique_client_therapist_thread',
+            ),
+        ]
+        ordering = ['-last_message_at']
+
+    def __str__(self):
+        return f"Thread: {self.client.get_full_name()} ↔ {self.therapist.get_full_name()}"
+
+
+class ChatMessage(models.Model):
+    """A single message in a 1-on-1 chat thread."""
+
+    thread = models.ForeignKey(
+        ChatThread,
+        on_delete=models.CASCADE,
+        related_name='messages',
+    )
+    sender = models.ForeignKey(
+        'User',
+        on_delete=models.CASCADE,
+        related_name='chat_messages_sent',
+        help_text="The author (client or therapist). Use the thread's read-state to compute who hasn't read it.",
+    )
+    message = models.TextField(
+        help_text="Message body (plain text; sanitized on save)",
+    )
+    sent_at = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(
+        default=False,
+        help_text="Recipient has read this message",
+    )
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Chat Message'
+        verbose_name_plural = 'Chat Messages 📨'
+        ordering = ['sent_at']
+        indexes = [
+            models.Index(fields=['thread', 'sent_at']),
+            models.Index(fields=['sender', 'is_read']),
+        ]
+
+    def __str__(self):
+        preview = self.message[:50] + ('…' if len(self.message) > 50 else '')
+        return f"{self.sender.get_full_name()}: {preview}"
+
+

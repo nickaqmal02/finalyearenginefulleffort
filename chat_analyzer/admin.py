@@ -30,6 +30,8 @@ from .models import(
     ClientTopicScore,
     TopicTrend,
     MessageTopic,
+    ChatThread,
+    ChatMessage,
 )
 
 User = get_user_model()
@@ -1323,6 +1325,38 @@ class ClientCardView(UnfoldModelAdminViewMixin, View):
             'is_popup': False,
         })
         return HttpResponse(render_to_string(template_name, context, request))
+
+@admin.register(ChatThread)
+class ChatThreadAdmin(admin.ModelAdmin):
+    list_display = [
+        '__str__', 'subject', 'is_active',
+        'last_message_at', 'client_unread', 'therapist_unread',
+    ]
+    list_filter = ['is_active']
+    search_fields = [
+        'client__first_name', 'client__last_name',
+        'therapist__first_name', 'therapist__last_name',
+        'subject',
+    ]
+    raw_id_fields = ['client', 'therapist']
+
+    @admin.action(description="Archive selected threads")
+    def archive_threads(self, request, queryset):
+        count = queryset.update(is_active=False)
+        self.message_user(request,f" Archived {count} thread(s)")
+
+
+@admin.register(ChatMessage)
+class ChatMessageAdmin(admin.ModelAdmin):
+    list_display = ['__str__', 'thread', 'sender', 'sent_at', 'is_read']
+    list_filter = ['is_read', 'sent_at']
+    search_fields = ['message', 'sender__first_name', 'sender__last_name']
+    raw_id_fields = ['thread', 'sender']
+    readonly_fields = ['sent_at']
+
+
+
+
 
 # ╔════════════════════════════════════════════╗ 
 # ║ADMIN CONFIGURATION SITE OVERRIDE THE DEFAUL║ 

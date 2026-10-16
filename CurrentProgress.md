@@ -618,3 +618,5 @@ After 2 months, **Therapist Jane** observes head-banging during meltdowns and pr
 ## model evaluation first right ?? then we need to update our resume state the specific metric evaluation to resume
 
 ## prep for the interview tomorrow at 10 am 
+
+
