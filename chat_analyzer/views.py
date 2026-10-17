@@ -1111,7 +1111,7 @@ def chatbot_view(request):
     from .models import ChatQuery
     from .services.rag_service import get_collection_stats
 
-    recent_queries = ChatQuery.objects.filter(user=request.user)[:10]
+    recent_queries = ChatQuery.objects.filter(user=request.user, query_type='rag')[:10]
     stats = get_collection_stats()
 
     context = {
@@ -1126,7 +1126,7 @@ def chatbot_view(request):
 
 @login_required
 def chatbot_ask(request):
-    """Handle chatbot question — POST only, returns JSON."""
+    """Handle treatment Q&A — POST only, returns JSON. RAG only (no booking routing)."""
     import time
     from .models import ChatQuery
     from .services.rag_service import query as rag_query
@@ -1134,9 +1134,7 @@ def chatbot_ask(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
 
-    # FormData sends multipart — read question from POST, not body
     question = request.POST.get('question', '').strip()
-
     if not question:
         return JsonResponse({'error': 'Question cannot be empty'}, status=400)
 
@@ -1144,11 +1142,11 @@ def chatbot_ask(request):
     response = rag_query(question)
     elapsed_ms = int((time.time() - start_time) * 1000)
 
-    # Log the query
     ChatQuery.objects.create(
         user=request.user,
         question=question,
         answer=response.answer,
+        query_type='rag',
         sources=response.sources,
         confidence=response.confidence,
         response_time_ms=elapsed_ms,
@@ -1158,6 +1156,81 @@ def chatbot_ask(request):
         'answer': response.answer,
         'sources': response.sources,
         'confidence': round(response.confidence, 3),
+        'response_time_ms': elapsed_ms,
+    })
+
+
+@login_required
+def reservation_view(request):
+    """Reservation chatbot page — separate from treatment Q&A."""
+    from .models import ChatQuery
+    recent = ChatQuery.objects.filter(user=request.user, query_type='reservation').order_by('-created_at')[:5]
+    context = {
+        'recent_queries': recent,
+        'client_user': request.user,
+    }
+    return render(request, 'chat_analyzer/client/reservation.html', context)
+
+
+@login_required
+def reservation_ask(request):
+    """Handle booking request — POST only, routes to n8n webhook."""
+    import time
+    import requests as http_requests
+    from .models import ChatQuery
+
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+
+    question = request.POST.get('question', '').strip()
+    if not question:
+        return JsonResponse({'error': 'Question cannot be empty'}, status=400)
+
+    start_time = time.time()
+
+    # Get client_id and staff_id from the logged-in user
+    client_id = request.user.id if request.user.role == 'client' else None
+    staff_id = None
+    if request.user.role == 'client' and request.user.assigned_therapist:
+        staff_id = request.user.assigned_therapist.id
+
+    n8n_payload = {
+        'message': f"{question}\n\n[Context: client_id={client_id}, staff_id={staff_id}]",
+        'client_id': client_id,
+        'staff_id': staff_id,
+    }
+
+    try:
+        n8n_response = http_requests.post(
+            'http://localhost:5678/webhook/sentiri-chat',
+            json=n8n_payload,
+            timeout=60,
+        )
+        n8n_data = n8n_response.json()
+        answer = n8n_data.get('reply', 'Sorry, I could not process your request.')
+    except http_requests.exceptions.ConnectionError:
+        answer = "⚠️ The reservation service is currently offline. Please try again later."
+    except http_requests.exceptions.Timeout:
+        answer = "⏳ The reservation service took too long to respond. Please try again."
+    except Exception as e:
+        answer = f"⚠️ An error occurred: {str(e)}"
+
+    elapsed_ms = int((time.time() - start_time) * 1000)
+
+    ChatQuery.objects.create(
+        user=request.user,
+        question=question,
+        answer=answer,
+        query_type='reservation',
+        sources=[],
+        confidence=1.0,
+        response_time_ms=elapsed_ms,
+    )
+
+    return JsonResponse({
+        'answer': answer,
+        'sources': [],
+        'confidence': 1.0,
         'response_time_ms': elapsed_ms,
     })
 

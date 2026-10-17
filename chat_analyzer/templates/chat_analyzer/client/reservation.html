@@ -1,0 +1,138 @@
+{% extends 'chat_analyzer/client/base_client.html' %}
+
+{% block title %}Reservation Assistant - Sentiri{% endblock %}
+
+{% block content %}
+<div class="min-h-screen p-6 md:p-8">
+    <div class="max-w-3xl mx-auto">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">Reservation Assistant 📅</h1>
+                <p class="text-sm text-gray-500 mt-1">Book a session with your therapist or doctor</p>
+            </div>
+            <span class="px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
+                n8n + DeepSeek
+            </span>
+        </div>
+
+        <!-- Chat area -->
+        <div class="bg-white/70 backdrop-blur rounded-3xl border border-gray-200/50 overflow-hidden shadow-lg">
+            <div id="chat-area" class="p-5 space-y-4" style="min-height: 400px; max-height: 500px; overflow-y: auto;">
+                {% if recent_queries %}
+                    {% for q in recent_queries reversed %}
+                    <div class="flex justify-end">
+                        <div class="bg-gradient-to-br from-green-500 to-teal-500 text-white rounded-2xl rounded-br-sm px-4 py-2 max-w-[80%]">
+                            {{ q.question }}
+                        </div>
+                    </div>
+                    <div class="flex justify-start">
+                        <div class="bg-gray-100 text-gray-900 rounded-2xl rounded-bl-sm px-4 py-2 max-w-[85%]">
+                            {{ q.answer|linebreaksbr }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                <div class="text-center text-gray-400 py-12">
+                    <p class="text-lg font-medium">Hi! I'm your reservation assistant.</p>
+                    <p class="text-sm mt-2">Tell me when you'd like to book a session.</p>
+                    <p class="text-xs mt-3 text-gray-300">e.g. "Book with Aina on Tuesday at 3pm"</p>
+                </div>
+                {% endif %}
+                <div id="chat-bottom"></div>
+            </div>
+
+            <!-- Input -->
+            <div class="border-t border-gray-200/50 p-4">
+                <form id="reservation-form" class="flex gap-3">
+                    {% csrf_token %}
+                    <textarea id="reservation-input" name="question" rows="2" required
+                              placeholder="Tell me when you want to book a session..."
+                              class="flex-1 bg-white border border-gray-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-green-500 resize-none"
+                              onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); document.getElementById('reservation-form').dispatchEvent(new Event('submit', {cancelable: true}));}"></textarea>
+                    <button type="submit" id="reservation-send"
+                            class="self-end bg-green-600 hover:bg-green-700 text-white rounded-full px-5 py-2.5 text-sm font-semibold transition-colors">
+                        Send
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const chatArea = document.getElementById('chat-area');
+    const form = document.getElementById('reservation-form');
+    const input = document.getElementById('reservation-input');
+    const sendBtn = document.getElementById('reservation-send');
+
+    chatArea.scrollTop = chatArea.scrollHeight;
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const question = input.value.trim();
+        if (!question) return;
+
+        // Add user message
+        const userDiv = document.createElement('div');
+        userDiv.className = 'flex justify-end';
+        userDiv.innerHTML = `<div class="bg-gradient-to-br from-green-500 to-teal-500 text-white rounded-2xl rounded-br-sm px-4 py-2 max-w-[80%]">${escapeHtml(question)}</div>`;
+        chatArea.appendChild(userDiv);
+
+        input.value = '';
+        sendBtn.disabled = true;
+        sendBtn.textContent = '...';
+
+        // Typing indicator
+        const typingDiv = document.createElement('div');
+        typingDiv.className = 'flex justify-start';
+        typingDiv.id = 'typing';
+        typingDiv.innerHTML = '<div class="bg-gray-100 rounded-2xl rounded-bl-sm px-4 py-3"><span class="inline-block w-2 h-2 bg-gray-400 rounded-full mr-1 animate-bounce"></span><span class="inline-block w-2 h-2 bg-gray-400 rounded-full mr-1 animate-bounce" style="animation-delay: 0.1s"></span><span class="inline-block w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></span></div>';
+        chatArea.appendChild(typingDiv);
+        chatArea.scrollTop = chatArea.scrollHeight;
+
+        try {
+            const formData = new FormData(form);
+            formData.set('question', question);
+
+            const response = await fetch('{% url "chat_analyzer:reservation_ask" %}', {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
+            });
+            const data = await response.json();
+            typingDiv.remove();
+
+            if (data.error) throw new Error(data.error);
+
+            const aiDiv = document.createElement('div');
+            aiDiv.className = 'flex justify-start';
+            aiDiv.innerHTML = `
+                <div>
+                    <div class="bg-gray-100 text-gray-900 rounded-2xl rounded-bl-sm px-4 py-2 max-w-[85%]">${escapeHtml(data.answer).replace(/\\n/g, '<br>')}</div>
+                    <div class="text-[10px] text-gray-400 mt-1">${data.response_time_ms}ms</div>
+                </div>
+            `;
+            chatArea.appendChild(aiDiv);
+        } catch (err) {
+            typingDiv.remove();
+            const errDiv = document.createElement('div');
+            errDiv.className = 'flex justify-start';
+            errDiv.innerHTML = `<div class="bg-red-100 text-red-600 rounded-2xl rounded-bl-sm px-4 py-2">Error: ${escapeHtml(err.message)}</div>`;
+            chatArea.appendChild(errDiv);
+        } finally {
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'Send';
+            input.focus();
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+    });
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+</script>
+{% endblock %}

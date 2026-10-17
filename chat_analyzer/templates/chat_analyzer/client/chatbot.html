@@ -14,7 +14,7 @@
             </div>
             <div class="text-sm">
                 {% if vector_store_stats.status == 'ready' %}
-                <span class="px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
+                <span class="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
                     {{ vector_store_stats.total_chunks }} chunks ready
                 </span>
                 {% else %}
@@ -52,6 +52,7 @@
                 <div class="text-center text-gray-400 py-12">
                     <p class="text-lg font-medium">Hi! I'm your treatment assistant.</p>
                     <p class="text-sm mt-2">Ask me about therapy, behavior, sleep, or feeding.</p>
+                    <p class="text-xs mt-3 text-gray-300">e.g. "How do I handle my child's meltdowns?"</p>
                 </div>
                 {% endif %}
                 <div id="chat-bottom"></div>

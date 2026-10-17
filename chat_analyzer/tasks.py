@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task(
-    bind=True,
-    max_retries=3,
+    bind=True, 
+    max_retries=3, # 3 message for live chat
     default_retry_delay=60,  # if ML model fails, retry in 1 min
 )
 def analyze_live_message(self, conversation_id):

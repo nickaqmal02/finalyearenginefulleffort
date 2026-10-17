@@ -1321,7 +1321,14 @@ class TreatmentDocument(models.Model):
 
 
 class ChatQuery(models.Model):
-    """Logs user questions and RAG responses for analytics."""
+    """Logs user questions and responses for analytics.
+
+    query_type distinguishes between RAG treatment Q&A and n8n reservation.
+    """
+    QUERY_TYPES = [
+        ('rag', 'Treatment Q&A'),
+        ('reservation', 'Reservation'),
+    ]
 
     user = models.ForeignKey(
         User,
@@ -1329,7 +1336,13 @@ class ChatQuery(models.Model):
         related_name='chat_queries',
     )
     question = models.TextField(help_text="User's question")
-    answer = models.TextField(help_text="RAG-generated answer")
+    answer = models.TextField(help_text="Generated answer (RAG or n8n)")
+    query_type = models.CharField(
+        max_length=20,
+        choices=QUERY_TYPES,
+        default='rag',
+        help_text="Which chatbot was this from?",
+    )
     sources = models.JSONField(
         default=list,
         blank=True,
@@ -1352,7 +1365,7 @@ class ChatQuery(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.user.get_full_name()}: {self.question[:50]}..."
+        return f"[{self.get_query_type_display()}] {self.user.get_full_name()}: {self.question[:50]}..."
 
 
 # ============================================================

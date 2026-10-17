@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import api_views
 from django.views.generic import RedirectView
 
 app_name = 'chat_analyzer'
@@ -67,11 +68,21 @@ urlpatterns = [
 # ╚════════════════════════════════════════════╝
     path("chatbot/", views.chatbot_view, name="chatbot"),
     path("chatbot/ask/", views.chatbot_ask, name="chatbot_ask"),
+    path("reservation/", views.reservation_view, name="reservation"),
+    path("reservation/ask/", views.reservation_ask, name="reservation_ask"),
 
 # ╔════════════════════════════════════════════╗
 # ║     TREATMENT DOCUMENT UPLOAD (Doctor) 📄  ║
 # ╚════════════════════════════════════════════╝
     path("dashboard/doctor/upload-document/", views.doctor_upload_document, name="doctor_upload_document"),
     path("dashboard/doctor/chat/<int:client_id>/", views.doctor_start_chat, name="doctor_start_chat"),
+
+# ╔════════════════════════════════════════════╗ 
+# ║   API ENDPOINTS (for n8n chatbot) 🔌        ║ 
+# ╚════════════════════════════════════════════╝ 
+    path("api/check-availability/", api_views.check_availability, name="api_check_availability"),
+    path("api/book-session/", api_views.book_session, name="api_book_session"),
+    path("api/list-sessions/", api_views.list_sessions, name="api_list_sessions"),
+    path("api/staff-schedule/", api_views.staff_schedule, name="api_staff_schedule"),
 
 ]

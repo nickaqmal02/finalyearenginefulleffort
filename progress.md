@@ -817,3 +817,172 @@ Plus: added ~130 English stopwords to `topic_stopwords.txt` (was Malay-only, 123
   user doesn't wait. Status tracked in TreatmentDocument model.
 
 
+## 2026-10-17 — 1-on-1 Chat Feature (complete) + n8n Reservation Pipeline (started)
+
+### What we did today
+
+**Feature 1: Client ↔ Therapist 1-on-1 Live Chat — COMPLETE**
+- Fixed 4 bugs in Nik's hand-typed views:
+  1. `request.therapist` → `thread.therapist` (was reading attr off HttpRequest, not User)
+  2. `therapist.request.user` → `therapist=request.user` (missing `=` = SyntaxError)
+  3. `thread_id=thread_id` → `thread_id=thread.id` (undefined variable)
+  4. Missing imports: `HttpResponseForbidden`, `timezone`, `ChatThread`, `ChatMessage`
+  5. `@therapist_required` on `chat_thread_detail` → `@login_required` (manual role check inside) so both client + therapist can use same view
+- Built 3 templates (Apple design): `MainTherapist/chat_threads.html` (inbox), `MainTherapist/chat_thread.html` (chat view), `client/chat_thread.html` (client side)
+- Built WhatsApp-style read receipts: inline SVG double-ticks — grey (`rgba(255,255,255,0.6)`) for delivered, blue (`#34b7f1`) for read. Works on both therapist + client bubble colors.
+- Fixed unread badge perspective bug: `chat_threads.html` was showing `thread.client_unread` (client's perspective) instead of `thread.therapist_unread` (therapist's perspective). Therapist's own messages don't show "N new" on their side — only messages FROM the client do.
+- Added "Recent Chats" widget to therapist dashboard (top 5 threads by `last_message_at`, with avatar, last message preview, unread badge, timestamp)
+- Added "Messages" segment to client sidebar nav (between "My Therapist" and "Settings"), with red unread badge
+- Built `client_messages` view + `messages.html` template (client-side inbox, mirrors therapist's)
+- Built `start_chat_with_therapist` view (client-side auto find-or-create thread)
+- End-to-end verified: therapist sends → client views (unread resets) → client replies → therapist sees "1 new" → therapist views (unread resets). Security: non-member gets 403.
+
+**Feature 2: n8n Reservation Chatbot — STARTED**
+- Nik chose Option B: n8n as orchestration layer (not Django-native tool-calling)
+- Booking rules confirmed:
+  - Staff = therapist OR doctor (client can book with either)
+  - 3-layer availability check: (1) office hours via `StaffSchedule`, (2) date exceptions via `StaffTimeOff`, (3) slot conflict via `SessionBooking`
+  - Option C schedule model: recurring weekly pattern + specific date exceptions
+- 3 new models written to `models.py`: `StaffSchedule`, `StaffTimeOff`, `SessionBooking`
+  - Fixed `related_name` clash: both `client` and `staff` FKs pointed to `User` with `related_name='bookings'` → Django E304/E305. Changed to `client_bookings` / `staff_bookings`.
+- 3 admin classes registered: `StaffScheduleAdmin` (list_editable for is_available/start_time/end_time), `StaffTimeOffAdmin` (date_hierarchy), `SessionBookingAdmin` (list_editable status, date_hierarchy)
+- Migration created + applied by Nik
+- n8n install in progress (npx n8n start — large dependency tree, ~400 integrations)
+- API endpoints for n8n to call (`/api/check-availability/`, `/api/book-session/`) — NOT YET BUILT
+
+### What Nik learned
+- **PID = Process Identifier.** OS assigns a unique number to every running program. `kill -9 PID` sends SIGKILL (signal 9 = immediate, no cleanup). `kill PID` sends SIGTERM (signal 15 = polite, app can clean up). Production uses `systemctl restart` (SIGTERM → wait → SIGKILL). `lsof -ti :PORT` returns just PIDs for scripting: `kill -9 $(lsof -ti :8000)`.
+- **n8n = visual orchestration.** Webhook trigger → process node (LLM/Code) → action node (HTTP/DB) → response. Same pattern as Django+Celery but visual. AI Agent node (v2.35+) does native tool-calling: LLM receives tools, decides which to call, gets result, generates reply.
+- **Two FKs to same model need different related_names.** Django can't disambiguate `user.bookings` if both `client` and `staff` use the same reverse accessor. Fix: `related_name='client_bookings'` vs `'staff_bookings'`.
+- **Read receipts = data already exists, just template work.** `ChatMessage.is_read` was already stored. WhatsApp ticks are just an inline SVG with conditional `stroke` color — no new model field, no new view logic.
+- **Custom calendar > Google Calendar for FYP.** Three Django models (StaffSchedule + StaffTimeOff + SessionBooking) = complete 3-layer availability check. Google Calendar API is for phone sync at scale; custom shows you understand the problem.
+
+### What's next (in order)
+1. ⬜ n8n finishes installing → open `http://localhost:5678` → set up owner account
+2. ⬜ Add Groq API credential in n8n
+3. ⬜ Build Django API endpoints: `/api/check-availability/`, `/api/book-session/`, `/api/list-sessions/`
+4. ⬜ Build n8n workflow: webhook → AI Agent node (Groq) → 3 HTTP tool calls → response
+5. ⬜ Wire Django `chatbot_ask` view to call n8n webhook
+6. ⬜ End-to-end test: client types "I want to book Tuesday 3pm" → n8n → booking confirmed
+7. ⬜ Seed test data: StaffSchedule for all 5 therapists + 2 doctors (Mon-Fri 9-5)
+
+## 2026-10-17 (continued) — n8n RESERVATION CHATBOT WORKING END-TO-END ✅
+
+### What we did
+- **n8n installed** via `npm install -g n8n --omit=optional` + rebuilt sqlite3 native binary manually.
+  - n8n v2.43.7 running on `http://localhost:5678`
+  - Start command: `n8n start`
+- **DeepSeek API** chosen over Groq (cheaper, better tool calling). Model: `deepseek-flash` (renamed from `deepseek-chat` in late 2026).
+- **n8n workflow built** in the visual editor:
+  - Webhook node (POST `/sentiri-chat`, response mode: Respond to Webhook)
+  - AI Agent node ("Agentic dude") with DeepSeek Chat Model sub-node
+  - 4 HTTP Request tool nodes connected to AI Agent's Tools socket:
+    1. `check_availability` → POST `http://0.0.0.0:8000/api/check-availability/`
+    2. `book_session` → POST `http://0.0.0.0:8000/api/book-session/`
+    3. `list_sessions` → GET `http://0.0.0.0:8000/api/list-sessions/`
+    4. `staff_schedule` → GET `http://0.0.0.0:8000/api/staff-schedule/`
+  - Respond to Webhook node (returns `{"reply": $json.output}`)
+  - System prompt: Sentiri reservation assistant with booking/list/schedule instructions
+- **3 critical bugs fixed during n8n setup:**
+  1. `$fromAI` shows "undefined" in tool fields — normal, values filled at runtime by LLM
+  2. n8n HTTP tools got `ECONNREFUSED ::1:8000` — IPv6 resolution. Fixed by using `0.0.0.0` instead of `localhost` or `127.0.0.1` in tool URLs
+  3. DeepSeek model renamed: `deepseek-chat` → `deepseek-flash` (old name = "Bad request" error)
+- **Django `chatbot_ask` view rewritten** with smart routing:
+  - Booking keywords detected (book, reserve, session, appointment, schedule, available, tempah, jadual, etc.)
+  - Booking → POST to n8n webhook `http://localhost:5678/webhook/sentiri-chat` with `{message, client_id, staff_id}`
+  - Non-booking → existing RAG pipeline (treatment document Q&A)
+  - Returns `routed_to: "n8n_reservation"` or `"rag"` in JSON response
+- **End-to-end verified:**
+  - Booking question → n8n → AI Agent calls `check_availability` → Django returns `{available: true}` → AI replies "Aina is available, shall I book?" ✅ (2.8s)
+  - Treatment question → RAG → retrieves from ChromaDB → generates answer about meltdowns ✅
+- **Seed data:** `seed_booking_demo` management command creates StaffSchedule (7 staff × 7 days), StaffTimeOff (1 per staff), 1 sample SessionBooking. Prints cheat-sheet of all IDs.
+
+### What Nik learned
+- **n8n = visual orchestration.** Webhook → AI Agent → HTTP tools → response. Same as Django+Celery but visual and language-agnostic.
+- **$fromAI() is n8n's tool-parameter binding.** The LLM reads the parameter description, extracts the value from the user's message, and fills it at runtime. Shows "undefined" in the editor — that's expected.
+- **IPv6 vs IPv4 killed n8n HTTP tools.** Node.js 17+ resolves `localhost` to `::1` (IPv6) before `127.0.0.1` (IPv4). If Django binds to IPv4 only, the connection is refused. Fix: use `0.0.0.0` which forces IPv4.
+- **DeepSeek renamed their models.** `deepseek-chat` → `deepseek-flash`, `deepseek-reasoner` → `deepseek-v4-pro`. Always check `GET /v1/models` before hardcoding model names.
+- **Smart routing = one chatbot, two backends.** Keyword detection splits booking questions (→ n8n tool-calling) from treatment questions (→ RAG retrieval). Client sees one chatbot, doesn't know the difference.
+- **Django needs `0.0.0.0:8000` for n8n to reach it.** Default `runserver` binds to `127.0.0.1` only. n8n's HTTP tools can't reach it. Start with `python manage.py runserver 0.0.0.0:8000`.
+
+### Architecture diagram (final)
+```
+[Client types in Sentiri chatbot UI]
+       │
+       ▼
+[Django: chatbot_ask view]
+       │
+       ├── booking keywords? ──→ [n8n webhook :5678]
+       │                              │
+       │                         [AI Agent + DeepSeek]
+       │                              │
+       │                    ┌─────────┼─────────┐
+       │                    ▼         ▼         ▼
+       │              [check_avail] [book] [list] [schedule]
+       │                    │         │         │       │
+       │                    └─────────┴─────────┴───────┘
+       │                              │
+       │                         [Django API :8000]
+       │                         [StaffSchedule/TimeOff/Booking]
+       │                              │
+       │                         [AI generates reply]
+       │                              │
+       │                    ←─── {reply: "..."}
+       │
+       └── no booking keywords ──→ [RAG pipeline]
+                                     │
+                                [ChromaDB retrieval]
+                                [Groq LLM generation]
+                                     │
+                                ←─── {answer: "..."}
+```
+
+### What's next
+1. ⬜ Activate n8n workflow permanently (production webhook) for reliable testing
+2. ⬌ Test full booking flow through actual chatbot UI in browser
+3. ⬌ Update progress.md + memory
+4. ⬌ Evaluation metrics (sentiment + topic) in separate repo
+5. ⬌ Tests + viva sweep
+6. ⬌ FYP documentation
+
+## 2026-10-17 (FINAL) — TWO SEPARATE CHATBOTS + n8n RESERVATION COMPLETE ✅
+
+### Final architecture: two distinct chatbots
+Split from one mixed chatbot into two clean, separate chatbots:
+
+| | Treatment Assistant 🤖 | Reservation Assistant 📅 |
+|---|---|---|
+| Nav item | "Ask AI" (blue) | "Reservation" (calendar icon) |
+| URL | `/chatbot/` | `/reservation/` |
+| View | `chatbot_view` + `chatbot_ask` | `reservation_view` + `reservation_ask` |
+| Backend | RAG (ChromaDB + Groq) | n8n webhook → DeepSeek + tool calling |
+| Chat bubble color | Blue→Purple gradient | Green→Teal gradient |
+| Badge | Blue "X chunks ready" | Green "n8n + DeepSeek" |
+| Query log | `ChatQuery.query_type='rag'` | `ChatQuery.query_type='reservation'` |
+| Placeholder | "Type your question about autism treatment..." | "Tell me when you want to book a session..." |
+
+### What was changed
+- **`ChatQuery` model:** Added `query_type` field (choices: 'rag' / 'reservation'). Migration 0016 applied. Old queries deleted (49 rows).
+- **`chatbot_ask` view:** Reverted to pure RAG — no keyword routing, no n8n. Only treatment questions.
+- **`reservation_view` + `reservation_ask` views:** New views that route ALL messages to n8n webhook `http://localhost:5678/webhook/sentiri-chat`. Django embeds client_id + staff_id directly in the message: `f"{question}\n\n[Context: client_id={client_id}, staff_id={staff_id}]"`.
+- **`reservation.html` template:** Green-themed chat UI, posts to `/reservation/ask/`, separate from treatment chatbot.
+- **Client sidebar:** Added "Reservation" nav item between "Ask AI" and "Settings".
+- **Simple Memory node added to n8n AI Agent:** Session key = `sentiri-reservation` (static), context window = 15 messages. AI now remembers conversation across messages.
+- **Treatment chatbot visual cleanup:** Blue badge (was green), added example placeholder.
+
+### What Nik learned
+- **Two chatbots > one smart router.** Keyword-based routing (booking vs RAG) fails on conversational follow-ups ("2026-10-20", "15:00", "yes", "macam mana"). Splitting into two separate chatbots with distinct UIs is cleaner, easier to explain, and has zero routing errors.
+- **n8n AI Agent memory.** Simple Memory node stores conversation history locally in n8n. Session ID = `sentiri-reservation` (static for demo). Context window = 15 past messages. Without memory, each webhook call is a fresh conversation — AI forgets "3pm" from message 1 when processing "2026-10-20" in message 2.
+- **DeepSeek rate limits.** Free tier = ~60 req/min. AI Agent makes 2+ LLM calls per message (decide → tool → generate). Heavy testing hits the limit fast. Fix: wait 5 minutes.
+- **Prompt goes in AI Agent, not Chat Model.** AI Agent node = system prompt + user message + tools. Chat Model node = just API key + model name (engine only).
+- **Embed context in the message.** Instead of separate `client_id:` / `staff_id:` lines in the n8n prompt (which show empty because expressions don't resolve), Django embeds them in the message text: `[Context: client_id=10, staff_id=4]`. AI reads it naturally.
+
+### What's next
+1. ⬌ End-to-end browser test: Reservation chatbot → full booking flow (DeepSeek rate limit permitting)
+2. ⬌ Activate n8n workflow permanently (production webhook toggle)
+3. ⬌ Evaluation metrics (sentiment + topic) in separate repo
+4. ⬌ Tests + viva sweep
+5. ⬌ FYP documentation
+6. ⬌ Git commit + push
+
+
