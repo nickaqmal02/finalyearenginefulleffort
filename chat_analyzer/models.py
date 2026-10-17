@@ -1145,7 +1145,7 @@ class MessageTopic(models.Model):
 # `ChatMessage` is bidirectional, real-time, with read state.
 
 class ChatThread(models.Model):
-    """A 1-on-1 conversation between one client and their assigned therapist."""
+    """A 1-on-1 conversation between a client and a staff member (therapist or doctor)."""
 
     client = models.ForeignKey(
         'User',
@@ -1159,7 +1159,16 @@ class ChatThread(models.Model):
         on_delete=models.CASCADE,
         related_name='chat_threads_as_therapist',
         limit_choices_to={'role': 'therapist'},
-        help_text="The therapist in this thread (must match client.assigned_therapist)",
+        null=True, blank=True,
+        help_text="The therapist in this thread (if therapist chat)",
+    )
+    doctor = models.ForeignKey(
+        'User',
+        on_delete=models.CASCADE,
+        related_name='chat_threads_as_doctor',
+        limit_choices_to={'role': 'doctor'},
+        null=True, blank=True,
+        help_text="The doctor in this thread (if doctor chat — for emergency contact)",
     )
     subject = models.CharField(
         max_length=200,
@@ -1173,26 +1182,21 @@ class ChatThread(models.Model):
     )
     is_active = models.BooleanField(
         default=True,
-        help_text="Soft-close: therapist can archive a thread without losing history",
+        help_text="Soft-close: staff can archive a thread without losing history",
     )
-    # Per-recipient unread counters (recomputed on read; cheap to keep in sync)
+    # Per-recipient unread counters
     client_unread = models.PositiveIntegerField(default=0)
     therapist_unread = models.PositiveIntegerField(default=0)
+    doctor_unread = models.PositiveIntegerField(default=0)
 
     class Meta:
         verbose_name = 'Chat Thread'
         verbose_name_plural = 'Chat Threads 💬'
-        # One thread per (client, therapist) pair — prevent duplicates
-        constraints = [
-            models.UniqueConstraint(
-                fields=['client', 'therapist'],
-                name='unique_client_therapist_thread',
-            ),
-        ]
         ordering = ['-last_message_at']
 
     def __str__(self):
-        return f"Thread: {self.client.get_full_name()} ↔ {self.therapist.get_full_name()}"
+        staff = self.therapist or self.doctor
+        return f"Thread: {self.client.get_full_name()} ↔ {staff.get_full_name() if staff else 'Unknown'}"
 
 
 class ChatMessage(models.Model):
@@ -1231,5 +1235,236 @@ class ChatMessage(models.Model):
     def __str__(self):
         preview = self.message[:50] + ('…' if len(self.message) > 50 else '')
         return f"{self.sender.get_full_name()}: {preview}"
+
+
+# ========================================================================
+# =================== RAG: TREATMENT KNOWLEDGE BASE ========================
+# ========================================================================
+# Doctor uploads Malay treatment PDFs → Celery ingests (chunk + embed + store)
+# → ChromaDB vector store → chatbot retrieves + LLM generates answers
+
+class TreatmentDocument(models.Model):
+    """A treatment document uploaded by a doctor for the RAG knowledge base."""
+
+    STATUS_CHOICES = [
+        ('pending', 'Pending — waiting for ingestion'),
+        ('processing', 'Processing — chunking + embedding'),
+        ('ready', 'Ready — available for retrieval'),
+        ('failed', 'Failed — ingestion error'),
+    ]
+
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='treatment_documents',
+        limit_choices_to={'role__in': ['doctor', 'admin']},
+        help_text="Doctor or admin who uploaded this document",
+    )
+    title = models.CharField(
+        max_length=255,
+        help_text="Document title (e.g., 'Panduan Terapi ABA')",
+    )
+    file = models.FileField(
+        upload_to='treatment_docs/',
+        help_text="PDF or text file containing treatment guidelines",
+    )
+    description = models.TextField(
+        blank=True,
+        help_text="Optional description of the document content",
+    )
+
+    # Processing status
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        help_text="Ingestion status — pending → processing → ready/failed",
+    )
+    chunks_created = models.PositiveIntegerField(
+        default=0,
+        help_text="Number of text chunks created from this document",
+    )
+    error_message = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Error details if ingestion failed",
+    )
+    processed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When ingestion completed",
+    )
+
+    # Metadata
+    language = models.CharField(
+        max_length=10,
+        default='ms',
+        help_text="Document language code (ms = Malay, en = English)",
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="If False, document chunks are excluded from retrieval",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Treatment Document"
+        verbose_name_plural = "Treatment Documents 📄"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.title} ({self.get_status_display()})"
+
+
+class ChatQuery(models.Model):
+    """Logs user questions and RAG responses for analytics."""
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='chat_queries',
+    )
+    question = models.TextField(help_text="User's question")
+    answer = models.TextField(help_text="RAG-generated answer")
+    sources = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of source documents used (title, page, score)",
+    )
+    confidence = models.FloatField(
+        default=0.0,
+        help_text="Retrieval confidence score (0.0 to 1.0)",
+    )
+    response_time_ms = models.PositiveIntegerField(
+        default=0,
+        help_text="Time taken to generate response (milliseconds)",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Chat Query"
+        verbose_name_plural = "Chat Queries 💬"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.get_full_name()}: {self.question[:50]}..."
+
+
+# ============================================================
+# Session Booking System — for n8n reservation chatbot
+# ============================================================
+
+class StaffSchedule(models.Model):
+    """Recurring weekly availability pattern for therapists and doctors.
+
+    Layer 1 of the availability check: 'Is this day+time within office hours?'
+    Staff can toggle is_available=False to mark a recurring off-day (e.g. 'off every Tuesday').
+    """
+    DAYS_OF_WEEK = [
+        (0, 'Monday'),
+        (1, 'Tuesday'),
+        (2, 'Wednesday'),
+        (3, 'Thursday'),
+        (4, 'Friday'),
+        (5, 'Saturday'),
+        (6, 'Sunday'),
+    ]
+
+    staff = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        limit_choices_to={'role__in': ['therapist', 'doctor']},
+        related_name='schedules'
+    )
+    day_of_week = models.IntegerField(choices=DAYS_OF_WEEK)
+    start_time = models.TimeField(default='09:00')
+    end_time = models.TimeField(default='17:00')
+    is_available = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ('staff', 'day_of_week')
+        ordering = ['day_of_week', 'start_time']
+        verbose_name = "Staff Schedule"
+        verbose_name_plural = "Staff Schedules 📅"
+
+    def __str__(self):
+        status = "Available" if self.is_available else "Off"
+        return f"{self.staff.get_full_name()} - {self.get_day_of_week_display()} ({status})"
+
+
+class StaffTimeOff(models.Model):
+    """Specific date exceptions — sick leave, emergency, holiday.
+
+    Layer 2 of the availability check: 'Is the staff off on this specific date?'
+    Overrides the recurring StaffSchedule for that date.
+    """
+    staff = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        limit_choices_to={'role__in': ['therapist', 'doctor']},
+        related_name='time_off'
+    )
+    date = models.DateField()
+    reason = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        unique_together = ('staff', 'date')
+        ordering = ['date']
+        verbose_name = "Staff Time Off"
+        verbose_name_plural = "Staff Time Off 🏖️"
+
+    def __str__(self):
+        return f"{self.staff.get_full_name()} off on {self.date}"
+
+
+class SessionBooking(models.Model):
+    """Actual session booking — created when client confirms a slot.
+
+    Layer 3 of the availability check: 'Is this date+time already booked?'
+    A booking exists → slot is taken, client must pick another time.
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('confirmed', 'Confirmed'),
+        ('cancelled', 'Cancelled'),
+        ('completed', 'Completed'),
+    ]
+
+    client = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        limit_choices_to={'role': 'client'},
+        related_name='client_bookings'
+    )
+    staff = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        limit_choices_to={'role__in': ['therapist', 'doctor']},
+        related_name='staff_bookings'
+    )
+    date = models.DateField()
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-date', '-start_time']
+        verbose_name = "Session Booking"
+        verbose_name_plural = "Session Bookings 🗓️"
+
+    def __str__(self):
+        return f"{self.client.get_full_name()} → {self.staff.get_full_name()} on {self.date} at {self.start_time}"
+
+
+
+
 
 

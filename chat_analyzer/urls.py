@@ -44,6 +44,7 @@ urlpatterns = [
 # ╚════════════════════════════════════════════╝ 
     path("chat/threads/", views.therapist_chat_threads, name="therapist_chat_threads"),
     path("chat/threads/<int:thread_id>/", views.chat_thread_detail, name="chat_thread_detail"),
+    path("doctor/chat/threads/", views.doctor_chat_threads, name="doctor_chat_threads"),
 
 # ╔════════════════════════════════════════════╗ 
 # ║          DOCTOR SECTION PATH 😇            ║ 
@@ -60,5 +61,17 @@ urlpatterns = [
     path("chat/start/<int:client_id>/", views.start_chat_with_client, name="start_chat_with_client"),
     path("client/chat/start/", views.start_chat_with_therapist, name="client_start_chat"),
     path("client/messages/", views.client_messages, name="client_messages"),
+
+# ╔════════════════════════════════════════════╗
+# ║          RAG CHATBOT 🤖                    ║
+# ╚════════════════════════════════════════════╝
+    path("chatbot/", views.chatbot_view, name="chatbot"),
+    path("chatbot/ask/", views.chatbot_ask, name="chatbot_ask"),
+
+# ╔════════════════════════════════════════════╗
+# ║     TREATMENT DOCUMENT UPLOAD (Doctor) 📄  ║
+# ╚════════════════════════════════════════════╝
+    path("dashboard/doctor/upload-document/", views.doctor_upload_document, name="doctor_upload_document"),
+    path("dashboard/doctor/chat/<int:client_id>/", views.doctor_start_chat, name="doctor_start_chat"),
 
 ]

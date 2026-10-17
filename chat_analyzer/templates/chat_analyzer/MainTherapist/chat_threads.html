@@ -53,7 +53,7 @@
                 <h1 class="c-title">My Conversations</h1>
                 <p class="text-[#6e6e73] mt-1 text-sm">Chat with your assigned clients</p>
             </div>
-            <a href="{% url 'chat_analyzer:therapist_dashboard' %}"
+            <a href="{% if request.user.role == 'doctor' %}{% url 'chat_analyzer:doctor_dashboard' %}{% else %}{% url 'chat_analyzer:therapist_dashboard' %}{% endif %}"
                class="c-pill bg-[#f5f5f7] text-[#6e6e73] hover:bg-[#e5e5ea] transition-colors duration-300">
                 ← Back to Dashboard
             </a>

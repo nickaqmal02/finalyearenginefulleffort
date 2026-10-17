@@ -71,6 +71,19 @@
                 <p class="t-subtitle mt-1">Here's your client overview</p>
             </div>
             <div class="flex items-center gap-2">
+                <a href="{% url 'chat_analyzer:chatbot' %}"
+                   class="t-pill bg-[#ebebfc] text-[#5e5ce6] hover:bg-[#dcdcf5] transition-colors duration-300 flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+                    Ask AI
+                </a>
+                <a href="{% url 'chat_analyzer:therapist_chat_threads' %}"
+                   class="t-pill bg-[#f5f5f7] text-[#1d1d1f] hover:bg-[#e5e5ea] transition-colors duration-300 flex items-center gap-1.5 relative">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+                    Messages
+                    {% if unread_therapist_messages_count %}
+                    <span class="ml-0.5 text-xs font-bold text-white bg-[#d70015] rounded-full px-1.5 py-0.5 leading-none">{{ unread_therapist_messages_count }}</span>
+                    {% endif %}
+                </a>
                 <a href="{% url 'chat_analyzer:therapist_upload_chat' %}"
                    class="t-pill bg-[#0071e3] text-white hover:bg-[#0077ed] transition-colors duration-300">
                     Upload Chat
@@ -144,6 +157,69 @@
                 </div>
             </a>
             {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Recent Analyzed Messages widget (sentiment + topic from ML pipeline) -->
+        {% if recent_analyzed %}
+        <h2 class="text-lg font-semibold text-[#1d1d1f] mb-4 mt-8 fade-up flex items-center gap-2">
+            <svg class="w-5 h-5 text-[#0071e3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+            Recent Analyzed Messages
+        </h2>
+        <div class="t-card overflow-hidden mb-8 fade-up">
+            <table class="w-full">
+                <thead>
+                    <tr class="border-b border-[#e5e5ea] bg-[#f5f5f7]">
+                        <th class="text-left text-xs font-semibold text-[#86868b] uppercase tracking-wider px-4 py-3">Client</th>
+                        <th class="text-left text-xs font-semibold text-[#86868b] uppercase tracking-wider px-4 py-3">Message</th>
+                        <th class="text-left text-xs font-semibold text-[#86868b] uppercase tracking-wider px-4 py-3">Sentiment</th>
+                        <th class="text-left text-xs font-semibold text-[#86868b] uppercase tracking-wider px-4 py-3">Topic</th>
+                        <th class="text-right text-xs font-semibold text-[#86868b] uppercase tracking-wider px-4 py-3">Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in recent_analyzed %}
+                    <tr class="border-b border-[#e5e5ea] last:border-0 hover:bg-[#f5f5f7] transition-colors duration-200">
+                        <td class="px-4 py-3">
+                            <div class="flex items-center gap-2">
+                                <div class="w-8 h-8 rounded-full bg-[#0071e3] flex items-center justify-center text-white font-bold text-xs shrink-0">
+                                    {{ item.conv.client.first_name|first }}{{ item.conv.client.last_name|first }}
+                                </div>
+                                <span class="font-medium text-[#1d1d1f] text-sm">{{ item.conv.client.first_name }}</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 max-w-xs">
+                            <p class="text-sm text-[#1d1d1f] truncate">{{ item.conv.message|truncatechars:40 }}</p>
+                        </td>
+                        <td class="px-4 py-3">
+                            {% if item.conv.sentiment == 'positive' %}
+                            <span class="t-pill bg-[#e8f8ef] text-[#1d7a3f]">😊 Positive</span>
+                            {% elif item.conv.sentiment == 'negative' %}
+                            <span class="t-pill bg-[#ffe5ea] text-[#d70015]">😔 Negative</span>
+                            {% else %}
+                            <span class="t-pill bg-[#f5f5f7] text-[#6e6e73]">😐 Neutral</span>
+                            {% endif %}
+                            <span class="text-xs text-[#86868b] ml-1">{{ item.conv.sentiment_score|floatformat:2 }}</span>
+                        </td>
+                        <td class="px-4 py-3">
+                            {% if item.topic %}
+                            <span class="t-pill bg-[#ebebfc] text-[#5e5ce6]">{{ item.topic.name }}</span>
+                            {% if item.topic_score %}
+                            <span class="text-xs text-[#86868b] ml-1">{{ item.topic_score|floatformat:1 }}</span>
+                            {% endif %}
+                            {% else %}
+                            <span class="text-xs text-[#a1a1a6]">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-right text-xs text-[#86868b] whitespace-nowrap">
+                            {{ item.conv.date|date:"M j" }} {{ item.conv.time|time:"H:i" }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
         {% endif %}
 

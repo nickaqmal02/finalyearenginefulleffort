@@ -1,0 +1,275 @@
+{% extends 'chat_analyzer/base.html' %}
+
+{% block title %}Treatment Assistant - Sentiri{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Inter", sans-serif;
+        letter-spacing: -0.01em;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        background: #f5f5f7;
+    }
+    .b-card {
+        background: #ffffff;
+        border: 1px solid #e5e5ea;
+        border-radius: 18px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03), 0 8px 24px rgba(0, 0, 0, 0.05);
+    }
+    .b-title {
+        font-weight: 700;
+        font-size: 1.9rem;
+        letter-spacing: -0.02em;
+        color: #1d1d1f;
+    }
+    .b-subtitle { color: #6e6e73; }
+    .b-label { color: #86868b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    .b-pill {
+        display: inline-flex; align-items: center;
+        padding: 4px 12px; border-radius: 980px;
+        font-size: 12px; font-weight: 500;
+    }
+    .b-btn {
+        background: #0071e3; color: #ffffff;
+        border-radius: 980px;
+        padding: 10px 24px;
+        font-weight: 600; font-size: 14px;
+        border: none; cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .b-btn:hover { background: #0077ed; transform: translateY(-1px); }
+    .b-btn:disabled { background: #a1a1a6; cursor: not-allowed; transform: none; }
+    .b-input {
+        width: 100%; background: #ffffff;
+        border: 1px solid #e5e5ea;
+        border-radius: 18px;
+        padding: 14px 18px;
+        font-size: 15px; color: #1d1d1f;
+        resize: none;
+        transition: border-color 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .b-input:focus { outline: none; border-color: #0071e3; }
+    .msg-user {
+        background: #0071e3; color: #fff;
+        border-radius: 18px 18px 4px 18px;
+        padding: 12px 16px;
+        max-width: 80%; display: inline-block;
+        text-align: left;
+    }
+    .msg-ai {
+        background: #f5f5f7; color: #1d1d1f;
+        border-radius: 18px 18px 18px 4px;
+        padding: 12px 16px;
+        max-width: 85%; display: inline-block;
+        text-align: left;
+    }
+    .source-chip {
+        display: inline-block;
+        background: #ebebfc; color: #5e5ce6;
+        border-radius: 980px;
+        padding: 3px 10px;
+        font-size: 11px;
+        margin: 2px 4px 2px 0;
+    }
+    .fade-up { animation: fadeUp 0.6s cubic-bezier(0.25, 0.1, 0.25, 1) both; }
+    @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(15px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .typing-dot {
+        display: inline-block; width: 8px; height: 8px;
+        background: #86868b; border-radius: 50%;
+        margin: 0 2px;
+        animation: bounce 1.4s infinite ease-in-out both;
+    }
+    .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+    .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+    @keyframes bounce {
+        0%, 80%, 100% { transform: scale(0); }
+        40% { transform: scale(1); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen p-6 md:p-8">
+    <div class="max-w-3xl mx-auto">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-6 fade-up">
+            <div>
+                <h1 class="b-title">Treatment Assistant 🤖</h1>
+                <p class="b-subtitle mt-1">Ask anything about autism treatment</p>
+            </div>
+            <div class="flex items-center gap-2">
+                {% if user.role == 'doctor' or user.role == 'admin' %}
+                <a href="{% url 'chat_analyzer:doctor_upload_document' %}"
+                   class="b-pill bg-[#0071e3] text-white hover:bg-[#0077ed] transition-colors duration-300">
+                    Upload Document
+                </a>
+                {% endif %}
+                <a href="{{ request.META.HTTP_REFERER|default:'/' }}"
+                   class="b-pill bg-[#f5f5f7] text-[#6e6e73] hover:bg-[#e5e5ea] transition-colors duration-300">
+                    Back
+                </a>
+            </div>
+        </div>
+
+        <!-- Stats bar -->
+        <div class="b-card p-4 mb-4 flex items-center gap-4 fade-up">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-full bg-[#e8f8ef] flex items-center justify-center">
+                    <svg class="w-4 h-4 text-[#1d7a3f]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <div>
+                    <p class="b-label">Knowledge Base</p>
+                    <p class="text-sm font-semibold text-[#1d1d1f]">{{ vector_store_stats.total_chunks }} chunks indexed</p>
+                </div>
+            </div>
+            <div class="ml-auto">
+                {% if vector_store_stats.status == 'ready' %}
+                <span class="b-pill bg-[#e8f8ef] text-[#1d7a3f]">Ready</span>
+                {% else %}
+                <span class="b-pill bg-[#ffe5ea] text-[#d70015]">{{ vector_store_stats.status|title }}</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Chat area -->
+        <div class="b-card overflow-hidden fade-up">
+            <div id="chat-area" class="p-5 space-y-4" style="min-height: 400px; max-height: 500px; overflow-y: auto;">
+                {% if recent_queries %}
+                    {% for q in recent_queries reversed %}
+                    <div class="flex justify-end">
+                        <div class="msg-user">{{ q.question }}</div>
+                    </div>
+                    <div class="flex justify-start">
+                        <div>
+                            <div class="msg-ai">{{ q.answer|linebreaksbr }}</div>
+                            {% if q.sources %}
+                            <div class="mt-2">
+                                {% for s in q.sources %}
+                                <span class="source-chip">{{ s.title }} (p.{{ s.page }})</span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                <div class="text-center text-[#86868b] py-12">
+                    <p class="text-lg font-medium">Hi! I'm your treatment assistant.</p>
+                    <p class="text-sm mt-2">Ask me about autism therapy, behavior management, feeding, sleep, or speech therapy.</p>
+                </div>
+                {% endif %}
+                <div id="chat-bottom"></div>
+            </div>
+
+            <!-- Input -->
+            <div class="border-t border-[#e5e5ea] p-4">
+                <form id="chatbot-form" class="flex gap-3">
+                    {% csrf_token %}
+                    <textarea id="chatbot-input" name="question" rows="2" required
+                              placeholder="Type your question about autism treatment..."
+                              class="b-input flex-1"
+                              onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); document.getElementById('chatbot-form').dispatchEvent(new Event('submit', {cancelable: true}));}"></textarea>
+                    <button type="submit" id="chatbot-send" class="b-btn self-end">Ask</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const chatArea = document.getElementById('chat-area');
+    const form = document.getElementById('chatbot-form');
+    const input = document.getElementById('chatbot-input');
+    const sendBtn = document.getElementById('chatbot-send');
+
+    // Scroll to bottom on load
+    chatArea.scrollTop = chatArea.scrollHeight;
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const question = input.value.trim();
+        if (!question) return;
+
+        // Add user message
+        const userDiv = document.createElement('div');
+        userDiv.className = 'flex justify-end';
+        userDiv.innerHTML = `<div class="msg-user">${escapeHtml(question)}</div>`;
+        chatArea.appendChild(userDiv);
+
+        // Clear input + disable
+        input.value = '';
+        sendBtn.disabled = true;
+        sendBtn.textContent = '...';
+
+        // Add typing indicator
+        const typingDiv = document.createElement('div');
+        typingDiv.className = 'flex justify-start';
+        typingDiv.id = 'typing-indicator';
+        typingDiv.innerHTML = `<div class="msg-ai"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>`;
+        chatArea.appendChild(typingDiv);
+        chatArea.scrollTop = chatArea.scrollHeight;
+
+        try {
+            const formData = new FormData(form);
+            formData.set('question', question);
+
+            const response = await fetch('{% url "chat_analyzer:chatbot_ask" %}', {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
+            });
+
+            const data = await response.json();
+            typingDiv.remove();
+
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
+            // Add AI response
+            const aiDiv = document.createElement('div');
+            aiDiv.className = 'flex justify-start';
+
+            let sourcesHtml = '';
+            if (data.sources && data.sources.length > 0) {
+                sourcesHtml = '<div class="mt-2">';
+                data.sources.forEach(function(s) {
+                    sourcesHtml += `<span class="source-chip">${escapeHtml(s.title)} (p.${s.page})</span>`;
+                });
+                sourcesHtml += '</div>';
+            }
+
+            aiDiv.innerHTML = `
+                <div>
+                    <div class="msg-ai">${escapeHtml(data.answer).replace(/\n/g, '<br>')}</div>
+                    ${sourcesHtml}
+                    <div class="text-[10px] text-[#86868b] mt-1">Confidence: ${(data.confidence * 100).toFixed(1)}% · ${data.response_time_ms}ms</div>
+                </div>
+            `;
+            chatArea.appendChild(aiDiv);
+        } catch (err) {
+            typingDiv.remove();
+            const errDiv = document.createElement('div');
+            errDiv.className = 'flex justify-start';
+            errDiv.innerHTML = `<div class="msg-ai" style="background:#ffe5ea;color:#d70015;">Error: ${escapeHtml(err.message)}</div>`;
+            chatArea.appendChild(errDiv);
+        } finally {
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'Ask';
+            input.focus();
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+    });
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+</script>
+{% endblock %}

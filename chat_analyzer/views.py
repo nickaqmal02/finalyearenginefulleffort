@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, JsonResponse
 from django.utils import timezone
 from typing import Any
 from django.db.models import QuerySet
@@ -415,6 +415,34 @@ def therapist_dashboard(request):
             'unread': t.therapist_unread,
         })
 
+    # ── ANALYZED MESSAGES WIDGET ──
+    # Recent Conversation rows (from live chat + WhatsApp) with sentiment + topic
+    # These are the ML-analyzed messages — shows the therapist what the pipeline found
+    # Sort by message date (when the message was actually sent), NOT created_at (when it was imported)
+    from .models import MessageTopic
+    recent_analyzed = Conversation.objects.filter(
+        client__assigned_therapist=therapist,
+        sentiment__isnull=False,
+        is_from_client=True,  # only client messages have topics
+    ).select_related('client').order_by('-date', '-time')[:8]
+
+    recent_analyzed_data = []
+    for conv in recent_analyzed:
+        # Get the primary topic for this message (if any)
+        primary_mt = MessageTopic.objects.filter(
+            conversation=conv, is_primary=True
+        ).select_related('topic').first()
+        # Fallback: any topic match if no primary
+        topic_entry = primary_mt or MessageTopic.objects.filter(
+            conversation=conv
+        ).select_related('topic').first()
+
+        recent_analyzed_data.append({
+            'conv': conv,
+            'topic': topic_entry.topic if topic_entry else None,
+            'topic_score': topic_entry.score if topic_entry else None,
+        })
+
     context = {
         'therapist': therapist,
         'clients': client_data,
@@ -423,6 +451,7 @@ def therapist_dashboard(request):
         'total_positive': total_positive,
         'avg_sentiment': round(avg_sentiment, 2),
         'recent_chats': recent_chats_data,
+        'recent_analyzed': recent_analyzed_data,
     }
     return render(request, 'chat_analyzer/MainTherapist/dashboard.html', context)
 
@@ -563,13 +592,42 @@ def therapist_chat_threads(request):
     }
     return render(request, 'chat_analyzer/MainTherapist/chat_threads.html', context)
 
+
+@login_required
+def doctor_chat_threads(request):
+    """Doctor's chat inbox — all threads where doctor is a participant."""
+    if request.user.role != 'doctor':
+        return HttpResponseForbidden("Doctors only.")
+
+    threads = ChatThread.objects.filter(
+        doctor=request.user
+    ).select_related('client').order_by('-last_message_at')
+
+    threads_data = []
+    for t in threads:
+        last_msg = t.messages.order_by('-sent_at').first()
+        threads_data.append({
+            'thread': t,
+            'last_message': last_msg.message if last_msg else 'No messages yet',
+            'last_message_sender': last_msg.sender.get_full_name() if last_msg else None,
+            'last_message_is_mine': last_msg.sender_id == request.user.id if last_msg else False,
+            'last_message_at': t.last_message_at,
+            'unread': t.doctor_unread,
+        })
+
+    context = {
+        'doctor': request.user,
+        'threads': threads_data,
+    }
+    return render(request, 'chat_analyzer/MainTherapist/chat_threads.html', context)
+
 @login_required
 def chat_thread_detail(request, thread_id):
-    """Live chat thread detail — works for BOTH client and therapist (membership check inside)."""
+    """Live chat thread detail — works for client, therapist, AND doctor."""
     thread = get_object_or_404(ChatThread, id=thread_id)
 
-    # SECURITY: only the two people in this thread can view it
-    if request.user != thread.client and request.user != thread.therapist:
+    # SECURITY: only the people in this thread can view it
+    if request.user != thread.client and request.user != thread.therapist and request.user != thread.doctor:
         return HttpResponseForbidden("You are not part of this thread.")
 
     # Handle "send message" POST
@@ -584,10 +642,54 @@ def chat_thread_detail(request, thread_id):
             # Update unread counter (the OTHER person)
             thread.last_message_at = timezone.now()
             if request.user == thread.client:
-                thread.therapist_unread += 1
-            else:
+                if thread.therapist:
+                    thread.therapist_unread += 1
+                if thread.doctor:
+                    thread.doctor_unread += 1
+            elif request.user == thread.therapist:
                 thread.client_unread += 1
+                if thread.doctor:
+                    thread.doctor_unread += 1
+            elif request.user == thread.doctor:
+                thread.client_unread += 1
+                if thread.therapist:
+                    thread.therapist_unread += 1
             thread.save()
+
+            # ── BRIDGE: live chat → ML pipeline ──
+            # Create a Conversation row so the SAME pipeline that processes
+            # WhatsApp uploads can also process live chat messages.
+            # Sentiment/topic stay None until the Celery task fires (5-min delay).
+            from .models import Conversation
+            from .tasks import analyze_live_message
+            import hashlib
+
+            is_client = request.user == thread.client
+            msg_hash = hashlib.sha256(
+                f"live-{thread.id}-{request.user.id}-{timezone.now().isoformat()}".encode()
+            ).hexdigest()
+
+            conv = Conversation.objects.create(
+                client=thread.client,
+                therapist=thread.therapist if not is_client else None,
+                sender=request.user,
+                is_from_client=is_client,
+                date=timezone.now().date(),
+                time=timezone.now().time(),
+                username=request.user.get_full_name() or request.user.username,
+                message=text,
+                chat_type='individual',
+                message_hash=msg_hash,
+                is_processed=False,
+            )
+
+            # Fire the Celery task — 5-minute delay so it doesn't
+            # interfere with the active conversation
+            analyze_live_message.apply_async(
+                args=[conv.id],
+                countdown=300,  # 5 minutes
+            )
+
             return redirect('chat_analyzer:chat_thread_detail', thread_id=thread.id)
 
     # Mark messages from the OTHER person as read
@@ -599,11 +701,13 @@ def chat_thread_detail(request, thread_id):
     # Reset MY unread counter
     if request.user == thread.client:
         thread.client_unread = 0
-    else:
+    elif request.user == thread.therapist:
         thread.therapist_unread = 0
+    elif request.user == thread.doctor:
+        thread.doctor_unread = 0
     thread.save()
 
-    # Redirect client to client template, therapist to therapist template
+    # Redirect: client → client template, doctor → therapist template, therapist → therapist template
     messages = thread.messages.select_related('sender').order_by('sent_at')
 
     if request.user.role == 'client':
@@ -707,13 +811,66 @@ def doctor_dashboard(request):
         diagnosed_by=doctor, is_active=True
     ).select_related('client').order_by('-diagnosis_date')
 
+    # Enrich each diagnosis with specifiers + message stats + chart data
+    diagnosis_cards = []
+    for diag in diagnoses:
+        specifiers = ClientSpecifier.objects.filter(
+            autism_diagnosis=diag, is_present=True
+        ).select_related('specifier')[:5]
+
+        from chat_analyzer.models import Conversation, MessageTopic, Topic
+        import json as _json
+
+        convs = Conversation.objects.filter(
+            client=diag.client, sentiment__isnull=False, is_from_client=True
+        ).order_by('date', 'time')
+        msg_count = convs.count()
+
+        # Sentiment distribution for mini doughnut
+        sentiment_data = convs.aggregate(
+            positive=Count('id', filter=Q(sentiment='positive')),
+            negative=Count('id', filter=Q(sentiment='negative')),
+            neutral=Count('id', filter=Q(sentiment='neutral')),
+        )
+
+        # Topic distribution for mini bars
+        topics = MessageTopic.objects.filter(
+            conversation__client=diag.client,
+            is_primary=True,
+        ).select_related('topic')
+        topic_counts = {}
+        for mt in topics:
+            name = mt.topic.name
+            if name not in topic_counts:
+                topic_counts[name] = 0
+            topic_counts[name] += 1
+        topic_data = sorted(topic_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+
+        # Last 7 messages for trend line
+        recent_msgs = convs.order_by('-date', '-time')[:7][::-1]
+        trend_data = [[i, msg.sentiment_score or 0] for i, msg in enumerate(recent_msgs)]
+
+        diagnosis_cards.append({
+            'diag': diag,
+            'specifiers': specifiers,
+            'message_count': msg_count,
+            'sentiment_data': sentiment_data,
+            'topic_data': topic_data,
+            'trend_data': _json.dumps(trend_data),
+            'sentiment_json': _json.dumps([
+                sentiment_data['positive'],
+                sentiment_data['negative'],
+                sentiment_data['neutral'],
+            ]),
+        })
+
     context = {
         'doctor': doctor,
         'pending_docs': pending_docs,
         'pending_count': pending_docs.count(),
         'approved_docs': approved_docs,
         'approved_count': approved_docs.count(),
-        'diagnoses': diagnoses,
+        'diagnosis_cards': diagnosis_cards,
         'diagnosis_count': diagnoses.count(),
     }
     return render(request, 'chat_analyzer/doctor/doctor_dashboard.html', context)
@@ -942,6 +1099,136 @@ def client_settings(request: HttpRequest) -> HttpResponse:
     client_user: User = request.user
 
     return render(request, 'chat_analyzer/client/client_settings.html', {'client_user': client_user})
+
+
+# ╔════════════════════════════════════════════╗
+# ║          RAG CHATBOT VIEWS 🤖              ║
+# ╚════════════════════════════════════════════╝
+
+@login_required
+def chatbot_view(request):
+    """Chatbot page — any authenticated user can ask treatment questions."""
+    from .models import ChatQuery
+    from .services.rag_service import get_collection_stats
+
+    recent_queries = ChatQuery.objects.filter(user=request.user)[:10]
+    stats = get_collection_stats()
+
+    context = {
+        'recent_queries': recent_queries,
+        'vector_store_stats': stats,
+    }
+    # Different base templates per role
+    if request.user.role == 'client':
+        return render(request, 'chat_analyzer/client/chatbot.html', context)
+    return render(request, 'chat_analyzer/chatbot.html', context)
+
+
+@login_required
+def chatbot_ask(request):
+    """Handle chatbot question — POST only, returns JSON."""
+    import time
+    from .models import ChatQuery
+    from .services.rag_service import query as rag_query
+
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+
+    # FormData sends multipart — read question from POST, not body
+    question = request.POST.get('question', '').strip()
+
+    if not question:
+        return JsonResponse({'error': 'Question cannot be empty'}, status=400)
+
+    start_time = time.time()
+    response = rag_query(question)
+    elapsed_ms = int((time.time() - start_time) * 1000)
+
+    # Log the query
+    ChatQuery.objects.create(
+        user=request.user,
+        question=question,
+        answer=response.answer,
+        sources=response.sources,
+        confidence=response.confidence,
+        response_time_ms=elapsed_ms,
+    )
+
+    return JsonResponse({
+        'answer': response.answer,
+        'sources': response.sources,
+        'confidence': round(response.confidence, 3),
+        'response_time_ms': elapsed_ms,
+    })
+
+
+# ╔════════════════════════════════════════════╗
+# ║    TREATMENT DOCUMENT UPLOAD (Doctor) 📄  ║
+# ╚════════════════════════════════════════════╝
+
+@login_required
+def doctor_upload_document(request):
+    """Doctor uploads a treatment PDF for the RAG knowledge base."""
+    from .models import TreatmentDocument
+    from .tasks import ingest_treatment_document
+    from django.core.files.storage import default_storage
+
+    if request.user.role not in ['doctor', 'admin']:
+        return HttpResponseForbidden("Only doctors and admins can upload treatment documents.")
+
+    if request.method == 'POST':
+        title = request.POST.get('title', '').strip()
+        description = request.POST.get('description', '').strip()
+        uploaded_file = request.FILES.get('file')
+
+        if not title or not uploaded_file:
+            messages.error(request, "Title and file are required.")
+            return redirect('chat_analyzer:doctor_upload_document')
+
+        if not uploaded_file.name.lower().endswith(('.pdf', '.txt', '.md')):
+            messages.error(request, "Only PDF, TXT, and MD files are supported.")
+            return redirect('chat_analyzer:doctor_upload_document')
+
+        doc = TreatmentDocument.objects.create(
+            uploaded_by=request.user,
+            title=title,
+            description=description,
+            file=uploaded_file,
+            status='pending',
+        )
+
+        # Fire the Celery task for async ingestion
+        ingest_treatment_document.delay(doc.id)
+
+        messages.success(request, f"📄 '{title}' uploaded — processing in background. It will be ready shortly.")
+        return redirect('chat_analyzer:chatbot')
+
+    # GET — show upload form + list existing documents
+    documents = TreatmentDocument.objects.all().order_by('-created_at')
+    context = {
+        'documents': documents,
+    }
+    return render(request, 'chat_analyzer/doctor/upload_document.html', context)
+
+
+@login_required
+def doctor_start_chat(request, client_id):
+    """Doctor starts a chat thread with a client (for emergency contact)."""
+    from .models import User, ChatThread
+
+    client = get_object_or_404(User, id=client_id, role='client')
+
+    # Doctor can only message clients they diagnosed
+    from .models import AutismDiagnosis
+    if not AutismDiagnosis.objects.filter(client=client, diagnosed_by=request.user, is_active=True).exists():
+        return HttpResponseForbidden("You can only message clients you have diagnosed.")
+
+    thread, _ = ChatThread.objects.get_or_create(
+        client=client,
+        doctor=request.user,
+        defaults={'therapist': None},
+    )
+    return redirect('chat_analyzer:chat_thread_detail', thread_id=thread.id)
 
 
 

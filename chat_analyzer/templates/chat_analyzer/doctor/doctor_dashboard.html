@@ -55,10 +55,28 @@
                 <h1 class="d-title">Welcome, Dr. {{ doctor.first_name }}</h1>
                 <p class="d-subtitle mt-1">Document approvals and diagnosed clients</p>
             </div>
-            <a href="{% url 'chat_analyzer:logout_view' %}"
-               class="d-pill bg-[#f5f5f7] text-[#6e6e73] hover:bg-[#e5e5ea] transition-colors duration-300">
-                Logout
-            </a>
+            <div class="flex items-center gap-2">
+                <a href="{% url 'chat_analyzer:doctor_chat_threads' %}"
+                   class="d-pill bg-[#f5f5f7] text-[#1d1d1f] hover:bg-[#e5e5ea] transition-colors duration-300 flex items-center gap-1.5 relative">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+                    Messages
+                    {% if unread_doctor_messages_count %}
+                    <span class="ml-0.5 text-xs font-bold text-white bg-[#d70015] rounded-full px-1.5 py-0.5 leading-none">{{ unread_doctor_messages_count }}</span>
+                    {% endif %}
+                </a>
+                <a href="{% url 'chat_analyzer:doctor_upload_document' %}"
+                   class="d-pill bg-[#0071e3] text-white hover:bg-[#0077ed] transition-colors duration-300">
+                    Upload Document
+                </a>
+                <a href="{% url 'chat_analyzer:chatbot' %}"
+                   class="d-pill bg-[#ebebfc] text-[#5e5ce6] hover:bg-[#dcdcf5] transition-colors duration-300">
+                    Ask AI
+                </a>
+                <a href="{% url 'chat_analyzer:logout_view' %}"
+                   class="d-pill bg-[#f5f5f7] text-[#6e6e73] hover:bg-[#e5e5ea] transition-colors duration-300">
+                    Logout
+                </a>
+            </div>
         </div>
 
         <!-- Messages -->
@@ -131,21 +149,85 @@
         <!-- Diagnosed Clients -->
         <h2 class="text-lg font-semibold text-[#1d1d1f] mb-4 fade-up">My Diagnosed Clients</h2>
 
-        {% if diagnoses %}
+        {% if diagnosis_cards %}
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {% for diag in diagnoses %}
+            {% for card in diagnosis_cards %}
             <div class="d-card p-5 fade-up">
+                <!-- Client header -->
                 <div class="flex items-center gap-3 mb-3">
                     <div class="w-10 h-10 bg-[#0071e3] rounded-full flex items-center justify-center text-white font-bold">
-                        {{ diag.client.first_name|first }}{{ diag.client.last_name|first }}
+                        {{ card.diag.client.first_name|first }}{{ card.diag.client.last_name|first }}
                     </div>
+                    <div class="flex-1">
+                        <p class="font-semibold text-[#1d1d1f]">{{ card.diag.client.get_full_name }}</p>
+                        <p class="text-xs text-[#86868b]">Diagnosed {{ card.diag.diagnosis_date|date:"M j, Y" }}</p>
+                    </div>
+                    <span class="d-pill bg-[#f0f0f5] text-[#5e5ce6]">Level {{ card.diag.support_level }}</span>
+                </div>
+
+                <!-- Support level description -->
+                <p class="text-xs text-[#6e6e73] mb-3">{{ card.diag.get_support_level_display }}</p>
+
+                <!-- Specifiers -->
+                {% if card.specifiers %}
+                <div class="flex flex-wrap gap-1.5 mb-3">
+                    {% for spec in card.specifiers %}
+                    <span class="text-[10px] {% if spec.is_present %}bg-[#e8f8ef] text-[#1d7a3f]{% else %}bg-[#ffe5ea] text-[#d70015]{% endif %} rounded-full px-2 py-0.5">
+                        {{ spec.specifier.specifier_name }}
+                    </span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Mini charts -->
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                    <!-- Sentiment doughnut -->
                     <div>
-                        <p class="font-semibold text-[#1d1d1f]">{{ diag.client.get_full_name }}</p>
-                        <p class="text-xs text-[#86868b]">{{ diag.diagnosis_date|date:"M j, Y" }}</p>
+                        <p class="d-label text-center mb-1">Sentiment</p>
+                        <div id="sentiment-chart-{{ forloop.counter }}" style="height: 80px;"></div>
+                    </div>
+                    <!-- Sentiment trend line -->
+                    <div>
+                        <p class="d-label text-center mb-1">Trend</p>
+                        <div id="trend-chart-{{ forloop.counter }}" style="height: 80px;"></div>
                     </div>
                 </div>
-                <span class="d-pill bg-[#f0f0f5] text-[#5e5ce6]">Level {{ diag.support_level }}</span>
-                <span class="text-xs text-[#86868b] ml-2">{{ diag.get_support_level_display }}</span>
+
+                <!-- Topic distribution bars -->
+                {% if card.topic_data %}
+                <div class="mb-3">
+                    <p class="d-label mb-2">Topic Distribution</p>
+                    <div class="space-y-1.5">
+                        {% for topic_name, count in card.topic_data %}
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] text-[#6e6e73] w-24 truncate">{{ topic_name }}</span>
+                            <div class="flex-1 bg-[#f5f5f7] rounded-full h-2 overflow-hidden">
+                                <div class="bg-[#0071e3] rounded-full h-2 transition-all duration-700"
+                                     style="width: {% widthratio count card.message_count 100 %}%;"></div>
+                            </div>
+                            <span class="text-[10px] text-[#86868b] w-4 text-right">{{ count }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Clinical notes -->
+                {% if card.diag.clinical_notes %}
+                <p class="text-xs text-[#86868b] italic mt-2 border-l-2 border-[#e5e5ea] pl-3">
+                    "{{ card.diag.clinical_notes|truncatechars:80 }}"
+                </p>
+                {% endif %}
+
+                <!-- Footer: message count + message button -->
+                <div class="flex items-center justify-between mt-3 pt-3 border-t border-[#e5e5ea]">
+                    <span class="text-xs text-[#86868b]">{{ card.message_count }} analyzed messages</span>
+                    <a href="{% url 'chat_analyzer:doctor_start_chat' card.diag.client.id %}"
+                       class="d-pill bg-[#0071e3] text-white hover:bg-[#0077ed] transition-colors duration-300 flex items-center gap-1.5">
+                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+                        Message
+                    </a>
+                </div>
             </div>
             {% endfor %}
         </div>
@@ -157,4 +239,69 @@
 
     </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script>
+    // Render mini charts for each client card
+    document.addEventListener('DOMContentLoaded', function() {
+        // Sentiment doughnuts + trend lines
+        const cards = {{ diagnosis_cards|length }};
+        const sentimentData = [
+            {% for card in diagnosis_cards %}
+            {{ card.sentiment_json|safe }},
+            {% endfor %}
+        ];
+        const trendData = [
+            {% for card in diagnosis_cards %}
+            {{ card.trend_data|safe }},
+            {% endfor %}
+        ];
+
+        for (let i = 0; i < cards; i++) {
+            // Sentiment doughnut
+            const sentEl = document.getElementById('sentiment-chart-' + (i + 1));
+            if (sentEl) {
+                const sentChart = echarts.init(sentEl);
+                sentChart.setOption({
+                    series: [{
+                        type: 'pie',
+                        radius: ['55%', '85%'],
+                        center: ['50%', '50%'],
+                        label: { show: false },
+                        itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 1 },
+                        data: [
+                            { value: sentimentData[i][0], itemStyle: { color: '#1d7a3f' } },
+                            { value: sentimentData[i][1], itemStyle: { color: '#d70015' } },
+                            { value: sentimentData[i][2], itemStyle: { color: '#86868b' } },
+                        ],
+                    }],
+                    graphic: {
+                        type: 'text',
+                        left: 'center',
+                        top: 'center',
+                        style: { text: sentimentData[i].reduce((a,b)=>a+b,0) + ' msg', fontSize: 9, fill: '#86868b' }
+                    },
+                });
+            }
+
+            // Trend line
+            const trendEl = document.getElementById('trend-chart-' + (i + 1));
+            if (trendEl && trendData[i].length > 0) {
+                const trendChart = echarts.init(trendEl);
+                trendChart.setOption({
+                    grid: { left: 0, right: 0, top: 5, bottom: 0 },
+                    xAxis: { type: 'category', show: false },
+                    yAxis: { type: 'value', show: false, min: -1, max: 1 },
+                    series: [{
+                        type: 'line',
+                        data: trendData[i].map(d => d[1]),
+                        smooth: true,
+                        symbol: 'none',
+                        lineStyle: { width: 2, color: '#0071e3' },
+                        areaStyle: { color: 'rgba(0,113,227,0.1)' },
+                    }],
+                });
+            }
+        }
+    });
+</script>
 {% endblock %}

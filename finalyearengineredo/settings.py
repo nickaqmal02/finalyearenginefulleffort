@@ -1,7 +1,12 @@
 import os
+import dj_database_url
 from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env (local dev only; Render injects env vars directly)
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,7 +31,7 @@ ALLOWED_HOSTS = ['*']
 
 CSRF_COOKIE_SECURE = False 
 CSRF_COOKIE_HTTPONLY = False
-CSRF_TRUSTED_ORIGINS = ['http://172.53.7.155:300', 'http://localhost:3000']
+CSRF_TRUSTED_ORIGINS = ['http://172.53.7.155:300', 'http://localhost:3000', 'http://localhost:8000', 'http://127.0.0.1:8000']
 
 # Application definition
 
@@ -77,6 +82,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'chat_analyzer.context_processors.unread_counts',
             ],
         },
     },
@@ -87,13 +93,29 @@ WSGI_APPLICATION = 'finalyearengineredo.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
+#
+# Env-aware DB switching:
+#   - If DATABASE_URL is set (Render production) → PostgreSQL via dj-database-url
+#   - If USE_SQLITE=1 or no DATABASE_URL → local SQLite (dev fallback)
+#   - Render provides DATABASE_URL automatically when you attach a Postgres instance
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+USE_SQLITE = os.environ.get('USE_SQLITE', '0') == '1'
+
+if USE_SQLITE or not os.environ.get('DATABASE_URL'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': dj_database_url.config(
+            conn_max_age=600,        # connection pooling (closes after 10min idle)
+            conn_health_checks=True, # re-check stale connections
+            ssl_require=True if 'render.com' in os.environ.get('DATABASE_URL', '') else False,
+        )
+    }
 
 
 # Password validation
@@ -120,7 +142,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Kuala_Lumpur'
 
 USE_I18N = True
 
@@ -221,5 +243,28 @@ UNFOLD = {
     },
     "DASHBOARD_CALLBACK": "chat_analyzer.dashboard.dashboard_callback",
 }
+
+
+# ====================================
+# CELERY CONFIGURATION
+# ====================================
+# Celery = async task queue. Redis = the broker (message bus between Django and worker).
+# Used for: delayed ML analysis on live chat messages (5-min delay after send).
+#
+# Local dev:  REDIS_URL=redis://localhost:6379/0  (from .env)
+# Render:     REDIS_URL injected by Render's Redis addon
+
+CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'Asia/Kuala_Lumpur'
+# Fix: Celery 5.6 fast_trace_task bug on Python 3.14 — use solo pool (single-process)
+# This avoids the prefork pool's fast_trace_task ValueError that breaks task execution.
+# On production (Render), use prefork with Celery 5.5+ or set this via env var.
+CELERY_WORKER_POOL = os.environ.get('CELERY_WORKER_POOL', 'solo')
+# Check for due tasks every 10 seconds (the worker loop)
+CELERY_BEAT_SCHEDULE = {}  # we'll add periodic tasks here later
 
 

@@ -32,6 +32,9 @@ from .models import(
     MessageTopic,
     ChatThread,
     ChatMessage,
+    StaffSchedule,
+    StaffTimeOff,
+    SessionBooking,
 )
 
 User = get_user_model()
@@ -842,7 +845,6 @@ class DoctorSpecialtyView(UnfoldModelAdminViewMixin, View):
 # ╚════════════════════════════════════════════╝ 
 # ── Unfold-styled Upload View ─────────────────────────────
 class UploadChatsView(UnfoldModelAdminViewMixin, View):
-    from chat_analyzer.services.upload_service import process_whatsapp_upload
     """Custom view: therapist/admin uploads WhatsApp .txt from admin panel.
     Uses UnfoldModelAdminViewMixin so Unfold's CSS/JS/theme is injected."""
     title = "Upload WhatsApp Chat"
@@ -856,6 +858,7 @@ class UploadChatsView(UnfoldModelAdminViewMixin, View):
         })
 
     def post(self, request, *args, **kwargs):
+        from chat_analyzer.services.upload_service import process_whatsapp_upload
         form = UploadChatForm(request.POST, request.FILES)
         if form.is_valid():
             result = process_whatsapp_upload(
@@ -1356,6 +1359,43 @@ class ChatMessageAdmin(admin.ModelAdmin):
 
 
 
+
+
+# ============================================================
+# SESSION BOOKING SYSTEM — for n8n reservation chatbot
+# ============================================================
+
+@admin.register(StaffSchedule)
+class StaffScheduleAdmin(admin.ModelAdmin):
+    list_display = ['staff', 'day_of_week', 'start_time', 'end_time', 'is_available']
+    list_filter = ['is_available', 'day_of_week', 'staff__role']
+    search_fields = ['staff__first_name', 'staff__last_name']
+    autocomplete_fields = ['staff']
+    list_editable = ['is_available', 'start_time', 'end_time']
+    list_display_links = ['staff', 'day_of_week']
+    ordering = ['staff', 'day_of_week']
+
+
+@admin.register(StaffTimeOff)
+class StaffTimeOffAdmin(admin.ModelAdmin):
+    list_display = ['staff', 'date', 'reason']
+    list_filter = ['staff__role', 'date']
+    search_fields = ['staff__first_name', 'staff__last_name', 'reason']
+    autocomplete_fields = ['staff']
+    date_hierarchy = 'date'
+    ordering = ['date']
+
+
+@admin.register(SessionBooking)
+class SessionBookingAdmin(admin.ModelAdmin):
+    list_display = ['client', 'staff', 'date', 'start_time', 'end_time', 'status', 'created_at']
+    list_filter = ['status', 'staff__role', 'date']
+    search_fields = ['client__first_name', 'client__last_name', 'staff__first_name', 'staff__last_name']
+    autocomplete_fields = ['client', 'staff']
+    list_editable = ['status']
+    list_display_links = ['client', 'staff']
+    date_hierarchy = 'date'
+    ordering = ['-date', '-start_time']
 
 
 # ╔════════════════════════════════════════════╗ 

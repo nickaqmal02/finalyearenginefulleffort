@@ -15,7 +15,7 @@
     .c-card {
         background: #ffffff;
         border: 1px solid #e5e5ea;
-        border-radius: 18px;
+        border-radius: 24px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03), 0 8px 24px rgba(0, 0, 0, 0.05);
     }
     .c-title {
@@ -29,68 +29,41 @@
         padding: 4px 12px; border-radius: 980px;
         font-size: 12px; font-weight: 500;
     }
-    .message-mine {
-        background: #0071e3;
-        color: #ffffff;
+    /* Message bubbles — single div, no nested wrapper */
+    .msg-mine {
+        background: #0071e3; color: #ffffff;
         border-radius: 18px 18px 4px 18px;
         padding: 10px 14px;
-        max-width: 70%;
-        display: inline-block;
+        max-width: 70%; display: inline-block;
     }
-    .message-theirs {
-        background: #f5f5f7;
-        color: #1d1d1f;
+    .msg-theirs {
+        background: #f5f5f7; color: #1d1d1f;
         border-radius: 18px 18px 18px 4px;
         padding: 10px 14px;
-        max-width: 70%;
-        display: inline-block;
+        max-width: 70%; display: inline-block;
     }
     .msg-time {
         font-size: 10px;
         opacity: 0.7;
         margin-top: 4px;
-    }
-    .msg-ticks {
-        display: inline-flex;
-        align-items: center;
-        margin-left: 4px;
-        vertical-align: middle;
-    }
-    .msg-ticks .tick {
-        width: 14px;
-        height: 9px;
-        vertical-align: middle;
-    }
-    .msg-ticks .tick-blue {
-        color: #34b7f1;  /* WhatsApp blue */
-    }
-    .msg-ticks .tick-grey {
-        color: rgba(255, 255, 255, 0.65);  /* grey on blue bubble */
+        display: flex; align-items: center; gap: 4px;
     }
     .msg-input {
-        width: 100%;
-        background: #ffffff;
+        width: 100%; background: #ffffff;
         border: 1px solid #e5e5ea;
-        border-radius: 14px;
+        border-radius: 18px;
         padding: 12px 16px;
-        font-size: 14px;
-        color: #1d1d1f;
+        font-size: 14px; color: #1d1d1f;
         resize: none;
         transition: border-color 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
     }
-    .msg-input:focus {
-        outline: none;
-        border-color: #0071e3;
-    }
+    .msg-input:focus { outline: none; border-color: #0071e3; }
     .c-btn {
-        background: #0071e3;
-        color: #ffffff;
+        background: #0071e3; color: #ffffff;
         border-radius: 980px;
         padding: 10px 24px;
-        font-weight: 600;
-        font-size: 14px;
-        border: none;
-        cursor: pointer;
+        font-weight: 600; font-size: 14px;
+        border: none; cursor: pointer;
         transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
     }
     .c-btn:hover { background: #0077ed; transform: translateY(-1px); }
@@ -101,7 +74,7 @@
 <div class="min-h-screen p-6 md:p-8">
     <div class="max-w-3xl mx-auto">
 
-        <a href="{% url 'chat_analyzer:therapist_chat_threads' %}"
+        <a href="{% if request.user.role == 'doctor' %}{% url 'chat_analyzer:doctor_chat_threads' %}{% else %}{% url 'chat_analyzer:therapist_chat_threads' %}{% endif %}"
            class="c-pill bg-[#f5f5f7] text-[#6e6e73] hover:bg-[#e5e5ea] transition-colors duration-300 mb-4 inline-block">
             ← Back to Conversations
         </a>
@@ -114,41 +87,38 @@
                 </div>
                 <div class="flex-1">
                     <h2 class="c-title">{{ other.get_full_name }}</h2>
-                    <p class="text-xs text-[#86868b]">{{ thread.subject|default:"" }}</p>
+                    <p class="text-xs text-[#86868b]">{{ thread.subject|default:"Client" }}</p>
                 </div>
             </div>
 
             {% if messages %}
-            <div class="p-5 space-y-3" style="max-height: 480px; overflow-y: auto;">
+            <div id="chat-messages" class="p-5 space-y-3" style="max-height: 480px; overflow-y: auto;">
                 {% for msg in messages %}
                 <div class="{% if msg.sender == me %}flex justify-end{% else %}flex justify-start{% endif %}">
-                    <div>
-                        <div class="{% if msg.sender == me %}message-mine{% else %}message-theirs{% endif %}">
-                            {{ msg.message|linebreaksbr }}
-                            <div class="msg-time">
-                                {{ msg.sent_at|time:"H:i" }}
-                                {% if msg.sender == me %}
-                                <span class="msg-ticks" title="{% if msg.is_read %}Read{% else %}Delivered{% endif %}">
-                                    {% if msg.is_read %}
-                                    <!-- Blue double tick (read) -->
-                                    <svg class="tick tick-blue" viewBox="0 0 18 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Read">
-                                        <path d="M1 6.5L4 9.5L8 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                                        <path d="M7 6.5L10 9.5L17 1.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                                    </svg>
-                                    {% else %}
-                                    <!-- Grey double tick (delivered, not read) -->
-                                    <svg class="tick tick-grey" viewBox="0 0 18 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Delivered">
-                                        <path d="M1 6.5L4 9.5L8 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                                        <path d="M7 6.5L10 9.5L17 1.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                                    </svg>
-                                    {% endif %}
-                                </span>
+                    <div class="{% if msg.sender == me %}msg-mine{% else %}msg-theirs{% endif %}">
+                        {{ msg.message|linebreaksbr }}
+                        <div class="msg-time">
+                            <span>{{ msg.sent_at|time:"H:i" }}</span>
+                            {% if msg.sender == me %}
+                            <span title="{% if msg.is_read %}Read{% else %}Delivered{% endif %}">
+                                {% if msg.is_read %}
+                                <svg width="14" height="9" viewBox="0 0 18 12" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block; vertical-align:middle;">
+                                    <path d="M1 6.5L4 9.5L8 4.5" stroke="#34b7f1" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M7 6.5L10 9.5L17 1.5" stroke="#34b7f1" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                {% else %}
+                                <svg width="14" height="9" viewBox="0 0 18 12" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block; vertical-align:middle;">
+                                    <path d="M1 6.5L4 9.5L8 4.5" stroke="rgba(255,255,255,0.65)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M7 6.5L10 9.5L17 1.5" stroke="rgba(255,255,255,0.65)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
                                 {% endif %}
-                            </div>
+                            </span>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
                 {% endfor %}
+                <div id="chat-bottom"></div>
             </div>
             {% else %}
             <div class="p-10 text-center text-[#86868b]">
@@ -160,11 +130,24 @@
             <form method="post" class="border-t border-[#e5e5ea] p-4 flex gap-3">
                 {% csrf_token %}
                 <textarea name="message" rows="2" required placeholder="Type a message..."
-                          class="msg-input flex-1" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); this.form.submit();}"></textarea>
+                          class="msg-input flex-1"
+                          onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); this.form.submit();}"></textarea>
                 <button type="submit" class="c-btn self-end">Send</button>
             </form>
         </div>
 
     </div>
 </div>
+<script>
+    // Scroll to bottom on load — stays at latest message after send, not top
+    const chatBox = document.getElementById('chat-messages');
+    if (chatBox) {
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+    // Keep focus on the input after page reload
+    const textarea = document.querySelector('textarea[name="message"]');
+    if (textarea) {
+        textarea.focus();
+    }
+</script>
 {% endblock %}

@@ -1,0 +1,227 @@
+{% extends 'chat_analyzer/base.html' %}
+
+{% block title %}Upload Treatment Document - Sentiri{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Inter", sans-serif;
+        letter-spacing: -0.01em;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        background: #f5f5f7;
+    }
+    .d-card {
+        background: #ffffff;
+        border: 1px solid #e5e5ea;
+        border-radius: 18px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03), 0 8px 24px rgba(0, 0, 0, 0.05);
+    }
+    .d-title {
+        font-weight: 700;
+        font-size: 1.9rem;
+        letter-spacing: -0.02em;
+        color: #1d1d1f;
+    }
+    .d-subtitle { color: #6e6e73; }
+    .d-label {
+        color: #86868b; font-size: 0.75rem;
+        text-transform: uppercase; letter-spacing: 0.06em;
+        margin-bottom: 6px; display: block;
+    }
+    .d-input {
+        width: 100%; background: #ffffff;
+        border: 1px solid #e5e5ea;
+        border-radius: 14px;
+        padding: 12px 16px;
+        font-size: 14px; color: #1d1d1f;
+        transition: border-color 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .d-input:focus { outline: none; border-color: #0071e3; }
+    .d-btn {
+        background: #0071e3; color: #ffffff;
+        border-radius: 980px;
+        padding: 12px 28px;
+        font-weight: 600; font-size: 14px;
+        border: none; cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .d-btn:hover { background: #0077ed; transform: translateY(-1px); }
+    .d-pill {
+        display: inline-flex; align-items: center;
+        padding: 4px 12px; border-radius: 980px;
+        font-size: 12px; font-weight: 500;
+    }
+    .drop-zone {
+        border: 2px dashed #d2d2d7;
+        border-radius: 18px;
+        padding: 40px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+        border-color: #0071e3;
+        background: #f0f7ff;
+    }
+    .fade-up { animation: fadeUp 0.6s cubic-bezier(0.25, 0.1, 0.25, 1) both; }
+    @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(15px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen p-6 md:p-8">
+    <div class="max-w-4xl mx-auto">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-6 fade-up">
+            <div>
+                <h1 class="d-title">Treatment Documents 📄</h1>
+                <p class="d-subtitle mt-1">Upload Malay treatment guidelines for the knowledge base</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <a href="{% url 'chat_analyzer:doctor_dashboard' %}"
+                   class="d-pill bg-[#f5f5f7] text-[#6e6e73] hover:bg-[#e5e5ea] transition-colors duration-300">
+                    ← Dashboard
+                </a>
+                <a href="{% url 'chat_analyzer:chatbot' %}"
+                   class="d-pill bg-[#f5f5f7] text-[#6e6e73] hover:bg-[#e5e5ea] transition-colors duration-300">
+                    ← Chatbot
+                </a>
+            </div>
+        </div>
+
+        <!-- Messages -->
+        {% if messages %}
+        <div class="mb-6 space-y-2">
+            {% for message in messages %}
+            <div class="d-card p-4 text-sm
+                {% if message.tags == 'success' %}bg-[#e8f8ef] text-[#1d7a3f] border-[#c8f0d8]
+                {% elif message.tags == 'error' %}bg-[#ffe5ea] text-[#d70015] border-[#ffd0d8]
+                {% else %}bg-[#f5f5f7] text-[#6e6e73] border-[#e5e5ea]{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            <!-- Upload form -->
+            <div class="d-card p-6 fade-up">
+                <h2 class="text-lg font-semibold text-[#1d1d1f] mb-4">Upload New Document</h2>
+                <form method="post" enctype="multipart/form-data" id="upload-form">
+                    {% csrf_token %}
+                    <div class="mb-4">
+                        <label class="d-label">Document Title</label>
+                        <input type="text" name="title" required
+                               placeholder="e.g., Panduan Terapi ABA"
+                               class="d-input">
+                    </div>
+                    <div class="mb-4">
+                        <label class="d-label">Description (optional)</label>
+                        <textarea name="description" rows="2"
+                                  placeholder="Brief description of the document content..."
+                                  class="d-input" style="resize: none;"></textarea>
+                    </div>
+                    <div class="mb-5">
+                        <label class="d-label">File (PDF, TXT, or MD)</label>
+                        <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+                            <svg class="mx-auto mb-3" width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="#86868b">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                      d="M7 16a4 4 0 01-.88-7.9A5 5 0 1115.66 6.6M12 12v9m0-9l-3 3m3-3l3 3"/>
+                            </svg>
+                            <p class="text-sm text-[#6e6e73]" id="file-label">Click or drag a file here</p>
+                            <p class="text-xs text-[#a1a1a6] mt-1">PDF, TXT, or MD · Malay language preferred</p>
+                            <input type="file" name="file" id="file-input" accept=".pdf,.txt,.md" required
+                                   class="hidden" onchange="updateFileLabel(this)">
+                        </div>
+                    </div>
+                    <button type="submit" class="d-btn w-full">Upload & Process</button>
+                </form>
+            </div>
+
+            <!-- Existing documents -->
+            <div class="d-card p-6 fade-up">
+                <h2 class="text-lg font-semibold text-[#1d1d1f] mb-4">Knowledge Base ({{ documents|length }} docs)</h2>
+                {% if documents %}
+                <div class="space-y-3" style="max-height: 400px; overflow-y: auto;">
+                    {% for doc in documents %}
+                    <div class="border border-[#e5e5ea] rounded-2xl p-4">
+                        <div class="flex items-start justify-between gap-2 mb-2">
+                            <div class="flex-1">
+                                <h3 class="font-semibold text-[#1d1d1f] text-sm">{{ doc.title }}</h3>
+                                {% if doc.description %}
+                                <p class="text-xs text-[#86868b] mt-1">{{ doc.description }}</p>
+                                {% endif %}
+                            </div>
+                            {% if doc.status == 'ready' %}
+                            <span class="d-pill bg-[#e8f8ef] text-[#1d7a3f]">Ready</span>
+                            {% elif doc.status == 'processing' %}
+                            <span class="d-pill bg-[#fff4e5] text-[#bf6a00]">Processing</span>
+                            {% elif doc.status == 'pending' %}
+                            <span class="d-pill bg-[#f5f5f7] text-[#86868b]">Pending</span>
+                            {% elif doc.status == 'failed' %}
+                            <span class="d-pill bg-[#ffe5ea] text-[#d70015]">Failed</span>
+                            {% endif %}
+                        </div>
+                        <div class="flex items-center gap-3 text-xs text-[#86868b]">
+                            <span>{{ doc.chunks_created }} chunks</span>
+                            {% if doc.uploaded_by %}
+                            <span>· {{ doc.uploaded_by.get_full_name }}</span>
+                            {% endif %}
+                            <span>· {{ doc.created_at|date:"M j, H:i" }}</span>
+                        </div>
+                        {% if doc.error_message %}
+                        <p class="text-xs text-[#d70015] mt-2">{{ doc.error_message|truncatechars:80 }}</p>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-8">
+                    <p class="text-[#86868b] text-sm">No documents uploaded yet.</p>
+                    <p class="text-[#a1a1a6] text-xs mt-1">Upload your first treatment PDF →</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const fileLabel = document.getElementById('file-label');
+
+    // Drag and drop
+    dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', function() {
+        dropZone.classList.remove('dragover');
+    });
+    dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) {
+            fileInput.files = e.dataTransfer.files;
+            updateFileLabel(fileInput);
+        }
+    });
+
+    function updateFileLabel(input) {
+        if (input.files && input.files[0]) {
+            const name = input.files[0].name;
+            const size = (input.files[0].size / 1024).toFixed(1);
+            fileLabel.textContent = `${name} (${size} KB)`;
+            fileLabel.style.color = '#1d1d1f';
+            fileLabel.style.fontWeight = '500';
+        }
+    }
+</script>
+{% endblock %}

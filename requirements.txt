@@ -38,6 +38,15 @@ pillow==12.2.0             # Image processing (torchvision dependency)
 # markupsafe==3.0.3        # HTML escaping (jinja2 dependency)
 
 # ===== OPTIONAL (remove if not needed) =====
-# python-dotenv==1.0.1     # Environment variables (for secrets)
 # reportlab==4.2.2         # PDF export (future feature)
-# openpyxl==3.1.5          # Excel export (future feature)Sastrawi==1.0.1
+# openpyxl==3.1.5          # Excel export (future feature)
+Sastrawi==1.0.1            # Bahasa Malaysia stemmer (topic cleaning)
+
+# ===== DATABASE & DEPLOYMENT =====
+psycopg[binary]            # PostgreSQL driver (psycopg3)
+dj-database-url            # Env-based DB switching (Render pattern)
+python-dotenv              # Load .env for local dev
+
+# ===== ASYNC TASK QUEUE =====
+celery==5.6.3              # Task queue for delayed ML analysis
+redis==8.1.0               # Broker for Celery (message bus)

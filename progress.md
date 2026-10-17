@@ -613,4 +613,207 @@ Plus: added ~130 English stopwords to `topic_stopwords.txt` (was Malay-only, 123
 3. Tests + evaluation metrics (sentiment accuracy, topic coherence scores).
 4. DRF endpoints.
 
+---
+
+## 2026-10-16 — Infrastructure migration: SQLite → PostgreSQL + Celery/Redis async stack
+
+### What we did
+- **Why:** App needs to deploy to Render. Render's ephemeral filesystem wipes SQLite on every
+  deploy — PostgreSQL is a deployment requirement, not a preference. Nik confirmed from prior
+  e-commerce project experience.
+- **PostgreSQL 17.11 installed via Homebrew**, started as a background service (`brew services start`).
+  Created user `nik` + database `sentiri_chat`. Verified connection.
+- **Redis 8.10 installed via Homebrew**, started as background service. Verified PONG.
+- **Python packages installed in venv** (Python 3.14.7): `psycopg[binary]` (Postgres driver),
+  `dj-database-url` (env-based DB switching — the Render pattern), `python-dotenv`, `celery==5.6.3`,
+  `redis==8.1.0`. Django remains at 6.1.1 (Celery 5.6 is compatible).
+- **Settings refactor (`settings.py`):**
+  - `load_dotenv()` at top — loads `.env` for local dev (Render injects env vars directly).
+  - `DATABASES` now env-aware: if `DATABASE_URL` set → PostgreSQL via `dj_database_url.config()`
+    with `conn_max_age=600` (pooling) + `conn_health_checks=True`; if `USE_SQLITE=1` or no
+    `DATABASE_URL` → SQLite fallback. This is the standard Render deployment pattern.
+  - Celery config block: `CELERY_BROKER_URL` + `CELERY_RESULT_BACKEND` from `REDIS_URL` env var.
+- **`celery.py` created** in project package — standard Django+Celery integration:
+  `app = Celery('finalyearengineredo')`, `config_from_object('django.conf:settings')`,
+  `autodiscover_tasks()`. `__init__.py` updated to export `celery_app`.
+- **`.env` created** with `DATABASE_URL`, `REDIS_URL`, `USE_SQLITE=0`. Added `.env` to `.gitignore`.
+- **Data migration:** `dumpdata` from SQLite (USE_SQLITE=1 flag) → 876 objects → `loaddata` into
+  PostgreSQL. Verified row counts match: 20 users, 243 conversations, 5 topics, 333 messagetopic,
+  4 chatthreads, 15 chatmessages, 56 uploadhistory. Zero data loss.
+- **Celery worker tested:** started worker, `inspect ping` → `celery@apples-MacBook-Pro.local: OK`.
+  Full stack alive: Postgres + Redis + Celery + Django.
+- **`requirements.txt` updated** with new packages + comments.
+
+### What Nik learned
+- **`dj_database_url` is the Render pattern.** You don't hardcode `DATABASES` — you let
+  `DATABASE_URL` env var switch between dev (SQLite) and prod (Postgres). One settings file,
+  two environments.
+- **`conn_max_age=600`** = connection pooling. Without it, Django opens a new DB connection per
+  request (expensive on Postgres). With it, connections are reused for 10 minutes.
+- **Celery architecture:** Django (producer) → Redis (broker/message bus) → Celery worker (consumer).
+  Django hands a task to Redis; Redis holds it; the worker picks it up. Three processes, one pipeline.
+- **`app.autodiscover_tasks()`** scans every installed app for `tasks.py` — that's where we'll
+  put the delayed ML analysis function.
+- **Python version matters.** System Python is 3.9.6 (can't run Django 6.x). Venv Python is 3.14.7.
+  Always activate venv before pip install — or you install into the wrong Python.
+
+### What's next (the actual feature, now that infra is ready)
+1. Write `chat_analyzer/tasks.py` — `@shared_task` that takes a Conversation ID, runs
+   `clean_text → XLM-R predict → TopicMapper.match`, writes results back. Delay = `countdown=300`.
+2. Write the bridge: when a client sends a `ChatMessage`, create a `Conversation` row (is_from_client=True,
+   chat_type='individual') and fire the Celery task with 5-min delay.
+3. Verify end-to-end: send chat message → wait 5 min → see sentiment + topic on the Conversation row.
+4. Only client messages get bridged (therapist replies → is_from_client=False, excluded from topics,
+   same as WhatsApp staff exclusion).
+
+---
+
+## 2026-10-16 (cont.) — Async ML pipeline BUILT + VERIFIED: tasks.py + bridge + Celery
+
+### What we did
+- **`chat_analyzer/tasks.py` created** — `@shared_task analyze_live_message(conversation_id)`:
+  1. Load Conversation row (return early if not found / already analyzed — idempotent)
+  2. `clean_for_sentiment()` → write `cleaned_text` + `is_cleaned_sentiment=True`
+  3. `analyze_sentiment()` (XLM-R) → write `sentiment`, `sentiment_score`, `sentiment_confidence`
+  4. `clean_for_topic_modeling()` → write `cleaned_text_topic` + `is_cleaned_topic=True`
+  5. Save (sentiment + cleaned text persisted even if topic mapping fails)
+  6. If `is_from_client=True`: `TopicMapper.map_message_with_alternatives()` against 5 active topics
+  7. Write `MessageTopic` rows (same `update_or_create` pattern as `topic_modeler.py`)
+  8. Set `is_processed=True`, save, return result dict
+  - Staff messages (`is_from_client=False`): sentiment only, topic mapping skipped (same exclusion as WhatsApp)
+  - `max_retries=3`, `default_retry_delay=60` — if XLM-R fails, Celery retries in 1 min
+
+- **Bridge wired in `views.py:chat_thread_detail`** — after `ChatMessage.objects.create()`:
+  1. Create a `Conversation` row (client, sender, is_from_client, date/time, message, chat_type='individual')
+  2. `message_hash` = SHA256 of `live-{thread_id}-{user_id}-{timestamp}` (unique per message)
+  3. `analyze_live_message.apply_async(args=[conv.id], countdown=300)` — 5-minute delay
+  - Only fires for messages sent via the chat UI (not WhatsApp uploads — those have their own pipeline)
+
+- **Celery 5.6 + Python 3.14 bug found and fixed:** `fast_trace_task` ValueError in prefork pool.
+  Root cause: Celery 5.6's C-optimized trace path incompatible with Python 3.14's multiprocessing.
+  Fix: `--pool=solo` (single-process worker). Settings: `CELERY_WORKER_POOL` env-configurable
+  (solo for local dev, prefork for production where Celery 5.5+ or Python 3.12 may be used).
+
+- **VERIFIED END-TO-END (2 tests):**
+  - **Sync test** (direct function call): "anak saya tidur pukul 3 pagi semalam, risau betul"
+    → Sentiment: negative (-0.95, conf 97%) → Topic: Sleep and Routine (primary, score=2.00) ✅
+  - **Async test** (Celery worker, 15s delay): "anak marah and menangis kat sekolah hari ni"
+    → Celery worker received task after 15s countdown → ran full pipeline in 1.56s
+    → Sentiment: negative (-0.98, conf 99%) → Topic: Behaviour and Transitions (primary, score=3.50) ✅
+  - Worker logs show: Sastrawi loaded (root words, typos, emoji, slang, domain words, stopwords)
+    → XLM-R inference → TopicMapper → MessageTopic written to Postgres. Full pipeline reuse confirmed.
+
+- **Test data cleaned up** — 3 test Conversation rows + 2 MessageTopic rows deleted. DB back to 243 conversations.
+
+### What Nik learned
+- **Pipeline reuse is the whole point.** The Celery task is 40 lines of glue code — it calls
+  the SAME `clean_for_sentiment`, `analyze_sentiment`, `clean_for_topic_modeling`,
+  `TopicMapper.map_message_with_alternatives` functions that `train_topics` uses. Zero ML code
+  duplicated. One pipeline, two input sources (WhatsApp batch + live chat async).
+- **`@shared_task(bind=True, max_retries=3)`** = self-healing tasks. If XLM-R hiccups, Celery
+  retries automatically. `apply_async(countdown=300)` = the 5-minute delay lives in the Redis
+  queue, not in Python's `time.sleep` — survives tab close, server restart, anything.
+- **`--pool=solo` vs `--pool=prefork`:** prefork spawns child processes (parallelism, but
+  triggers the Python 3.14 trace bug). Solo runs single-process (no parallelism, but reliable).
+  For FYP scale (one therapist, few clients), solo is fine. Production would use prefork with
+  a compatible Python version.
+- **Idempotency:** the task checks `if conv.sentiment is not None: skip` — safe to retry without
+  duplicating analysis. Same pattern as production task queues.
+- **The bridge is the architectural decision:** ChatMessage stays UI-only (threading, read state).
+  Conversation holds all ML fields. The bridge connects them at send time. One DB write for UI,
+  one for ML, one Celery task for deferred analysis — three concerns, cleanly separated.
+
+### What's next
+1. Test through the actual chat UI (log in as client, send message, verify Conversation row appears).
+2. Viva sweep: signal guard test + unpaid questions.
+3. Doctor dashboard verification with clean 5-topic data.
+4. Tests + evaluation metrics (sentiment accuracy, topic coherence).
+5. DRF endpoints.
+
+---
+
+## 2026-10-16 (Phase 2 start) — RAG Pipeline: infra setup + models + service + Celery task + chatbot view + template (PARTIALLY COMPLETE)
+
+### What we did
+- **RAG dependencies installed** in venv: chromadb 1.5.9, langchain 1.4.6,
+  langchain-community 0.4.2, langchain-text-splitters, pypdf, pymupdf, langchain-groq.
+- **Models created + migrated** (`0013_chatquery_treatmentdocument.py`):
+  - `TreatmentDocument` — tracks uploaded PDFs (status: pending→processing→ready/failed,
+    chunks_created, uploaded_by scoped to doctor/admin, file upload to treatment_docs/)
+  - `ChatQuery` — logs user questions + RAG answers + sources + confidence + response time
+- **`rag_service.py` created** (full pipeline, ~400 lines):
+  - `ingest_document(file_path, title)` — load PDF/txt → chunk (1000/200 overlap) →
+    embed with `paraphrase-multilingual-MiniLM-L12-v2` → store in ChromaDB
+  - `query(question)` — retrieve top 20 → rerank to top 5 (cross-encoder) →
+    build context → generate answer via Groq LLM → return answer + sources + confidence
+  - `get_collection_stats()` — chunk count for dashboard
+  - `delete_document_chunks(title)` — cleanup
+  - Singleton pattern: embedding model + reranker + ChromaDB loaded once, reused
+  - **Key change from PersonalRAG:** embedding model switched from all-MiniLM-L6-v2
+    (English) to paraphrase-multilingual-MiniLM-L12-v2 (Malay-compatible)
+  - **Groq model change:** llama-3.3-70b-versatile deprecated → switched to
+    openai/gpt-oss-120b (verified available via Groq API)
+- **3 test Malay PDFs generated** (reportlab): terapi_pertuturan_autism.pdf,
+  tingkah_laku_cabaran_autism.pdf, terapi_pemakanan_autism.pdf. Each 4-5K, multi-section,
+  realistic Malaysian autism clinic content.
+- **Ingestion verified:** 3 PDFs → 14 chunks in ChromaDB ✅
+- **Full RAG pipeline verified end-to-end:** "Apakah teknik yang digunakan dalam terapi
+  pertuturan untuk kanak-kanak autism?" → correct answer about PECS, AAC, floor time +
+  5 sources cited + 99.85% confidence ✅
+- **Celery task created** (`ingest_treatment_document` in tasks.py):
+  - Takes document_id, loads TreatmentDocument, calls rag_service.ingest_document()
+  - Updates status: pending→processing→ready/failed
+  - max_retries=2, default_retry_delay=30
+- **Views created:**
+  - `chatbot_view` — renders chatbot page, shows recent queries + vector store stats
+  - `chatbot_ask` — POST endpoint, calls rag_service.query(), logs to ChatQuery, returns JSON
+  - `doctor_upload_document` — doctor/admin uploads PDF, creates TreatmentDocument,
+    fires Celery ingestion task
+- **URLs added:** /chatbot/, /chatbot/ask/, /dashboard/doctor/upload-document/
+- **Chatbot template created** (`chatbot.html`):
+  - Apple design, chat interface (user messages right blue, AI left grey)
+  - Source chips under each answer
+  - Typing indicator (animated dots)
+  - Confidence + response time display
+  - Fetch API for async question submission (no page reload)
+  - Shows recent query history
+  - Knowledge base status bar (chunk count)
+
+### Also done this session (before RAG):
+- **PostgreSQL migration:** SQLite → PostgreSQL 17 (db=sentiri_chat, user=nik).
+  876 rows migrated, zero loss. `dj_database_url` env-aware settings (Render-ready).
+- **Redis + Celery setup:** both installed, running, verified.
+- **Async ML pipeline:** `tasks.py analyze_live_message` + bridge in views.py.
+  Celery worker verified (sync + async, 15s delay test).
+- **Timezone fix:** UTC → Asia/Kuala_Lumpur.
+- **Therapist dashboard "Recent Analyzed Messages" widget:** table with sentiment +
+  topic pills, sorted by message date (not import time).
+- **Context processor:** `unread_counts` — red unread badge on every page.
+- **Admin.py lazy import fix:** moved `upload_service` import from class body to
+  method body. Django startup 5.5s → 0.3s (17× faster).
+- **Chat template fixes:** scroll-to-bottom on send (both therapist + client),
+  bubble sizing fix (removed extra wrapper div).
+
+### What's NOT done yet (resume here)
+1. ⬜ **Doctor upload document template** (`doctor/upload_document.html`) — form not created yet
+2. ⬜ **Chatbot link on dashboards** — client/therapist/doctor navbars need link to /chatbot/
+3. ⬜ **Celery worker test with actual document upload** — verified pipeline manually,
+   but not through the web UI + Celery worker together
+4. ⬜ **Client chatbot template** — `client/chatbot.html` (extends base_client.html)
+5. ⬜ **End-to-end verify through browser** — log in as doctor, upload PDF, then log in
+   as client, ask question, get answer
+
+### What Nik learned
+- **RAG = retrieval + generation.** The pipeline is: chunk → embed → store → retrieve →
+  rerank → build context → LLM generate. Each step is a separate function, testable alone.
+- **Multilingual embeddings matter.** all-MiniLM-L6-v2 is English-focused and would perform
+  poorly on Malay. paraphrase-multilingual-MiniLM-L12-v2 handles both, same 384 dim.
+- **Groq model names change.** llama-3.3-70b-versatile was deprecated. Always check
+  `GET /v1/models` to see what's available before hardcoding.
+- **Singleton pattern for ML models.** Embedding model + reranker load once, reuse across
+  queries. Loading on every request would be 5s per question.
+- **Same Celery pattern for RAG ingestion as live chat analysis.** Document upload fires
+  `ingest_treatment_document.delay(doc_id)` — heavy PDF processing runs in background,
+  user doesn't wait. Status tracked in TreatmentDocument model.
+
 
