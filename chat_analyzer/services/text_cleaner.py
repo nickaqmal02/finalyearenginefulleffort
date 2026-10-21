@@ -440,14 +440,14 @@ def batch_clean_conversations(force=False):
     topic_count = 0
 
     for conv in conversations:
-        # Clean for sentiment
-        if not conv.is_cleaned_sentiment:
+        # Clean for sentiment (force re-cleans even if flag is True)
+        if force or not conv.is_cleaned_sentiment:
             conv.cleaned_text = cleaner.clean_for_sentiment(conv.message)
             conv.is_cleaned_sentiment = True
             sentiment_count += 1
 
-        # Clean for topic modeling
-        if not conv.is_cleaned_topic:
+        # Clean for topic modeling (force re-cleans even if flag is True)
+        if force or not conv.is_cleaned_topic:
             conv.cleaned_text_topic = cleaner.clean_for_topic_modeling(conv.message)
             conv.is_cleaned_topic = True
             topic_count += 1
