@@ -107,21 +107,54 @@ def check_availability(request):
                 "time": time_str,
             })
 
-        # ── LAYER 3: Slot conflict ──
-        # Is there already a booking at this date+time with this staff?
-        # Allow 1-hour slots: check if any booking overlaps within the same hour
-        booking_exists = SessionBooking.objects.filter(
+        # ── LAYER 3: Slot conflict (staff side) ──
+        # 1-hour session: target_time → target_time + 1hr
+        # Overlap check: two ranges overlap if start_A < end_B AND start_B < end_A
+        from datetime import timedelta as td
+        from datetime import datetime as dt
+        target_end = (dt.combine(date.today(), target_time) + td(hours=1)).time()
+
+        staff_conflict = SessionBooking.objects.filter(
             staff=staff,
             date=target_date,
-            start_time__lte=target_time,
-            end_time__gt=target_time,
             status__in=["pending", "confirmed"],
+            start_time__lt=target_end,   # existing starts before new ends
+            end_time__gt=target_time,    # existing ends after new starts
         ).exists()
 
-        if booking_exists:
+        if staff_conflict:
             return JsonResponse({
                 "available": False,
-                "reason": f"Slot {time_str} on {date_str} is already booked with {staff.get_full_name()}.",
+                "reason": f"{staff.get_full_name()} already has a session overlapping {time_str} on {date_str}.",
+                "staff_name": staff.get_full_name(),
+                "date": date_str,
+                "time": time_str,
+            })
+
+        # ── LAYER 4: Slot conflict (client side) ──
+        # No overlap: a client can't have two sessions at the same time,
+        # even with different staff members.
+        # n8n calls this API without Django auth, so we use client_id from the body
+        client_id_from_body = data.get("client_id")
+        client_conflict = False
+        if client_id_from_body:
+            from chat_analyzer.models import User as UserModel
+            try:
+                client_user = UserModel.objects.get(id=client_id_from_body, role="client")
+                client_conflict = SessionBooking.objects.filter(
+                    client=client_user,
+                    date=target_date,
+                    status__in=["pending", "confirmed"],
+                    start_time__lt=target_end,
+                    end_time__gt=target_time,
+                ).exists()
+            except UserModel.DoesNotExist:
+                pass
+
+        if client_conflict:
+            return JsonResponse({
+                "available": False,
+                "reason": f"The client already has a session overlapping {time_str} on {date_str}.",
                 "staff_name": staff.get_full_name(),
                 "date": date_str,
                 "time": time_str,
@@ -192,7 +225,7 @@ def book_session(request):
         weekday = target_date.weekday()
 
         # ── Re-run all 3 layers before booking ──
-        # Layer 1
+        # Layer 1 — check schedule exists
         try:
             schedule = StaffSchedule.objects.get(staff=staff, day_of_week=weekday)
         except StaffSchedule.DoesNotExist:
@@ -201,7 +234,15 @@ def book_session(request):
                 "reason": f"{staff.get_full_name()} does not work on {target_date.strftime('%A')}."
             })
 
-        if not schedule.is_available or not (schedule.start_time <= target_time <= schedule.end_time):
+        # Check if this day is available (not a regular day off)
+        if not schedule.is_available:
+            return JsonResponse({
+                "success": False,
+                "reason": f"{staff.get_full_name()} does not work on {target_date.strftime('%A')}s."
+            })
+
+        # Check if requested time is within office hours
+        if not (schedule.start_time <= target_time <= schedule.end_time):
             return JsonResponse({
                 "success": False,
                 "reason": f"Time {time_str} is outside office hours ({schedule.start_time.strftime('%H:%M')}-{schedule.end_time.strftime('%H:%M')})."
@@ -214,19 +255,31 @@ def book_session(request):
                 "reason": f"{staff.get_full_name()} is off on {date_str}."
             })
 
-        # Layer 3 — slot conflict
+        # Layer 3 — slot conflict (staff side, proper overlap check)
+        target_end = (datetime.combine(date.today(), target_time) + timedelta(hours=1)).time()
         if SessionBooking.objects.filter(
             staff=staff, date=target_date,
-            start_time__lte=target_time, end_time__gt=target_time,
+            start_time__lt=target_end, end_time__gt=target_time,
             status__in=["pending", "confirmed"],
         ).exists():
             return JsonResponse({
                 "success": False,
-                "reason": f"Slot {time_str} on {date_str} is already booked."
+                "reason": f"{staff.get_full_name()} has a session overlapping {time_str} on {date_str}."
             })
 
-        # ✅ Create the booking (default 1-hour session)
-        end_time = (datetime.combine(date.today(), target_time) + timedelta(hours=1)).time()
+        # Layer 4 — slot conflict (client side, no double-booking)
+        if SessionBooking.objects.filter(
+            client=client, date=target_date,
+            start_time__lt=target_end, end_time__gt=target_time,
+            status__in=["pending", "confirmed"],
+        ).exists():
+            return JsonResponse({
+                "success": False,
+                "reason": f"The client already has a session overlapping {time_str} on {date_str}."
+            })
+
+        # ✅ Create the booking (1-hour session)
+        end_time = target_end
         booking = SessionBooking.objects.create(
             client=client,
             staff=staff,
@@ -367,3 +420,106 @@ def staff_schedule(request):
         return JsonResponse({
             "reason": f"Staff with ID {staff_id} not found."
         }, status=404)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def n8n_callback(request):
+    """Receives the AI Agent's reply from n8n after processing.
+
+    n8n calls this endpoint via the Callback to Django HTTP node.
+    Stores the reply in a temp file keyed by client_id.
+    """
+    import json as _json
+    import os
+    from django.utils import timezone
+    data = _json.loads(request.body)
+    reply = data.get('reply', '')
+    client_id = data.get('client_id', 'unknown')
+
+    # Write to temp file — Django's reservation_ask polls for this
+    filepath = f'/tmp/n8n_reply_{client_id}.json'
+    with open(filepath, 'w') as f:
+        _json.dump({'reply': reply, 'timestamp': str(timezone.now())}, f)
+
+    return JsonResponse({'status': 'received'})
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def poll_reply(request):
+    """Frontend polls this to check if n8n's AI reply is ready.
+
+    Expects: ?client_id=12
+    Returns: {"ready": true, "reply": "..."} or {"ready": false}
+    """
+    import os
+    client_id = request.GET.get("client_id")
+    if not client_id:
+        return JsonResponse({"ready": False, "reason": "Missing client_id"})
+
+    reply_file = f"/tmp/n8n_reply_{client_id}.json"
+    if os.path.exists(reply_file):
+        import json as _json
+        with open(reply_file) as f:
+            data = _json.load(f)
+        os.remove(reply_file)
+        return JsonResponse({"ready": True, "reply": data.get("reply", "")})
+    
+    return JsonResponse({"ready": False})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def cancel_booking(request):
+    """Cancel a session booking.
+
+    Expects JSON body:
+    {
+        "booking_id": 42,
+        "client_id": 10
+    }
+
+    Returns:
+    {
+        "success": true,
+        "message": "Booking cancelled."
+    }
+    """
+    try:
+        data = json.loads(request.body)
+        booking_id = data.get("booking_id")
+        client_id = data.get("client_id")
+
+        if not booking_id or not client_id:
+            return JsonResponse({
+                "success": False,
+                "reason": "Missing required fields: booking_id, client_id"
+            }, status=400)
+
+        booking = SessionBooking.objects.get(id=booking_id, client_id=client_id)
+
+        if booking.status == "cancelled":
+            return JsonResponse({
+                "success": False,
+                "reason": "This booking is already cancelled."
+            })
+
+        booking.status = "cancelled"
+        booking.save()
+
+        return JsonResponse({
+            "success": True,
+            "message": f"Booking on {booking.date} at {booking.start_time} with {booking.staff.get_full_name()} has been cancelled.",
+        })
+
+    except SessionBooking.DoesNotExist:
+        return JsonResponse({
+            "success": False,
+            "reason": "Booking not found or does not belong to this client."
+        }, status=404)
+    except ValueError as e:
+        return JsonResponse({
+            "success": False,
+            "reason": f"Invalid format: {str(e)}"
+        }, status=400)

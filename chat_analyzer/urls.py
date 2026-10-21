@@ -26,6 +26,9 @@ urlpatterns = [
     path("dashboard/therapist/", views.therapist_dashboard, name='therapist_dashboard'),
     path("dashboard/therapist/client/<int:client_id>/", views.therapist_client_detail, name='therapist_client_detail'),
     path("dashboard/therapist/upload/", views.therapist_upload_chat, name='therapist_upload_chat'),
+    path("dashboard/therapist/notifications/", views.therapist_notifications, name='therapist_notifications'),
+    path("dashboard/notifications/<int:notification_id>/read/", views.mark_notification_read, name='mark_notification_read'),
+    path("dashboard/notifications/read-all/", views.mark_all_notifications_read, name='mark_all_notifications_read'),
     path("dashboard/doctor/", views.doctor_dashboard, name='doctor_dashboard'),
     path("dashboard/doctor/approve/<int:doc_id>/", views.doctor_approve_document, name='doctor_approve_document'),
     path("dashboard/client/", views.client_dashboard, name='client_dashboard'),
@@ -84,5 +87,9 @@ urlpatterns = [
     path("api/book-session/", api_views.book_session, name="api_book_session"),
     path("api/list-sessions/", api_views.list_sessions, name="api_list_sessions"),
     path("api/staff-schedule/", api_views.staff_schedule, name="api_staff_schedule"),
+    path("api/cancel-booking/", api_views.cancel_booking, name="api_cancel_booking"),
+    path("api/n8n-callback/", api_views.n8n_callback, name="api_n8n_callback"),
+    path("api/poll-reply/", api_views.poll_reply, name="api_poll_reply"),
+    path("reservation/bookings/refresh/", views.reservation_bookings_partial, name="reservation_bookings_refresh"),
 
 ]

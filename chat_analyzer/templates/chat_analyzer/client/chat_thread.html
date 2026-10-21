@@ -16,7 +16,7 @@
         <div class="glass rounded-3xl card-shadow-lg overflow-hidden">
             <!-- Thread header -->
             <div class="flex items-center gap-3 p-5 border-b border-gray-200/50">
-                <div class="w-11 h-11 rounded-full bg-gradient-to-br from-green-400 to-teal-500 flex items-center justify-center text-white font-bold">
+                <div class="w-11 h-11 rounded-full bg-green-500 flex items-center justify-center text-white font-bold">
                     {{ other.first_name|first }}{{ other.last_name|first }}
                 </div>
                 <div class="flex-1">
@@ -29,8 +29,13 @@
             <div id="chat-messages" class="p-5 space-y-3" style="max-height: 480px; overflow-y: auto;">
                 {% for msg in messages %}
                 <div class="{% if msg.sender == me %}flex justify-end{% else %}flex justify-start{% endif %}">
-                    <div class="{% if msg.sender == me %}bg-gradient-to-br from-blue-500 to-purple-500 text-white rounded-2xl rounded-br-sm px-4 py-2 max-w-[70%]{% else %}bg-white/70 text-gray-900 rounded-2xl rounded-bl-sm px-4 py-2 max-w-[70%]{% endif %}">
+                    <div class="{% if msg.sender == me %}bg-blue-500 text-white rounded-2xl rounded-br-sm px-4 py-2 max-w-[70%]{% else %}bg-white/70 text-gray-900 rounded-2xl rounded-bl-sm px-4 py-2 max-w-[70%]{% endif %}">
+                        {% if msg.image %}
+                        <img src="{{ msg.image.url }}" alt="Shared image" class="rounded-xl mb-2 max-w-full" style="max-height: 240px; object-fit: cover;">
+                        {% endif %}
+                        {% if msg.message %}
                         {{ msg.message|linebreaksbr }}
+                        {% endif %}
                         <div class="text-[10px] {% if msg.sender == me %}text-white/70{% else %}text-gray-500{% endif %} mt-1 flex items-center gap-1">
                             <span>{{ msg.sent_at|time:"H:i" }}</span>
                             {% if msg.sender == me %}
@@ -55,15 +60,41 @@
             </div>
             {% endif %}
 
-            <!-- Composer -->
-            <form method="post" class="border-t border-gray-200/50 p-4 flex gap-3">
+            <!-- Composer — WhatsApp style -->
+            <form method="post" enctype="multipart/form-data" class="border-t border-gray-200/50 p-3 flex gap-2 items-end">
                 {% csrf_token %}
-                <textarea name="message" rows="2" required placeholder="Type a message..."
-                          class="flex-1 bg-white/70 border border-gray-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 resize-none"
-                          onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); this.form.submit();}"></textarea>
+                <div class="relative flex-1 flex items-end bg-white rounded-3xl border border-gray-200 shadow-sm">
+                    <!-- Image upload button (left) -->
+                    <button type="button" onclick="document.getElementById('image-input').click()"
+                            class="shrink-0 w-11 h-11 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors">
+                        <svg class="w-6 h-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                        </svg>
+                    </button>
+                    <input type="file" name="image" id="image-input" accept="image/*" class="hidden" onchange="document.getElementById('image-name').textContent = this.files[0] ? this.files[0].name : ''; document.getElementById('image-preview').classList.toggle('hidden', !this.files[0]);">
+                    <!-- Textarea -->
+                    <textarea name="message" rows="1" placeholder="Type a message..."
+                              class="flex-1 bg-transparent border-none px-2 py-3 text-sm focus:outline-none resize-none"
+                              onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); this.form.submit();}"></textarea>
+                    <!-- Emoji button (right) -->
+                    <button type="button" id="emoji-btn"
+                            class="shrink-0 text-2xl w-11 h-11 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors">
+                        😊
+                    </button>
+                    {% include 'chat_analyzer/partials/emoji_picker.html' %}
+                </div>
+                <!-- Image preview (shows when file selected) -->
+                <div id="image-preview" class="hidden absolute bottom-20 left-4 bg-white rounded-2xl border border-gray-200 shadow-lg p-2 flex items-center gap-2 z-50">
+                    <img id="image-preview-img" class="w-12 h-12 rounded-lg object-cover" alt="preview">
+                    <span id="image-name" class="text-xs text-gray-600 max-w-[120px] truncate"></span>
+                    <button type="button" onclick="document.getElementById('image-input').value=''; document.getElementById('image-preview').classList.add('hidden');" class="text-red-500 text-xs">✕</button>
+                </div>
+                <!-- Send button -->
                 <button type="submit"
-                        class="self-end bg-blue-600 hover:bg-blue-700 text-white rounded-full px-5 py-2.5 text-sm font-semibold transition-colors">
-                    Send
+                        class="shrink-0 w-11 h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center transition-colors">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
                 </button>
             </form>
         </div>
@@ -81,6 +112,20 @@
     if (textarea) {
         textarea.focus();
     }
+
+    // Image preview — show thumbnail when user selects a file
+    document.getElementById('image-input').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                document.getElementById('image-preview-img').src = ev.target.result;
+            };
+            reader.readAsDataURL(file);
+            document.getElementById('image-name').textContent = file.name;
+            document.getElementById('image-preview').classList.remove('hidden');
+        }
+    });
 </script>
 
 {% endblock %}

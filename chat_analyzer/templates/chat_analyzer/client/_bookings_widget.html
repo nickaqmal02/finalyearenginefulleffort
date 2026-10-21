@@ -1,0 +1,38 @@
+{# Partial template — bookings widget only, returned via AJAX #}
+{# Injected into #bookings-widget on the reservation page #}
+
+<div class="space-y-2">
+    {% for booking in upcoming_bookings %}
+    <div class="bg-white rounded-2xl border border-gray-200 p-4 flex items-center gap-4 hover:shadow-md transition-shadow" id="booking-{{ booking.id }}">
+        <div class="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center text-white font-bold shrink-0">
+            {{ booking.staff.first_name|first }}{{ booking.staff.last_name|first }}
+        </div>
+        <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+                <h3 class="font-semibold text-gray-900 text-sm">{{ booking.staff.get_full_name }}</h3>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-medium
+                    {% if booking.status == 'confirmed' %}bg-green-100 text-green-700
+                    {% elif booking.status == 'pending' %}bg-yellow-100 text-yellow-700
+                    {% else %}bg-gray-100 text-gray-600{% endif %}">
+                    {{ booking.status|title }}
+                </span>
+            </div>
+            <p class="text-xs text-gray-500 mt-0.5">
+                {{ booking.date|date:"l, j F Y" }} at {{ booking.start_time|time:"H:i" }}
+            </p>
+        </div>
+        <div class="text-right shrink-0">
+            <p class="text-xs text-gray-400">{{ booking.date|date:"M j" }}</p>
+            <p class="text-sm font-bold text-gray-700">{{ booking.start_time|time:"H:i" }}</p>
+        </div>
+        <button onclick="cancelBooking({{ booking.id }}, {{ client_user.id }})"
+                class="text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg p-2 transition-colors"
+                title="Cancel this booking">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
+            </svg>
+        </button>
+    </div>
+    {% endfor %}
+</div>

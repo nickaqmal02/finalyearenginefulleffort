@@ -443,6 +443,22 @@ def therapist_dashboard(request):
             'topic_score': topic_entry.score if topic_entry else None,
         })
 
+    # ── UPCOMING APPOINTMENTS ──
+    from .models import SessionBooking, Notification
+    from django.utils import timezone
+    today = timezone.now().date()
+    upcoming_bookings = SessionBooking.objects.filter(
+        staff=therapist,
+        date__gte=today,
+        status__in=['pending', 'confirmed'],
+    ).select_related('client').order_by('date', 'start_time')[:10]
+
+    # Unread notifications count for navbar badge
+    unread_notifications = Notification.objects.filter(
+        recipient=therapist,
+        is_read=False,
+    ).count()
+
     context = {
         'therapist': therapist,
         'clients': client_data,
@@ -452,6 +468,10 @@ def therapist_dashboard(request):
         'avg_sentiment': round(avg_sentiment, 2),
         'recent_chats': recent_chats_data,
         'recent_analyzed': recent_analyzed_data,
+        'upcoming_bookings': upcoming_bookings,
+        'today_bookings': [b for b in upcoming_bookings if b.date == today],
+        'today': today,
+        'unread_notifications': unread_notifications,
     }
     return render(request, 'chat_analyzer/MainTherapist/dashboard.html', context)
 
@@ -496,6 +516,57 @@ def therapist_upload_chat(request):
         'form': form,
         'therapist': therapist,
     })
+
+
+@login_required
+def therapist_notifications(request):
+    """Therapist notifications page — shows all notifications with unread count."""
+    from .models import Notification
+
+    notifications = Notification.objects.filter(
+        recipient=request.user
+    ).select_related('sender', 'related_booking', 'related_booking__client').order_by('-created_at')
+
+    unread_count = notifications.filter(is_read=False).count()
+
+    return render(request, 'chat_analyzer/MainTherapist/notifications.html', {
+        'notifications': notifications[:30],
+        'unread_count': unread_count,
+    })
+
+
+@login_required
+def mark_notification_read(request, notification_id):
+    """Mark a single notification as read. Returns JSON for AJAX."""
+    from .models import Notification
+    from django.views.decorators.http import require_http_methods
+
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+
+    try:
+        notif = Notification.objects.get(id=notification_id, recipient=request.user)
+        notif.is_read = True
+        notif.read_at = timezone.now()
+        notif.save()
+        return JsonResponse({'success': True, 'id': notification_id})
+    except Notification.DoesNotExist:
+        return JsonResponse({'error': 'Not found'}, status=404)
+
+
+@login_required
+def mark_all_notifications_read(request):
+    """Mark all notifications as read. Returns JSON for AJAX."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+
+    from .models import Notification
+    count = Notification.objects.filter(
+        recipient=request.user,
+        is_read=False,
+    ).update(is_read=True, read_at=timezone.now())
+
+    return JsonResponse({'success': True, 'marked_read': count})
 
 
 @therapist_required
@@ -633,11 +704,15 @@ def chat_thread_detail(request, thread_id):
     # Handle "send message" POST
     if request.method == 'POST':
         text = request.POST.get('message', '').strip()
-        if text:
-            ChatMessage.objects.create(
+        image = request.FILES.get('image')
+
+        # Require either text or an image
+        if text or image:
+            msg = ChatMessage.objects.create(
                 thread=thread,
                 sender=request.user,
                 message=text,
+                image=image,
             )
             # Update unread counter (the OTHER person)
             thread.last_message_at = timezone.now()
@@ -657,38 +732,37 @@ def chat_thread_detail(request, thread_id):
             thread.save()
 
             # ── BRIDGE: live chat → ML pipeline ──
-            # Create a Conversation row so the SAME pipeline that processes
-            # WhatsApp uploads can also process live chat messages.
-            # Sentiment/topic stay None until the Celery task fires (5-min delay).
-            from .models import Conversation
-            from .tasks import analyze_live_message
-            import hashlib
+            # Only analyze text messages — images alone don't need sentiment/topic analysis
+            if text:
+                from .models import Conversation
+                from .tasks import analyze_live_message
+                import hashlib
 
-            is_client = request.user == thread.client
-            msg_hash = hashlib.sha256(
-                f"live-{thread.id}-{request.user.id}-{timezone.now().isoformat()}".encode()
-            ).hexdigest()
+                is_client = request.user == thread.client
+                msg_hash = hashlib.sha256(
+                    f"live-{thread.id}-{request.user.id}-{timezone.now().isoformat()}".encode()
+                ).hexdigest()
 
-            conv = Conversation.objects.create(
-                client=thread.client,
-                therapist=thread.therapist if not is_client else None,
-                sender=request.user,
-                is_from_client=is_client,
-                date=timezone.now().date(),
-                time=timezone.now().time(),
-                username=request.user.get_full_name() or request.user.username,
-                message=text,
-                chat_type='individual',
-                message_hash=msg_hash,
-                is_processed=False,
-            )
+                conv = Conversation.objects.create(
+                    client=thread.client,
+                    therapist=thread.therapist if not is_client else None,
+                    sender=request.user,
+                    is_from_client=is_client,
+                    date=timezone.now().date(),
+                    time=timezone.now().time(),
+                    username=request.user.get_full_name() or request.user.username,
+                    message=text,
+                    chat_type='individual',
+                    message_hash=msg_hash,
+                    is_processed=False,
+                )
 
-            # Fire the Celery task — 5-minute delay so it doesn't
-            # interfere with the active conversation
-            analyze_live_message.apply_async(
-                args=[conv.id],
-                countdown=300,  # 5 minutes
-            )
+                # Fire the Celery task — 5-minute delay so it doesn't
+                # interfere with the active conversation
+                analyze_live_message.apply_async(
+                    args=[conv.id],
+                    countdown=300,  # 5 minutes
+                )
 
             return redirect('chat_analyzer:chat_thread_detail', thread_id=thread.id)
 
@@ -864,6 +938,12 @@ def doctor_dashboard(request):
             ]),
         })
 
+    # Treatment documents uploaded by THIS doctor
+    from .models import TreatmentDocument
+    my_treatment_docs = TreatmentDocument.objects.filter(
+        uploaded_by=doctor
+    ).order_by('-created_at')[:10]
+
     context = {
         'doctor': doctor,
         'pending_docs': pending_docs,
@@ -872,6 +952,8 @@ def doctor_dashboard(request):
         'approved_count': approved_docs.count(),
         'diagnosis_cards': diagnosis_cards,
         'diagnosis_count': diagnoses.count(),
+        'my_treatment_docs': my_treatment_docs,
+        'my_treatment_docs_count': my_treatment_docs.count(),
     }
     return render(request, 'chat_analyzer/doctor/doctor_dashboard.html', context)
 
@@ -1163,20 +1245,50 @@ def chatbot_ask(request):
 @login_required
 def reservation_view(request):
     """Reservation chatbot page — separate from treatment Q&A."""
-    from .models import ChatQuery
+    from .models import ChatQuery, SessionBooking
+    from datetime import date
+
     recent = ChatQuery.objects.filter(user=request.user, query_type='reservation').order_by('-created_at')[:5]
+    upcoming_bookings = SessionBooking.objects.filter(
+        client=request.user,
+        date__gte=date.today(),
+        status__in=['pending', 'confirmed'],
+    ).select_related('staff').order_by('date', 'start_time')
+
     context = {
         'recent_queries': recent,
         'client_user': request.user,
+        'upcoming_bookings': upcoming_bookings,
     }
     return render(request, 'chat_analyzer/client/reservation.html', context)
 
 
 @login_required
+def reservation_bookings_partial(request):
+    """AJAX endpoint — returns the upcoming bookings widget HTML.
+
+    Called by the frontend after a successful booking to refresh
+    the bookings list without reloading the page.
+    """
+    from .models import SessionBooking
+    from datetime import date
+
+    upcoming_bookings = SessionBooking.objects.filter(
+        client=request.user,
+        date__gte=date.today(),
+        status__in=['pending', 'confirmed'],
+    ).select_related('staff').order_by('date', 'start_time')
+
+    return render(request, 'chat_analyzer/client/_bookings_widget.html', {
+        'upcoming_bookings': upcoming_bookings,
+        'client_user': request.user,
+    })
+
+
+@login_required
 def reservation_ask(request):
-    """Handle booking request — POST only, routes to n8n webhook."""
+    """Handle booking request — POST only, uses LangChain + GLM 5.3."""
     import time
-    import requests as http_requests
     from .models import ChatQuery
 
     if request.method != 'POST':
@@ -1194,24 +1306,20 @@ def reservation_ask(request):
     if request.user.role == 'client' and request.user.assigned_therapist:
         staff_id = request.user.assigned_therapist.id
 
-    n8n_payload = {
-        'message': f"{question}\n\n[Context: client_id={client_id}, staff_id={staff_id}]",
-        'client_id': client_id,
-        'staff_id': staff_id,
-    }
-
     try:
-        n8n_response = http_requests.post(
-            'http://localhost:5678/webhook/sentiri-chat',
-            json=n8n_payload,
-            timeout=60,
+        from .langchain_chain import get_reservation_reply
+
+        result = get_reservation_reply(
+            message=question,
+            client_id=client_id,
+            staff_id=staff_id,
         )
-        n8n_data = n8n_response.json()
-        answer = n8n_data.get('reply', 'Sorry, I could not process your request.')
-    except http_requests.exceptions.ConnectionError:
-        answer = "⚠️ The reservation service is currently offline. Please try again later."
-    except http_requests.exceptions.Timeout:
-        answer = "⏳ The reservation service took too long to respond. Please try again."
+
+        answer = result.get('reply', '')
+
+        if result.get('booking_confirmed'):
+            answer = result.get('reply', '✅ Booking confirmed!')
+
     except Exception as e:
         answer = f"⚠️ An error occurred: {str(e)}"
 

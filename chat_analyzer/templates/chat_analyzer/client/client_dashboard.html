@@ -16,7 +16,7 @@
             <p class="text-sm font-medium text-gray-900">{{ client_user.get_full_name }}</p>
             <p class="text-xs text-gray-400">Client</p>
         </div>
-        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
+        <div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
             {{ client_user.first_name|first }}{{ client_user.last_name|first }}
         </div>
     </div>
@@ -201,7 +201,7 @@
         <h3 class="font-semibold text-gray-900 mb-4">My Therapist</h3>
         {% if client_user.assigned_therapist %}
         <div class="flex items-center gap-4 mb-4">
-            <div class="w-14 h-14 rounded-full bg-gradient-to-br from-green-400 to-teal-500 flex items-center justify-center text-white font-bold text-lg">
+            <div class="w-14 h-14 rounded-full bg-green-500 flex items-center justify-center text-white font-bold text-lg">
                 {{ client_user.assigned_therapist.first_name|first }}{{ client_user.assigned_therapist.last_name|first }}
             </div>
             <div>

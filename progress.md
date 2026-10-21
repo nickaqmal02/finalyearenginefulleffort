@@ -985,4 +985,220 @@ Split from one mixed chatbot into two clean, separate chatbots:
 5. ⬌ FYP documentation
 6. ⬌ Git commit + push
 
+## 2026-10-18 — n8n Reservation Chatbot: ASYNC CALLBACK ARCHITECTURE WORKING ✅
+
+### What we did today
+
+**1. Overlap detection fixed (client request: "1 hour no overlap")**
+- Old check: `start_time__lte=target_time, end_time__gt=target_time` — only caught if requested start fell INSIDE existing booking. Missed "starts before, overlaps into."
+- New check: proper time-range overlap formula `start_time__lt=target_end AND end_time__gt=target_time` (A_start < B_end AND B_start < A_end).
+- Added Layer 4: client-side conflict — a client can't have two overlapping sessions even with different staff.
+- Fixed AnonymousUser crash: Layer 4 used `request.user` but n8n calls without auth → `TypeError: Field 'id' expected a number but got AnonymousUser`. Now uses client_id from request body only.
+- All 5 overlap tests pass: 15:00 books, 15:15 same staff blocked, 15:15 different staff same client blocked, 16:00 books, 14:30 blocked (overlaps into 15:00).
+
+**2. The empty-reply saga — SOLVED with async callback architecture**
+The core problem: n8n's production webhook responds BEFORE the AI Agent finishes its tool calls. The AI Agent makes 2-4 LLM calls per message (decide → tool → result → generate), but the webhook returns after the first iteration with empty output.
+
+Failed attempts (learning log):
+- `responseMode: lastNode` → returns `{"output": ""}`, n8n can't reference final output
+- `responseMode: responseNode` + Respond to Webhook → fires after first LLM call, empty
+- Django retry loop (3 × 5s) → burns 27-29s waiting, still empty
+- Test webhook fallback → expires after one call, race conditions
+- Django 30s blocking poll → single-threaded Django can't receive the callback while polling (deadlock)
+
+**WORKING SOLUTION — fire-and-forget + callback + frontend poll:**
+```
+Browser POST /reservation/ask/
+  → Django fires n8n webhook (onReceived mode, returns instantly)
+  → Django quick-checks reply file for 3s
+  → returns reply OR "__PROCESSING__"
+Browser sees __PROCESSING__
+  → shows typing dots
+  → polls GET /api/poll-reply/?client_id=12 every 2s (80s max)
+n8n AI Agent finishes (tool calls + reply)
+  → "Callback to Django" HTTP node POSTs to /api/n8n-callback/
+  → Django writes /tmp/n8n_reply_{client_id}.json
+Browser poll finds file → shows AI reply ✅
+```
+Typical latency: 4-9 seconds per message. Verified: "Book session" → "available, confirm?" → "yes" → "Booked! ✅ Booking ID: 13".
+
+**3. Key n8n fixes made today**
+- Webhook: `onReceived` mode (responds immediately, processes in background)
+- AI Agent: `systemMessage` parameter (NOT in `text`!) — instructions live in systemMessage, user message in `text` = `={{ JSON.stringify($json.body || $json) }}`
+- The AI reads client_id/staff_id from the JSON stringified webhook body — no more guessing staff_id from names
+- Simple Memory: window=3 (reduced from 15 → faster, fewer tokens)
+- "Callback to Django" HTTP node: POSTs `{reply, client_id}` to Django after AI finishes
+- `n8n_callback` + `poll_reply` endpoints added to api_views.py
+- DeepSeek added as fallback model (`ai_fallbackModel` connection) — model renamed to `deepseek-flash`
+- GLM 5.3 (rootsys.cloud) is primary model — tool calling verified working with clean JSON args
+
+**4. Remaining browser-side issue**
+- Frontend JS sometimes shows "No response" instead of typing dots when Django returns empty (condition: `data.answer === '__PROCESSING__' || '' || includes('PROCESSING') || 'No response'`)
+- Stale reply file can swallow a pending reply if a new message deletes it mid-poll
+- 5/7 messages worked in last browser test; "AI processed" confirmed polling works
+
+### What Nik learned
+- **Webhook response timing is THE hard problem in n8n AI Agents.** The webhook responds before multi-iteration tool calls finish. Solution: fire-and-forget + callback + poll (the pattern real production AI systems use).
+- **n8n AI Agent prompt structure: systemMessage ≠ text.** `systemMessage` = instructions (system prompt). `text` = the user message expression. Putting everything in `text` makes the AI echo instructions back.
+- **Django dev server IS single-threaded per request with --noreload.** A blocking poll in a view deadlocks the callback endpoint. Fix: return fast, let the frontend poll.
+- **AI Agent = 2-4 LLM calls per message.** Each tool call round-trip adds 2-5s. "yes" confirmations trigger book_session = 2 tool calls = longer than simple check.
+- **Pass data to the AI as JSON, not template text.** `JSON.stringify($json.body)` in the prompt field lets the AI read client_id/staff_id reliably. Separate `{{ $json.body.client_id }}` expressions resolve to empty in n8n.
+- **Time-range overlap formula: `A_start < B_end AND B_start < A_end`.** The naive "is start inside range" check misses partial overlaps.
+- **n8n API (REST) can manage workflows programmatically.** Created API key, used GET/PUT /api/v1/workflows to fix prompts, connections, memory settings via curl — no UI needed.
+
+### Current runtime state (when we stopped)
+- All processes killed at end of session (Django :8000, n8n :5678, redis :6379)
+- n8n workflow saved with: onReceived webhook → AI Agent (GLM 5.3 + DeepSeek fallback + Simple Memory w=3 + 4 tools) → Callback to Django
+- Django code saved with: fire webhook → 3s quick check → `__PROCESSING__` → frontend polls `/api/poll-reply/`
+- Stale file risk exists: new message deletes pending reply file
+
+### What's next (in order)
+1. ⬌ Fix stale-file edge case: don't delete pending reply file on new message (use unique message IDs instead of client_id keys)
+2. ⬌ End-to-end browser demo: full booking conversation (book → confirm → booked → cancel)
+3. ⬌ Add cancel_booking as 5th n8n tool (AI can cancel via chat: "cancel my booking")
+4. ⬌ Notifications (tomorrow's plan): n8n workflow to notify client + therapist on booking
+5. ⬌ Evaluation metrics (sentiment + topic) in separate repo
+6. ⬌ Tests + viva sweep
+7. ⬌ FYP documentation
+8. ⬌ Git commit + push
+
+### Restart commands (full stack)
+```bash
+# T1 — Django
+cd ~/degree/finalyearengineredo
+venv/bin/python manage.py runserver 0.0.0.0:8000 --noreload
+
+# T2 — Redis (for LangChain memory + Celery)
+redis-server
+
+# T3 — Celery (async ML analysis)
+cd ~/degree/finalyearengineredo
+venv/bin/celery -A finalyearengineredo worker --pool=solo --loglevel=info
+```
+Note: n8n KILLED for reservation (2026-10-18). LangChain ConversationChain handles reservation chatbot directly in Django. Django --noreload still needed.
+
+---
+
+## 2026-10-18 — LangChain replaces n8n for reservation chatbot
+
+### What we did
+- Debugged n8n reservation chatbot "No response" bug for ~2 hours
+- Root cause: n8n AI Agent node forces OpenAI Responses API (`/v1/responses`), GLM 5.3 via rootsys.cloud returns empty text after tool calls on Responses API
+- Proved Chat Completions API works perfectly with GLM 5.3 (direct curl tests)
+- Tried patching n8n node source code, DB, downgrading node versions — all blocked by n8n's LangChain JS internals
+- Decision: kill n8n for reservation, use LangChain (Python) directly in Django
+- Built `chat_analyzer/langchain_chain.py`: ConversationChain + ChatOpenAI (glm-5.3, rootsys.cloud) + RedisChatMessageHistory (keyed by client_id)
+- Rewired `reservation_ask` view to call `get_reservation_reply()` directly — no webhook, no callback, no polling
+- Fixed time parsing bug (1500 → 15:00, not 03:00)
+- Tested 5-turn booking flow: book → Farah → 26 Oct → 1500 → yes = **booking created successfully**
+
+### What Nik learned
+- n8n's abstraction (visual workflow → LangChain JS → OpenAI Responses API) adds layers where things break invisibly
+- LangChain Python is simpler: ConversationChain = LLM + Memory + Prompt, 3 lines
+- Chat Completions API vs Responses API: Responses API returns tool calls as output array items, Chat Completions returns them in the message — providers like rootsys may not support both
+- Redis-backed memory (`RedisChatMessageHistory`) gives per-client conversation threads that persist across requests
+- Regex time parsing is tricky: must search 4-digit military time (1500) BEFORE HH:MM patterns, otherwise the bot's own reply ("3:00 PM") gets matched from conversation history
+
+### What we went through
+1. n8n "No response" diagnosis → event logs showed `use_responses_api: true` + `completionTokens: 0`
+2. Direct API tests proved GLM works on Chat Completions, broken on Responses API
+3. Tried: patching n8n DB (`responsesApiEnabled=false`), downgrading node typeVersion 1.3→1.2, patching n8n JS source code (`const responsesApiEnabled = false`) — all failed or broke the agent
+4. Tried: replacing AI Agent with Basic LLM Chain node via n8n REST API — worked for single messages but Simple Memory node didn't persist context (sessionKey expression couldn't resolve webhook data)
+5. Final solution: LangChain in Python, ~100 lines, works first try
+
+### What's next
+- Frontend: the reservation page still uses the old poll-reply pattern — needs updating to handle the new synchronous LangChain reply (no more `__PROCESSING__`)
+- Treatment chatbot: still uses RAG, not affected
+- Topic modeling Run 8: seed keyword de-overlap + message-level votes
+
+---
+
+## 2026-10-19 — Reservation chatbot production-ready + Notification system
+
+### What we did
+
+**Reservation chatbot (LangChain) — fully working:**
+- Replaced n8n AI Agent with LangChain ConversationChain (Chat Completions API, not Responses API)
+- GLM 5.3 via rootsys.cloud, Redis-backed memory per client
+- Fixed 6+ regex/time-parsing bugs through iterative testing:
+  - `1500` matched as year `2026` → fixed with context-aware regex (must have "at" prefix or "H" suffix)
+  - `12:00 PM` returned `None` → added HH:MM+am/pm pattern to `_parse_time`
+  - `00 PM` matched from `3:00 PM` → negative lookbehind `(?<!:)` 
+  - `re.search` (first match) grabbed old `12 am` instead of latest `12 pm` → switched to `re.findall` + last match
+  - Date extraction grabbed old dates from history → switched to `findall` + last match
+  - Therapist extraction matched "Ahmad" from context prefix → only search AI messages, only last AI message (BOOKING_PENDING)
+- Fixed `book_session` API: split `is_available` and office hours checks (was combining with `or`, giving wrong error message)
+- Fixed BOOKING_CONFIRMED flow: GLM now says BOOKING_PENDING → code calls API → only sets confirmed=True if API succeeds
+- Added therapist schedule context: each message includes therapist working days + computed weekday for mentioned dates
+- Frontend: removed 52 lines of n8n polling JS, replaced with synchronous fetch
+- AJAX: `refreshBookings()` auto-refreshes bookings widget after ✅ booking or cancel (no page reload)
+
+**Notification system (Celery Beat):**
+- `Notification` model: recipient, sender, type, title, message, related_booking, is_read
+- `send_daily_reminders` Celery task: runs at 8 AM daily, finds today's bookings, creates notifications for therapists (with dedup)
+- `create_booking_notification` Celery task: instant notification when client books via chatbot (fired by langchain_chain.py)
+- Celery Beat configured: `crontab(hour=8, minute=0)` in settings.py
+- Therapist dashboard: "Alerts 🔔" button with red unread badge in navbar
+- `/dashboard/therapist/notifications/` page: color-coded notifications (green=reminder, purple=new booking, red=cancelled)
+- Mark-as-read + mark-all-read AJAX endpoints
+- Upcoming Appointments widget on therapist dashboard (date badge, client name, status pill, time range)
+
+**Runtime: 4 terminals (T1 Django, T2 Redis, T3 Celery Worker, T4 Celery Beat)**
+
+### What Nik learned
+- LLMs can't calculate days of the week — must compute in Python and pass as context
+- LLMs can't be trusted to confirm bookings — they say "BOOKING_CONFIRMED" before checking availability. Use BOOKING_PENDING → API check → only then confirm
+- Regex extraction from conversation history is fragile: `re.search` grabs first match (old data), `re.findall[-1]` grabs last (current data)
+- Context prefix pollution: prepending `[Available therapists: ...]` to every message means therapist name extraction must skip human messages
+- Celery Beat is simple: `crontab(hour=8, minute=0)` in `CELERY_BEAT_SCHEDULE` dict, auto-discovered tasks
+- AJAX partial template rendering: Django view returns HTML fragment, frontend injects via `innerHTML` — no JSON parsing, no page reload
+- `is_available=False` + `or` = misleading error messages. Split compound conditionals into separate checks
+
+### What we went through
+1. n8n Responses API bug → killed n8n → LangChain Python (previous session)
+2. Memory amnesia → added RedisChatMessageHistory → fixed
+3. Time parsing: 1500→20:26 (year match), 12:00 PM→None, 00 PM from 3:00 PM, 12 am vs 12 pm ordering
+4. Therapist extraction: Ahmad matched from context prefix → only search last AI message
+5. Date extraction: old dates from history → take last match
+6. Saturday hallucination: GLM said "24 Oct is Friday" → compute weekday in Python, pass in context
+7. BOOKING_CONFIRMED before API check → BOOKING_PENDING → only confirm on API success
+8. book_session API: `not is_available or not in_hours` → split into separate checks with correct messages
+9. Frontend polling removal + AJAX bookings refresh
+10. Notification model + Celery Beat + therapist dashboard integration
+
+## Session: 2026-10-20 — Sentiment Annotation Methodology + Model Comparison Planning
+
+### What we did
+Discussed (no code): (1) FYP evaluation matrix — compare XLM-R vs at least 3 baselines; (2) how to defend self-labeled sentiment data (2k messages, pos/neg/neutral) in the viva.
+
+### Model comparison plan (eval matrix)
+- Candidates: **mBERT** (generalist old king), **IndoBERT** (indobenchmark/indobert-base-p1, regional specialist), **DistilBERT-multilingual / IndoBERT-lite** (efficiency baseline). XLM-R = generalist heavyweight.
+- Hypothesis: XLM-R wins on mixed Malay-English (rojak) code-switched chat; IndoBERT may win on pure formal Malay — the per-message breakdown is the interesting finding.
+- Metrics matrix: accuracy, **macro-F1** (imbalanced classes), per-class precision/recall (clinically: distressed-message recall matters most), inference time/message + model size (deployment story: Render + HF Inference budget), confusion matrices per model.
+
+### Annotation defense ("how did you label it?")
+- No oracle for sentiment — ground truth is constructed, so the answer is **reliability, not authority**: written annotation guideline + measured agreement.
+- Retrofit playbook for the existing 2k labels:
+  1. Write annotation guideline post-hoc (introspect own patterns; define pos/neg/neutral + edge-case rules: mixed signals, emoji-only, sarcasm, logistical messages)
+  2. Blind self re-test: re-label 150 random messages without seeing originals → intra-rater κ (`sklearn cohen_kappa_score`)
+  3. Second annotator (classmate) labels same 150 blind → inter-rater κ
+  4. Report: guideline in appendix, both κ values, disagreements as findings
+- Reliability vs validity distinction: classmate κ = reliability; supervisor/therapist sanity-check on 30–50 msgs = validity. Viva line: "Sentiment annotation has no objective ground truth, so I established reliability (guideline + agreement coefficients) rather than treating any single annotator as authoritative."
+- Be ready for follow-up: "low κ means guideline is ambiguous → refine and re-label, not hide disagreement."
+
+### Key citations (verified)
+- Cohen (1960), Educ Psych Meas 20(1):37–46, DOI 10.1177/001316446002000104 — kappa itself
+- Landis & Koch (1977), Biometrics 33(1):159–174 — κ interpretation bands (0.61–0.80 substantial, >0.80 almost perfect)
+- Artstein & Poesio (2008), Computational Linguistics 34(4):555–596 — CL annotation survey (kappa vs Scott's π vs Krippendorff's α)
+- Carletta (1996), Computational Linguistics 22(2):249–254 — kappa standard in NLP
+- Bobicev & Sokolova (2017), RANLP — IAA in sentiment annotation specifically
+- Why κ not % agreement: random agreement inflates percent (Cohen's schizophrenic-diagnosis example: 82% chance agreement)
+
+### What's next
+- Draft annotation guideline from real labeled data (pull ambiguous messages per class)
+- Run blind re-test + second annotator → compute 2 κ values
+- Download baseline models, build eval matrix script
+- Topic modeling Run 8: seed keyword de-overlap + message-level votes vs cluster inheritance
+- Wire analyze_new_messages (transform-only), ClientTopicScore/TopicTrend
+- DRF APIs: topics/conversations/messages endpoints, role-based permissions
 

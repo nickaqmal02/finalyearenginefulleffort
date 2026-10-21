@@ -31,7 +31,7 @@
                 {% if recent_queries %}
                     {% for q in recent_queries reversed %}
                     <div class="flex justify-end">
-                        <div class="bg-gradient-to-br from-blue-500 to-purple-500 text-white rounded-2xl rounded-br-sm px-4 py-2 max-w-[80%]">
+                        <div class="bg-blue-500 text-white rounded-2xl rounded-br-sm px-4 py-2 max-w-[80%]">
                             {{ q.question }}
                         </div>
                     </div>
@@ -92,7 +92,7 @@
         // Add user message
         const userDiv = document.createElement('div');
         userDiv.className = 'flex justify-end';
-        userDiv.innerHTML = `<div class="bg-gradient-to-br from-blue-500 to-purple-500 text-white rounded-2xl rounded-br-sm px-4 py-2 max-w-[80%]">${escapeHtml(question)}</div>`;
+        userDiv.innerHTML = `<div class="bg-blue-500 text-white rounded-2xl rounded-br-sm px-4 py-2 max-w-[80%]">${escapeHtml(question)}</div>`;
         chatArea.appendChild(userDiv);
 
         input.value = '';

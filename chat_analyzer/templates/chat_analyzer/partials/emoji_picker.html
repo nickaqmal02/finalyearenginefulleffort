@@ -1,0 +1,88 @@
+{# Reusable emoji picker — included in chat templates #}
+{# Usage: place a button with id="emoji-btn" next to textarea with id="chat-input" #}
+
+<div id="emoji-picker" class="hidden absolute bottom-full right-0 mb-2 bg-white rounded-2xl border border-gray-200 shadow-lg p-3 z-50" style="width: 320px; max-height: 280px; overflow-y: auto;">
+    <div class="flex gap-1 mb-2 pb-2 border-b border-gray-100" id="emoji-categories">
+        <button type="button" class="emoji-cat px-2 py-1 rounded-lg text-sm bg-blue-100" data-cat="smileys">😀</button>
+        <button type="button" class="emoji-cat px-2 py-1 rounded-lg text-sm hover:bg-gray-100" data-cat="gestures">👍</button>
+        <button type="button" class="emoji-cat px-2 py-1 rounded-lg text-sm hover:bg-gray-100" data-cat="hearts">❤️</button>
+        <button type="button" class="emoji-cat px-2 py-1 rounded-lg text-sm hover:bg-gray-100" data-cat="objects">🎉</button>
+        <button type="button" class="emoji-cat px-2 py-1 rounded-lg text-sm hover:bg-gray-100" data-cat="symbols">✨</button>
+    </div>
+    <div id="emoji-grid" class="grid grid-cols-8 gap-1 text-xl">
+        <!-- Filled by JS -->
+    </div>
+</div>
+
+<script>
+(function() {
+    const EMOJIS = {
+        smileys: ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','🙃','😉','😊','😇','🥰','😍','🤩','😘','😗','☺️','😚','😙','🥲','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🤐','🤨','😐','😑','😶','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🥵','🥶','🥴','😵','🤯','🤠','🥳','😎','🤓','🧐','😕','😟','🙁','☹️','😮','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬','😈','👿','💀','💩','🤡','👻','👽','🤖'],
+        gestures: ['👍','👎','👌','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','👇','☝️','✋','🤚','🖐️','🖖','👋','🤝','👏','🙌','👐','🤲','🙏','💪','🦾','🦿','🦵','🦶','👂','🦻','👃','🧠','🦷','🦴','👀','👁️','👅','👄','💅','🤳','💃','🕺','👯','🏋️','🤸','🤼','🤽','🤾','🏌️','🏄','🏇','🏊','🤹','🎭','🛀','🛌','👧','👦','👩','👨','👶','👵','👴','👱','👮','👷','💂','🕵️','💂','👨‍⚕️','👩‍⚕️','👨‍🌾','👩‍🌾','👨‍🍳','👩‍🍳','👨‍🎓','👩‍🎓','👨‍🎤','👩‍🎤','👨‍🏫','👩‍🏫'],
+        hearts: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟','♥️','💌','💋','👩‍❤️‍👨','💑','👨‍❤️‍👨','👩‍❤️‍👩','👪','👨‍👩‍👦','👨‍👩‍👧','👨‍👨‍👦','👩‍👩‍👦','🤱','拥抱','🫂','👫','👭','👬','🫶','🫅','🤵','👰','🤰','🤱','👼','🎅','🤶','🦸','🦹','🧙','🧚','🧛','🧜','🧝','🧞','🧟','🧌','💆','💇','🚶','🏃','💃','🕺','👯','🧖','🧗','🧘','🛀','🛌','🗺️','🗿',' landmarks ','🗼','🗽','⛲','🏰','🏯','🏟️','🎡','🎢','🎠','⛺','🏖️','🏝️','⛰️','🏔️','🗻'],
+        objects: ['🎉','🎊','🎈','🎂','🎁','🎀','🎗️','🎟️','🎫','🏆','🏅','🥇','🥈','🥉','⚽','🏀','🏈','⚾','🥎','🎾','🏐','🏉','🥏','🎱','🏓','🏸','🥅','🏒','🏑','🥍','🏏','🪃','🥊','🥋','⛳','🏹','🎣','🤿','🥌','🎿','⛷️','🏂','🪖',' ice_skate ','🎯','🎳','🎮','🕹️','🎲','🧩','♟️','🎭','🎨','🧵','🪡','🧶','🪢','👓','🕶️','🥽','🥼','🦺','👔','👕','👖','🧣','🧤','🧥','🧦','👗','👘','🥻','🩱','🩲','🩳','👙','👚','🪭','👛','👜','👝','🛍️','🎒','🩴','👞','👟','🥾','🥿','👠','👡','🩰','👢','🪮','头巾','🧢','🎩','🎓','🪖','⛑️','👑','💍','💎','🔇','🔈','🔉'],
+        symbols: ['✨','⭐','🌟','💫','🔥','💥','💢','💦','💨','空洞','🕳️','💣','💬','👁️‍🗨️','🗨️','🗯️','💭','💤','✅','❌','❓','❗','⚠️','🚫','✅','❎','🆗','🆕','🆙','🅰️','🅱️','🆎','🆑','🅾️','🆘','❌','⭕','🛑','📛','🚫','💯','💢','♨️','🚷','🚯','🚳','🚱','🔞','📵','🚭','❗','❕','❓','‼️','⁉️','🔔','🔕','🎵','🎶','〰️','➰','➿','✔️','☑️','🔘','🔴','🟠','🟡','🟢','🔵','🟣','⚫','⚪','🟤','🔺','🔻','🔸','🔹','🔶','🔷','🔳','🔲','▪️','▫️','◾','◽','◼️','◻️','🟥','🟧','🟨','🟩','🟦','🟪','⬛','⬜','🟫'],
+    };
+
+    const picker = document.getElementById('emoji-picker');
+    const grid = document.getElementById('emoji-grid');
+    const textarea = document.querySelector('textarea[name="message"]');
+    let currentCat = 'smileys';
+
+    function renderEmojis(cat) {
+        grid.innerHTML = '';
+        (EMOJIS[cat] || []).forEach(emoji => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = emoji;
+            btn.className = 'hover:bg-gray-100 rounded-lg p-1 transition-colors text-xl';
+            btn.onclick = () => insertEmoji(emoji);
+            grid.appendChild(btn);
+        });
+    }
+
+    function insertEmoji(emoji) {
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = textarea.value;
+        textarea.value = text.substring(0, start) + emoji + text.substring(end);
+        textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
+        textarea.focus();
+    }
+
+    // Category switching
+    document.querySelectorAll('.emoji-cat').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.emoji-cat').forEach(b => {
+                b.classList.remove('bg-blue-100');
+                b.classList.add('hover:bg-gray-100');
+            });
+            btn.classList.add('bg-blue-100');
+            btn.classList.remove('hover:bg-gray-100');
+            currentCat = btn.dataset.cat;
+            renderEmojis(currentCat);
+        });
+    });
+
+    // Toggle picker on emoji button click
+    const emojiBtn = document.getElementById('emoji-btn');
+    if (emojiBtn) {
+        emojiBtn.addEventListener('click', () => {
+            picker.classList.toggle('hidden');
+            if (!picker.classList.contains('hidden')) {
+                renderEmojis(currentCat);
+            }
+        });
+    }
+
+    // Close picker when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!picker.contains(e.target) && e.target !== emojiBtn && !emojiBtn?.contains(e.target)) {
+            picker.classList.add('hidden');
+        }
+    });
+
+    // Initial render
+    renderEmojis(currentCat);
+})();
+</script>

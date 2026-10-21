@@ -197,4 +197,91 @@ def ingest_treatment_document(self, document_id):
         doc.error_message = str(e)
         doc.save()
         logger.error(f"Ingestion failed for #{document_id}: {e}")
-        raise self.retry(exc=e)
+
+
+# ╔════════════════════════════════════════════╗
+# ║   APPOINTMENT REMINDERS (Celery Beat) 🔔    ║
+# ╚════════════════════════════════════════════╝
+
+@shared_task
+def send_daily_reminders():
+    """Daily task — sends appointment reminders to therapists.
+
+    Runs every morning via Celery Beat.
+    Finds all confirmed/pending bookings for today and creates
+    a Notification for each therapist.
+
+    Dedup: skips if a reminder notification already exists for the
+    same booking + recipient + date (in case task runs twice).
+    """
+    from django.utils import timezone
+    from .models import SessionBooking, Notification
+
+    today = timezone.now().date()
+    created_count = 0
+
+    bookings = SessionBooking.objects.filter(
+        date=today,
+        status__in=['pending', 'confirmed'],
+    ).select_related('client', 'staff')
+
+    for booking in bookings:
+        # Dedup — don't create duplicate reminders
+        already_exists = Notification.objects.filter(
+            recipient=booking.staff,
+            related_booking=booking,
+            notification_type='booking_reminder',
+            created_at__date=today,
+        ).exists()
+
+        if already_exists:
+            continue
+
+        Notification.objects.create(
+            recipient=booking.staff,
+            sender=booking.client,
+            notification_type='booking_reminder',
+            title=f"Appointment today with {booking.client.get_full_name()}",
+            message=(
+                f"You have a session with {booking.client.get_full_name()} "
+                f"at {booking.start_time.strftime('%H:%M')} today "
+                f"({today.strftime('%A, %d %B %Y')})."
+            ),
+            related_booking=booking,
+        )
+        created_count += 1
+        logger.info(f"Reminder created: {booking.client.get_full_name()} → {booking.staff.get_full_name()} at {booking.start_time}")
+
+    logger.info(f"Daily reminders complete: {created_count} notifications created for {today}")
+    return f"Created {created_count} reminders for {today}"
+
+
+@shared_task
+def create_booking_notification(booking_id):
+    """Instant notification when a client books a session.
+
+    Called from reservation_ask view after a successful booking.
+    Notifies the therapist immediately (not waiting for daily reminder).
+    """
+    from .models import SessionBooking, Notification
+
+    try:
+        booking = SessionBooking.objects.select_related('client', 'staff').get(id=booking_id)
+    except SessionBooking.DoesNotExist:
+        logger.error(f"Booking #{booking_id} not found — cannot create notification")
+        return
+
+    Notification.objects.create(
+        recipient=booking.staff,
+        sender=booking.client,
+        notification_type='new_booking',
+        title=f"New booking from {booking.client.get_full_name()}",
+        message=(
+            f"{booking.client.get_full_name()} booked a session on "
+            f"{booking.date.strftime('%A, %d %B %Y')} at "
+            f"{booking.start_time.strftime('%H:%M')}."
+        ),
+        related_booking=booking,
+    )
+    logger.info(f"Booking notification created: {booking.client.get_full_name()} → {booking.staff.get_full_name()}")
+    return f"Notification created for booking #{booking_id}"

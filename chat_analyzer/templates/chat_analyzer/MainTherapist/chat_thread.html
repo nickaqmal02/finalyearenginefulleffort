@@ -96,7 +96,12 @@
                 {% for msg in messages %}
                 <div class="{% if msg.sender == me %}flex justify-end{% else %}flex justify-start{% endif %}">
                     <div class="{% if msg.sender == me %}msg-mine{% else %}msg-theirs{% endif %}">
+                        {% if msg.image %}
+                        <img src="{{ msg.image.url }}" alt="Shared image" class="rounded-xl mb-2 max-w-full" style="max-height: 240px; object-fit: cover;">
+                        {% endif %}
+                        {% if msg.message %}
                         {{ msg.message|linebreaksbr }}
+                        {% endif %}
                         <div class="msg-time">
                             <span>{{ msg.sent_at|time:"H:i" }}</span>
                             {% if msg.sender == me %}
@@ -126,13 +131,41 @@
             </div>
             {% endif %}
 
-            <!-- Composer -->
-            <form method="post" class="border-t border-[#e5e5ea] p-4 flex gap-3">
+            <!-- Composer — WhatsApp style -->
+            <form method="post" enctype="multipart/form-data" class="border-t border-[#e5e5ea] p-3 flex gap-2 items-end">
                 {% csrf_token %}
-                <textarea name="message" rows="2" required placeholder="Type a message..."
-                          class="msg-input flex-1"
-                          onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); this.form.submit();}"></textarea>
-                <button type="submit" class="c-btn self-end">Send</button>
+                <div class="relative flex-1 flex items-end bg-white rounded-3xl border border-[#e5e5ea] shadow-sm">
+                    <!-- Image upload button (left) -->
+                    <button type="button" onclick="document.getElementById('image-input').click()"
+                            class="shrink-0 w-11 h-11 flex items-center justify-center hover:bg-[#f5f5f7] rounded-full transition-colors">
+                        <svg class="w-6 h-6 text-[#86868b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                        </svg>
+                    </button>
+                    <input type="file" name="image" id="image-input" accept="image/*" class="hidden" onchange="document.getElementById('image-name').textContent = this.files[0] ? this.files[0].name : ''; document.getElementById('image-preview').classList.toggle('hidden', !this.files[0]);">
+                    <!-- Textarea -->
+                    <textarea name="message" rows="1" placeholder="Type a message..."
+                              class="flex-1 bg-transparent border-none px-2 py-3 text-sm text-[#1d1d1f] focus:outline-none resize-none"
+                              onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); this.form.submit();}"></textarea>
+                    <!-- Emoji button (right) -->
+                    <button type="button" id="emoji-btn"
+                            class="shrink-0 text-2xl w-11 h-11 flex items-center justify-center hover:bg-[#f5f5f7] rounded-full transition-colors">
+                        😊
+                    </button>
+                    {% include 'chat_analyzer/partials/emoji_picker.html' %}
+                </div>
+                <!-- Image preview -->
+                <div id="image-preview" class="hidden absolute bottom-20 left-4 bg-white rounded-2xl border border-[#e5e5ea] shadow-lg p-2 flex items-center gap-2 z-50">
+                    <img id="image-preview-img" class="w-12 h-12 rounded-lg object-cover" alt="preview">
+                    <span id="image-name" class="text-xs text-[#86868b] max-w-[120px] truncate"></span>
+                    <button type="button" onclick="document.getElementById('image-input').value=''; document.getElementById('image-preview').classList.add('hidden');" class="text-[#d70015] text-xs">✕</button>
+                </div>
+                <!-- Send button (circular, outside) -->
+                <button type="submit" class="shrink-0 w-11 h-11 bg-[#0071e3] hover:bg-[#0077ed] text-white rounded-full flex items-center justify-center transition-colors">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                </button>
             </form>
         </div>
 
@@ -149,5 +182,19 @@
     if (textarea) {
         textarea.focus();
     }
+
+    // Image preview — show thumbnail when user selects a file
+    document.getElementById('image-input').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                document.getElementById('image-preview-img').src = ev.target.result;
+            };
+            reader.readAsDataURL(file);
+            document.getElementById('image-name').textContent = file.name;
+            document.getElementById('image-preview').classList.remove('hidden');
+        }
+    });
 </script>
 {% endblock %}

@@ -4,6 +4,7 @@ from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
 from pathlib import Path
 from dotenv import load_dotenv
+from celery.schedules import crontab
 
 # Load .env (local dev only; Render injects env vars directly)
 load_dotenv()
@@ -265,6 +266,11 @@ CELERY_TIMEZONE = 'Asia/Kuala_Lumpur'
 # On production (Render), use prefork with Celery 5.5+ or set this via env var.
 CELERY_WORKER_POOL = os.environ.get('CELERY_WORKER_POOL', 'solo')
 # Check for due tasks every 10 seconds (the worker loop)
-CELERY_BEAT_SCHEDULE = {}  # we'll add periodic tasks here later
+CELERY_BEAT_SCHEDULE = {
+    'send-daily-reminders': {
+        'task': 'chat_analyzer.tasks.send_daily_reminders',
+        'schedule': crontab(hour=8, minute=0),  # 8:00 AM MYT every day
+    },
+}
 
 

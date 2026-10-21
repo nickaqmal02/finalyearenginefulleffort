@@ -1214,7 +1214,15 @@ class ChatMessage(models.Model):
         help_text="The author (client or therapist). Use the thread's read-state to compute who hasn't read it.",
     )
     message = models.TextField(
-        help_text="Message body (plain text; sanitized on save)",
+        blank=True,
+        default='',
+        help_text="Message body (plain text; sanitized on save). Can be empty if only an image is sent.",
+    )
+    image = models.ImageField(
+        upload_to='chat_images/%Y/%m/%d/',
+        null=True,
+        blank=True,
+        help_text="Optional image attached to the message (photos, screenshots, etc.)",
     )
     sent_at = models.DateTimeField(auto_now_add=True)
     is_read = models.BooleanField(
@@ -1233,7 +1241,12 @@ class ChatMessage(models.Model):
         ]
 
     def __str__(self):
-        preview = self.message[:50] + ('…' if len(self.message) > 50 else '')
+        if self.message:
+            preview = self.message[:50] + ('…' if len(self.message) > 50 else '')
+        elif self.image:
+            preview = '📷 Image'
+        else:
+            preview = '(empty)'
         return f"{self.sender.get_full_name()}: {preview}"
 
 
@@ -1475,6 +1488,57 @@ class SessionBooking(models.Model):
 
     def __str__(self):
         return f"{self.client.get_full_name()} → {self.staff.get_full_name()} on {self.date} at {self.start_time}"
+
+
+class Notification(models.Model):
+    """Notifications for therapists and clients — appointment reminders, new bookings, etc.
+
+    Created by:
+    - Celery Beat task (send_daily_reminders) — for same-day appointment reminders
+    - reservation_ask view (instantly) — when a client books a session
+    - chat_message flow — when a client sends a new message (future)
+    """
+
+    TYPE_CHOICES = [
+        ('booking_reminder', 'Booking Reminder'),
+        ('new_booking', 'New Booking'),
+        ('booking_cancelled', 'Booking Cancelled'),
+        ('message', 'New Message'),
+    ]
+
+    recipient = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='notifications'
+    )
+    sender = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='sent_notifications'
+    )
+    notification_type = models.CharField(max_length=30, choices=TYPE_CHOICES)
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    related_booking = models.ForeignKey(
+        SessionBooking,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='notifications'
+    )
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Notification"
+        verbose_name_plural = "Notifications 🔔"
+
+    def __str__(self):
+        return f"[{self.notification_type}] {self.title} → {self.recipient.get_full_name()}"
 
 
 

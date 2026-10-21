@@ -1,0 +1,153 @@
+{% extends 'chat_analyzer/base.html' %}
+
+{% block title %}Notifications - Sentiri{% endblock %}
+
+{% block extra_css %}
+<style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif; -webkit-font-smoothing: antialiased; background: #f5f5f7; }
+    .t-card { background: #ffffff; border: 1px solid #e5e5ea; border-radius: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); transition: all 0.3s ease; }
+    .t-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+    .t-title { font-weight: 700; font-size: 1.9rem; letter-spacing: -0.02em; color: #1d1d1f; }
+    .t-subtitle { color: #6e6e73; }
+    .t-pill { display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 980px; font-size: 12px; font-weight: 500; }
+    .fade-up { animation: fadeUp 0.5s ease both; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .notif-unread { border-left: 3px solid #0071e3; }
+    .notif-read { opacity: 0.65; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen p-6 md:p-8">
+    <div class="max-w-3xl mx-auto">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-8 fade-up">
+            <div>
+                <h1 class="t-title">Notifications 🔔</h1>
+                <p class="t-subtitle mt-1">
+                    {% if unread_count %}
+                        You have {{ unread_count }} unread notification{{ unread_count|pluralize }}
+                    {% else %}
+                        You're all caught up
+                    {% endif %}
+                </p>
+            </div>
+            <div class="flex items-center gap-2">
+                {% if unread_count %}
+                <button onclick="markAllRead()" class="t-pill bg-[#f5f5f7] text-[#1d1d1f] hover:bg-[#e5e5ea] transition-colors">
+                    Mark all read
+                </button>
+                {% endif %}
+                <a href="{% url 'chat_analyzer:therapist_dashboard' %}" class="t-pill bg-[#0071e3] text-white hover:bg-[#0077ed] transition-colors">
+                    ← Dashboard
+                </a>
+            </div>
+        </div>
+
+        <!-- Notifications list -->
+        {% if notifications %}
+        <div class="space-y-2">
+            {% for notif in notifications %}
+            <div class="t-card p-4 flex items-start gap-4 fade-up {{ notif.id }}"
+                 id="notif-{{ notif.id }}"
+                 style="{% if not notif.is_read %}border-left: 3px solid #0071e3;{% else %}opacity: 0.65;{% endif %}">
+
+                <!-- Icon by type -->
+                <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0
+                    {% if notif.notification_type == 'booking_reminder' %}bg-[#e8f8ef] text-[#1d7a3f]
+                    {% elif notif.notification_type == 'new_booking' %}bg-[#ebebfc] text-[#5e5ce6]
+                    {% elif notif.notification_type == 'booking_cancelled' %}bg-[#ffe5ea] text-[#d70015]
+                    {% else %}bg-[#f5f5f7] text-[#86868b]{% endif %}">
+                    {% if notif.notification_type == 'booking_reminder' %}
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    {% elif notif.notification_type == 'new_booking' %}
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                    {% elif notif.notification_type == 'booking_cancelled' %}
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    {% else %}
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 5.165 6 8.388 6 12" /></svg>
+                    {% endif %}
+                </div>
+
+                <!-- Content -->
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                        <h3 class="font-semibold text-[#1d1d1f] text-sm">{{ notif.title }}</h3>
+                        {% if not notif.is_read %}
+                        <span class="w-2 h-2 rounded-full bg-[#0071e3] shrink-0"></span>
+                        {% endif %}
+                    </div>
+                    <p class="text-xs text-[#6e6e73] mt-1">{{ notif.message }}</p>
+                    <p class="text-[10px] text-[#86868b] mt-1">{{ notif.created_at|date:"j M Y, H:i" }}</p>
+                </div>
+
+                <!-- Mark as read button -->
+                {% if not notif.is_read %}
+                <button onclick="markRead({{ notif.id }})"
+                        class="text-[10px] text-[#0071e3] hover:underline shrink-0 mt-1">
+                    Mark read
+                </button>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="t-card p-12 text-center fade-up">
+            <p class="text-4xl mb-4">🔕</p>
+            <p class="text-sm text-[#86868b]">No notifications yet. You'll see appointment reminders here.</p>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+
+<script>
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value
+        || getCookie('csrftoken');
+
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+    async function markRead(notifId) {
+        const resp = await fetch(`/dashboard/notifications/${notifId}/read/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/json',
+            },
+        });
+        const data = await resp.json();
+        if (data.success) {
+            const el = document.getElementById(`notif-${notifId}`);
+            if (el) {
+                el.style.opacity = '0.65';
+                el.style.borderLeft = 'none';
+                // Remove the blue dot and mark-read button
+                const dot = el.querySelector('.bg-\\[\\#0071e3\\]');
+                if (dot) dot.remove();
+                const btn = el.querySelector('button');
+                if (btn) btn.remove();
+            }
+        }
+    }
+
+    async function markAllRead() {
+        const resp = await fetch(`/dashboard/notifications/read-all/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/json',
+            },
+        });
+        const data = await resp.json();
+        if (data.success) {
+            // Reload to update the page
+            location.reload();
+        }
+    }
+</script>
+{% endblock %}
