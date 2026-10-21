@@ -39,6 +39,9 @@ class MalayTextCleaner:
 
         # Load topic-specific stopwords (HEAVY)
         self.topic_stopwords = self.load_topic_stopwords()
+
+        # PII: person names + honorifics — removed before stemming/modeling
+        self.person_names = self.load_person_names()
         self.translation_mapping = self.load_json('english_to_malay.json')
 
         # Combine all mappings
@@ -204,6 +207,25 @@ class MalayTextCleaner:
 
         return curse_words
 
+    def load_person_names(self):
+        """Load PII blocklist: person names + honorifics (comment support)."""
+        filepath = self.data_dir / 'person_names.txt'
+        names = set()
+
+        if filepath.exists():
+            with open(filepath, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        if '#' in line:
+                            line = line.split('#')[0].strip()
+                        if line:
+                            names.add(line.lower())
+        else:
+            logger.warning(f"Person names file not found: {filepath}")
+
+        return names
+
     def _base_clean(self, text):
         """Base cleaning applied to all texts."""
         if not text:
@@ -217,6 +239,18 @@ class MalayTextCleaner:
 
         # Remove mentions
         text = re.sub(r'@\w+', '', text)
+
+        # Remove person names + honorifics (PII) BEFORE stemming —
+        # Sastrawi must never see a name ('kumar' -> 'mar' mangling).
+        # Token comparison is punctuation-tolerant ('Razak,' matches 'razak').
+        # Runs before emoji/typo stages so later stages see clean text.
+        words = text.split()
+        filtered = []
+        for w in words:
+            bare = re.sub(r'[^\w]', '', w)
+            if bare and bare not in self.person_names:
+                filtered.append(w)
+        text = ' '.join(filtered)
 
         # Convert emojis
         text = self.convert_emojis(text)

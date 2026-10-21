@@ -1,0 +1,75 @@
+# person_names.txt — PII blocklist for text cleaning.
+# Tokens here are REMOVED before stemming/modeling (both sentiment + topic paths).
+# Sources: User table (20 accounts, full names split into tokens) + child names
+# found in message data (affan 8x, ammar 36x) + honorifics.
+# Format: one token per line, '#' starts a comment. Lowercase only.
+
+# --- Clients (usernames + full-name tokens) ---
+fauziarif
+ahmad
+fauzi
+arif
+aishahmaya
+aishah
+siti
+maya
+ravi
+anita
+lim
+mei
+ling
+jun
+sarah
+tan
+ethan
+azri
+haziq
+nurul
+huda
+dania
+david
+ng
+sam
+fazura
+amira
+jeffrey
+ong
+kate
+
+# --- Therapists ---
+aina
+razak
+daniel
+farah
+ismail
+kumar
+raj
+ain
+shahirah
+
+# --- Doctors ---
+hassan
+lisa
+wong
+
+# --- Children mentioned in messages (not users) ---
+affan
+ammar
+
+# --- Admins ---
+john
+
+# --- Honorifics / titles (removed wherever they appear) ---
+ustaz
+ustazah
+puan
+encik
+cikgu
+dr
+doktor
+prof
+tuan
+haji
+hajah
+datuk
+dato
