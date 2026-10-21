@@ -419,14 +419,22 @@ def clean_text(text, aggressive=False):
     return clean_for_sentiment(text)
 
 
-def batch_clean_conversations():
-    """Clean all conversations for both sentiment and topic modeling."""
+def batch_clean_conversations(force=False):
+    """Clean all conversations for both sentiment and topic modeling.
+
+    force=True re-cleans EVERY row regardless of flags — needed after a
+    cleaner upgrade (new stopwords, PII blocklist...) because the
+    is_cleaned_* flags otherwise skip rows cleaned by the OLD cleaner.
+    """
     from ..models import Conversation
 
     cleaner = get_cleaner()
-    conversations = Conversation.objects.filter(
-        Q(is_cleaned_sentiment=False) | Q(is_cleaned_topic=False)
-    )
+    if force:
+        conversations = Conversation.objects.all()
+    else:
+        conversations = Conversation.objects.filter(
+            Q(is_cleaned_sentiment=False) | Q(is_cleaned_topic=False)
+        )
 
     sentiment_count = 0
     topic_count = 0

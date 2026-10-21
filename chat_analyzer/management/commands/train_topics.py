@@ -55,8 +55,8 @@ class Command(BaseCommand):
 
         # Clean messages for topic modeling if requested
         if clean_first:
-            self.stdout.write('🧹 Cleaning messages for topic modeling...')
-            sentiment_count, topic_count = batch_clean_conversations()
+            self.stdout.write('🧹 Cleaning messages for topic modeling... (FORCE: re-clean all rows)')
+            sentiment_count, topic_count = batch_clean_conversations(force=True)
             self.stdout.write(f'✅ Cleaned {topic_count} messages for topic modeling')
             self.stdout.write(f'✅ Cleaned {sentiment_count} messages for sentiment')
 
