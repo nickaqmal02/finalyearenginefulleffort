@@ -1202,3 +1202,84 @@ Discussed (no code): (1) FYP evaluation matrix — compare XLM-R vs at least 3 b
 - Wire analyze_new_messages (transform-only), ClientTopicScore/TopicTrend
 - DRF APIs: topics/conversations/messages endpoints, role-based permissions
 
+---
+
+## 2026-10-21 — Eval study launched (blind samples) + PII wall + 2 latent bugs unmasked by Postgres
+
+### What we did today
+
+**1. Evaluation provenance chain — Steps 0–1 complete:**
+- Designed the full annotation-reliability study: intra-rater κ (Nik re-labels, n=150),
+  inter-rater κ (classmate, n=150), supervisor validity review (n=100, percent + Wilson CI
+  — κ on n=40 too noisy; n=100 tightens CI to ±6pts at 90% agreement).
+- `scripts/make_eval_samples.py` (seed=42): sample_150 + sample_100, DISJOINT, text-only
+  (message_id,text — NO labels). Determinism verified: two runs → identical SHA-256.
+- Committed + tagged `eval-blind-v1` BEFORE any labeling — commit sequencing is the
+  blindness proof. `eval/blind_hashes.txt` records the hashes.
+- 3-person design locked: dropping the classmate leaves the "both tests involve you"
+  flank open; classmate = the only fully independent rater. Cost = one favor.
+- Provenance playbook: git-commit-ordered artifacts, blind sheets hashed, classmate
+  returns file untouched + signed statement (name/date/"guideline only"), supervisor
+  review via Google Form (server timestamps) + paper courtesy copy.
+- **Samples stay RAW (uncleaned) — deliberate:** annotators judge what humans actually
+  wrote; cleaned text would measure agreement with the pipeline, not reality. PII wall
+  protects the MODEL's view, not the EVALUATION's view. Confidentiality note to annotators instead.
+
+**2. PII wall (names never reach the model):**
+- Nik's instinct: "names shall not be trained on." Probe proved him right — names passed
+  straight through both cleaning paths, AND Sastrawi stem-mangled them ('kumar'→'mar').
+- `data/person_names.txt`: 54 tokens — all 20 users' name parts, children found by data
+  scan (ammar 36×, affan 8×), 13 Malay honorifics. Same #-comment format.
+- `text_cleaner.py`: `load_person_names()` + removal in `_base_clean` (both paths inherit),
+  punctuation-tolerant, BEFORE stemming so Sastrawi never sees a name.
+- Verified: aina/razak/kumar/affan/ustaz/puan/dr all stripped; control message unchanged.
+- Known limitation (viva): blocklist = known names only; NER = future work.
+
+**3. Two latent bugs unmasked by the SQLite→PostgreSQL migration:**
+- `update_sentiment`: stored analyze_sentiment's whole DICT into CharField(20) →
+  Postgres StringDataRightTruncation. SQLite never enforced VARCHAR lengths.
+  Fix: unpack label/score/confidence. Bonus: command now writes sentiment_score +
+  sentiment_confidence (previously silently never set).
+- `batch_clean_conversations`: TWO stacked guard bugs. Outer queryset filtered
+  is_cleaned_* flags (fixed attempt 1), inner `if not is_cleaned_topic` guards STILL
+  skipped flagged rows (my bug — fixed attempt 2: `force or not flag`). Idempotency
+  flags make a pipeline blind to cleaner upgrades — same trap as update_sentiment
+  without --force.
+
+**4. Full re-run on clean text — verified:**
+- `update_sentiment --force`: 266/266. Labels: 128 pos / 92 neu / 46 neg. 0 rows with
+  label-but-no-score. 0 name leaks in cleaned_text.
+- `train_topics --clean-first`: 5 active topics, 0 discovered garbage, 0 name leaks in
+  cleaned_text_topic. Coverage 135→137 (removing name noise let 2 more msgs cluster).
+  Behaviour 60→80 rows (names were diluting it). Distribution shift = expected, correct.
+
+### What Nik learned
+- **A DB migration re-negotiates every contract your code ever broke.** Postgres enforces
+  what SQLite forgave (VARCHAR lengths). Expect more of these to surface.
+- **Idempotency flags vs pipeline upgrades:** is_cleaned_* makes re-runs safe but makes
+  "re-run with a NEW cleaner" silently a no-op. force flags must bypass BOTH the queryset
+  filter AND the per-row guards (my own attempt-1 bug).
+- **Sampling script = mechanical selection as evidence.** seed=42 + git tag + SHA-256
+  makes "I sampled randomly" auditable instead of trust-based. Never re-run it —
+  determinism IS the provenance.
+- **Raw vs cleaned is a consumer decision:** model sees cleaned (PII-free); human
+  annotators see raw (ground truth about reality). Cleaning the eval samples would
+  inflate κ into meaninglessness.
+- **str(dict) into a CharField** is a type-contract bug SQLite hides for months.
+- **κ vs percent:** κ for reliability studies (n≥150, blinded); percent + disagreement
+  audit for expert spot-checks (small n, qualitative). Supervisor n=40→100: Wilson CI
+  ±9.5→±6.0 pts.
+
+### What's next (in order)
+1. **Annotation guideline draft** (eval/annotation_guideline.md) — pull ambiguous
+   messages per class from the 2k (hedged positives, emoji-only, sarcasm) and write
+   explicit rules. Must be committed BEFORE Nik re-labels sample_150.
+2. Nik re-labels sample_150 → nik_relabel.csv → commit.
+3. Classmate: form from sample_150 → untouched file + signed statement → commit.
+4. Supervisor: form from sample_100 (n=100 if they'll sit for it) → commit.
+5. scripts/compute_agreement.py → κ ×2 + percent + Wilson CI → eval/RESULTS.md.
+6. Check fine_tune_sentiment.py: if it reads the CSV raw (names included), the PII
+   wall has a second gap on the training side.
+7. Viva sweep: signal guard 7-print test; Conversation.save() dead hash code (line ~879).
+8. Eval matrix: XLM-R vs mBERT/IndoBERT/DistilBERT baselines.
+
