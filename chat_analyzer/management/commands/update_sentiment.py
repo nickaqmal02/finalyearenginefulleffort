@@ -56,9 +56,17 @@ class Command(BaseCommand):
                 cleaned = clean_text(conv.message)
                 conv.cleaned_text = cleaned
 
-                # analyze sentiment
-                sentiment = analyze_sentiment(cleaned) if conv.client else None
-                conv.sentiment = sentiment
+                # analyze sentiment — returns a DICT; unpack before storing
+                # (str(dict) into CharField(20) = Postgres StringDataRightTruncation;
+                # SQLite never enforced lengths, Postgres does)
+                if conv.client:
+                    result = analyze_sentiment(cleaned)
+                    conv.sentiment = result['label']
+                    conv.sentiment_score = result['score']
+                    conv.sentiment_confidence = result['confidence']
+                    conv.is_cleaned_sentiment = True
+                else:
+                    conv.sentiment = None
 
                 conv.save()
                 updated += 1
