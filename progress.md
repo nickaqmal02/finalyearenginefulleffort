@@ -1274,12 +1274,29 @@ Discussed (no code): (1) FYP evaluation matrix — compare XLM-R vs at least 3 b
 1. **Annotation guideline draft** (eval/annotation_guideline.md) — pull ambiguous
    messages per class from the 2k (hedged positives, emoji-only, sarcasm) and write
    explicit rules. Must be committed BEFORE Nik re-labels sample_150.
-2. Nik re-labels sample_150 → nik_relabel.csv → commit.
-3. Classmate: form from sample_150 → untouched file + signed statement → commit.
-4. Supervisor: form from sample_100 (n=100 if they'll sit for it) → commit.
+2. Nik re-labels sample_150 → eval/nik_relabel.csv → commit.
+3. Classmate: form from sample_150 → eval/annotator2_[name].csv → commit.
+4. Supervisor: form from sample_100 (n=100 if they'll sit for it) → eval/supervisor_labels.csv → commit.
 5. scripts/compute_agreement.py → κ ×2 + percent + Wilson CI → eval/RESULTS.md.
 6. Check fine_tune_sentiment.py: if it reads the CSV raw (names included), the PII
    wall has a second gap on the training side.
 7. Viva sweep: signal guard 7-print test; Conversation.save() dead hash code (line ~879).
 8. Eval matrix: XLM-R vs mBERT/IndoBERT/DistilBERT baselines.
+
+### Labeling → digitization contract (agreed, end of session)
+- **Sequence:** guideline → Nik labels FIRST → classmate (Nik's sheet not visible while
+  they work) → supervisor (anytime, independent). No exceptions — sequencing IS the
+  blindness proof.
+- **Forms:** eval/annotation_form_150.pdf (print TWICE — Nik + classmate) and
+  annotation_form_100.pdf (supervisor). Tick boxes are WORDS (positive/neutral/negative),
+  never 0/1/2. Declaration + signature at the foot of each form = provenance statement.
+- **Digitized CSV format (all three raters, same shape):**
+  `row,label` — row = form row number (1–150 / 1–100); label = word, not number.
+  compute_agreement.py maps row→message_id via the sample CSVs, and words→0/1/2 via
+  eval/label_mapping.md.
+- **Blanks stay blank.** No-tick = empty cell, never guessed. Blanks + classmate
+  questions mid-task = data about guideline ambiguity → goes in RESULTS.md.
+- **Transcribe classmate/supervisor answers EXACTLY** — never "fix" their ticks.
+- **Commit each rater's CSV as it arrives** — timestamps after eval-blind-v1 tag.
+
 
