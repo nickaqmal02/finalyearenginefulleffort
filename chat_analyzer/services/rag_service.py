@@ -134,10 +134,12 @@ def load_and_chunk(file_path: str) -> List[Dict[str, Any]]:
     return result
 
 
-def embed_and_store(chunks: List[Dict[str, Any]], doc_title: str) -> int:
+def embed_and_store(chunks: List[Dict[str, Any]], doc_title: str,
+                    document_id: Optional[int] = None) -> int:
     """Embed chunks and store in ChromaDB.
 
     Returns number of chunks stored.
+    document_id links chunks back to the TreatmentDocument row (for file_url).
     """
     if not chunks:
         return 0
@@ -153,28 +155,34 @@ def embed_and_store(chunks: List[Dict[str, Any]], doc_title: str) -> int:
     doc_hash = hashlib.md5(doc_title.encode()).hexdigest()[:8]
     ids = [f"{doc_hash}_{i}" for i in range(len(chunks))]
 
-    # Add to ChromaDB
+    # Add to ChromaDB — include document_id so we can look up the file later
+    metadatas = []
+    for c in chunks:
+        meta = {**c["metadata"], "doc_title": doc_title}
+        if document_id is not None:
+            meta["document_id"] = document_id
+        metadatas.append(meta)
+
     collection.add(
         ids=ids,
         embeddings=embeddings.tolist(),
         documents=texts,
-        metadatas=[
-            {**c["metadata"], "doc_title": doc_title}
-            for c in chunks
-        ],
+        metadatas=metadatas,
     )
-    logger.info(f"Stored {len(chunks)} chunks in ChromaDB for '{doc_title}'")
+    logger.info(f"Stored {len(chunks)} chunks in ChromaDB for '{doc_title}' (doc_id={document_id})")
     return len(chunks)
 
 
-def ingest_document(file_path: str, doc_title: str) -> Dict[str, Any]:
+def ingest_document(file_path: str, doc_title: str,
+                     document_id: Optional[int] = None) -> Dict[str, Any]:
     """Full ingestion pipeline: load → chunk → embed → store.
 
     Called by the Celery task when a doctor uploads a document.
+    document_id links chunks to the TreatmentDocument row for file_url lookup.
     """
     try:
         chunks = load_and_chunk(file_path)
-        count = embed_and_store(chunks, doc_title)
+        count = embed_and_store(chunks, doc_title, document_id=document_id)
         return {
             "status": "ready",
             "chunks_created": count,
@@ -276,15 +284,41 @@ def build_context(results: List[Dict[str, Any]]) -> str:
 
 
 def build_sources(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Build sources list for the frontend (title, page, score, preview)."""
+    """Build sources list for the frontend (title, page, score, preview, file_url).
+
+    Looks up TreatmentDocument by document_id in chunk metadata to get the file URL
+    so the client/therapist can click through to the source PDF.
+    """
+    # Lazy import to avoid Django app loading at module import time
+    from chat_analyzer.models import TreatmentDocument
+
+    # Collect unique document_ids and look them up in one query (avoid N+1)
+    doc_ids = set()
+    for doc in results:
+        did = doc["metadata"].get("document_id")
+        if did is not None:
+            doc_ids.add(did)
+
+    doc_map = {}  # document_id → TreatmentDocument
+    if doc_ids:
+        for td in TreatmentDocument.objects.filter(id__in=doc_ids):
+            doc_map[td.id] = td
+
     sources = []
     for doc in results:
         score = doc.get("rerank_score", doc.get("similarity_score", 0))
+        did = doc["metadata"].get("document_id")
+        file_url = None
+        if did is not None and did in doc_map:
+            td = doc_map[did]
+            if td.file:
+                file_url = td.file.url
         sources.append({
             "title": doc["metadata"].get("doc_title", "unknown"),
             "page": doc["metadata"].get("page", "N/A"),
             "score": round(float(score), 3),
             "preview": doc["content"][:200] + "..." if len(doc["content"]) > 200 else doc["content"],
+            "file_url": file_url,
         })
     return sources
 

@@ -59,6 +59,7 @@ urlpatterns = [
 # ╚════════════════════════════════════════════╝ 
 #   
     path("dashboard/client/documents/", views.client_documents, name='client_documents'),
+    path("dashboard/client/treatment-docs/", views.client_treatment_docs, name='client_treatment_docs'),
     path("dashboard/client/therapist/", views.client_therapist, name='client_therapist'),
     path("dashboard/client/settings/", views.client_settings, name='client_settings'),
     path("client/chat/<int:thread_id>/", views.chat_thread_detail, name='client_chat_thread'),

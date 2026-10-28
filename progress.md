@@ -1297,6 +1297,71 @@ Discussed (no code): (1) FYP evaluation matrix — compare XLM-R vs at least 3 b
 - **Blanks stay blank.** No-tick = empty cell, never guessed. Blanks + classmate
   questions mid-task = data about guideline ambiguity → goes in RESULTS.md.
 - **Transcribe classmate/supervisor answers EXACTLY** — never "fix" their ticks.
+
+---
+
+## 2026-10-22 — Model Evaluation Notebook COMPLETE (all parts, PDF + HTML)
+
+### What we did today
+- **Refactored training cells to load saved checkpoints** instead of re-training from scratch.
+  `run_inference()` loads from `runs/<id>_best/` — render time dropped from 15+ min → ~90 sec.
+  All 4 model checkpoints already saved: xlmr_best (1.1G), mbert_best (681M), indobert_best (475M),
+  distilbert_best (519M).
+- **Built Section 2.5 (confusion matrices):** 2×2 grid of all 4 models + error pattern analysis.
+  XLM-R: 54/432 errors, biggest = positive→neutral (16). mBERT: 31/432 errors, biggest = positive→negative (13).
+- **Built Section 2.6 (rojak vs pure Malay breakdown):** Classified 432 test messages as rojak (81, 18.8%)
+  vs pure Malay (351, 81.2%). Result: **mBERT wins BOTH groups** (rojak 0.951 vs 0.926, pure 0.923 vs 0.863).
+  XLM-R's hypothesis ("wins on rojak") NOT supported by data. Reported honestly.
+- **Built Section 2.7 (decision):** Decision matrix R1-R5. mBERT wins R1/R2/R4. XLM-R wins R3 (negative
+  recall 0.933 vs 0.919) + traps (0.950 vs lexicon's 0.000). Honest prose: "accepted a small overall-accuracy
+  trade-off for the clinical priority."
+- **Built Part 3 (BERTopic defense):** Architectural argument — no labels → can't do head-to-head.
+  3.1: 42% multi-topic rate proves keyword rules insufficient. 3.2: transformer embeddings + UMAP/HDBSCAN
+  + c-TF-IDF each solve a specific problem. 3.3: c_v coherence via NPMI (gensim won't build on Py3.14,
+  computed from scratch). Score -0.753 — honestly interpreted as expected for short-text corpus (avg 3
+  tokens/doc), not a coherence failure. 3.4: cluster distribution bar chart. 3.5: vs LDA/K-means/Top2Vec.
+- **Built Conclusion:** Three-paragraph summary + one-breath viva answer.
+- **PDF rendering:** `./render.sh pdf` renders to PDF with `--execute` (all charts embedded).
+  Confusion matrices and topic distribution chart render correctly in PDF.
+- **Git cleanup:** Added `.gitignore` (blocks runs/, quarto build artifacts, *.quarto_ipynb).
+  Removed model weights from git tracking. `git gc --prune=now --aggressive`.
+  `.git` size: **5.6GB → 500KB**. Repo is now push-ready.
+- **Created `scripts/extract_topic_data.py`:** Extracts topic data from Sentiri DB → `topic_clusters.json`
+  (12KB) so the notebook doesn't need Django setup for Part 3.
+
+### The mBERT vs XLM-R situation
+- mBERT wins overall accuracy (0.882 vs 0.863), macro-F1 (0.881 vs 0.862), rojak (0.951 vs 0.926),
+  pure Malay (0.923 vs 0.863), and is 1.6× smaller (178M vs 278M).
+- XLM-R wins only negative recall (0.933 vs 0.919) and traps (0.950 on 20 hardest messages).
+- The gap is narrow: ~8 messages overall, ~2 messages on negative recall.
+- **Decision: keep XLM-R for now.** If supervisor says switch to mBERT tomorrow, the swap is 3 files
+  (fine_tune_sentiment.py model_name, sentiment_analyzer.py model_path, copy runs/mbert_best → ml_models/)
+  + notebook title/decision update. Whole Django app stays untouched.
+
+### What Nik learned
+- **Topic modeling evaluation is fundamentally different from sentiment.** Sentiment has labels → accuracy.
+  Topics have no labels → architectural defense (coherence + cluster quality + comparison to alternatives).
+- **c_v coherence on short texts is unreliable.** NPMI measures word co-occurrence within windows; when
+  avg doc length is 3 tokens, most pairs never co-occur. Negative scores are expected, not a failure.
+- **`--no-execute` uses cached cell outputs; `--execute` runs all cells.** Charts (matplotlib) only exist
+  as cell outputs after execution. If cache is missing (gitignored), `--no-execute` produces empty sections.
+- **Checkpoint loading vs re-training:** `AutoModelForSequenceClassification.from_pretrained("runs/xlmr_best")`
+  loads saved weights in seconds. No need to re-train on every render. This is the transformer equivalent
+  of "save model.pkl + load model.pkl" from tabular ML.
+- **Git bloat from model weights:** .safetensors files are 500MB–1.1GB each. Committing them to git
+  balloons the repo. `.gitignore` + `git rm --cached` + `git gc --prune=now` cleans it up.
+
+### Render commands (final)
+- `./render.sh` — HTML, all cells + charts (~90 sec, loads checkpoints)
+- `./render.sh --no-execute` — HTML, instant (prose only, charts may be missing)
+- `./render.sh pdf` — PDF, all cells + charts (~90 sec, for submission)
+
+### What's next
+- **Supervisor meeting (2026-10-23):** decide whether to keep XLM-R or switch to mBERT.
+  If switch: 3-file swap + notebook title/decision update.
+- **Eval study:** annotation_guideline.md (blocker) → Nik re-label → classmate → supervisor → compute_agreement.py.
+- **Viva sweep:** unpaid questions from Sentiri app (signal guard test, form_tag=False, etc.).
+
 - **Commit each rater's CSV as it arrives** — timestamps after eval-blind-v1 tag.
 
 

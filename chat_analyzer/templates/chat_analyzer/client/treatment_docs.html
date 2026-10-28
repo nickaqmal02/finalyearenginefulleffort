@@ -1,0 +1,120 @@
+{% extends 'chat_analyzer/client/base_client.html' %}
+
+{% block title %}Treatment Guides — Sentiri{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h1 class="text-2xl font-bold text-gray-900">Treatment Guides 📚</h1>
+    <p class="text-gray-400 text-sm mt-1">Reference materials uploaded by doctors — browse, read, or download</p>
+</div>
+
+{% if treatment_docs %}
+<!-- Stats bar -->
+<div class="flex gap-3 mb-6">
+    <div class="glass rounded-2xl px-5 py-3 card-shadow">
+        <p class="text-2xl font-bold text-gray-900">{{ treatment_docs|length }}</p>
+        <p class="text-xs text-gray-400">Documents</p>
+    </div>
+    <div class="glass rounded-2xl px-5 py-3 card-shadow">
+        <p class="text-2xl font-bold text-gray-900">
+            {{ treatment_docs|length|add:"0" }}
+        </p>
+        <p class="text-xs text-gray-400">Ready to read</p>
+    </div>
+</div>
+
+<!-- Document cards grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for doc in treatment_docs %}
+    <div class="glass rounded-3xl p-5 card-shadow hover:card-shadow-lg transition-shadow duration-200">
+        <!-- Header: icon + type badge -->
+        <div class="flex items-start justify-between mb-4">
+            <div class="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center">
+                <svg class="w-6 h-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+            </div>
+            <span class="pill-badge bg-green-100 text-green-700">Ready</span>
+        </div>
+
+        <!-- Title + description -->
+        <h3 class="font-semibold text-gray-900 text-sm leading-snug mb-1">{{ doc.title }}</h3>
+        {% if doc.description %}
+        <p class="text-xs text-gray-400 leading-relaxed mb-3 line-clamp-2">{{ doc.description }}</p>
+        {% else %}
+        <p class="text-xs text-gray-300 leading-relaxed mb-3">No description provided</p>
+        {% endif %}
+
+        <!-- Meta: date + chunks -->
+        <div class="flex items-center gap-3 text-[11px] text-gray-400 mb-4">
+            <span class="inline-flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                {{ doc.created_at|date:"M j, Y" }}
+            </span>
+            {% if doc.chunks_created %}
+            <span class="inline-flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                {{ doc.chunks_created }} sections
+            </span>
+            {% endif %}
+        </div>
+
+        <!-- Actions -->
+        <div class="flex gap-2">
+            <a href="{{ doc.file.url }}" target="_blank"
+               class="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-white bg-[#0071e3] rounded-lg hover:bg-[#0058b9] transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                View
+            </a>
+            <a href="{{ doc.file.url }}" download
+               class="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-[#0071e3] bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Help note -->
+<div class="glass rounded-2xl p-4 mt-6 flex items-start gap-3">
+    <svg class="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+    <p class="text-xs text-gray-500">
+        These guides are also used by the AI assistant when you ask questions in
+        <a href="{% url 'chat_analyzer:chatbot' %}" class="text-[#0071e3] font-medium hover:underline">Ask AI</a>.
+        When the AI references a document, click the source badge to open it here.
+    </p>
+</div>
+
+{% else %}
+<!-- Empty state -->
+<div class="glass rounded-3xl p-12 text-center card-shadow">
+    <svg class="w-12 h-12 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+    </svg>
+    <h3 class="font-medium text-gray-900">No treatment guides yet</h3>
+    <p class="text-sm text-gray-400 mt-1">
+        Doctors haven't uploaded any reference materials yet. Check back later or
+        ask your therapist for recommended reading.
+    </p>
+</div>
+{% endif %}
+{% endblock %}

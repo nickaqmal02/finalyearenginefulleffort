@@ -1165,6 +1165,26 @@ def client_documents(request: HttpRequest) -> HttpResponse:
     }
     return render(request, 'chat_analyzer/client/client_documents.html', context)
 
+
+@client_required
+def client_treatment_docs(request: HttpRequest) -> HttpResponse:
+    """
+    Treatment reference documents uploaded by doctors.
+    These are general treatment guides (not client-specific diagnosis reports).
+    Clients can browse and download them as reference material.
+    Only shows documents that are 'ready' (ingested into RAG) and active.
+    """
+    from .models import TreatmentDocument
+
+    docs = TreatmentDocument.objects.filter(
+        status='ready', is_active=True
+    ).order_by('-created_at')
+
+    context: dict[str, Any] = {
+        'treatment_docs': docs,
+    }
+    return render(request, 'chat_analyzer/client/treatment_docs.html', context)
+
 @client_required
 def client_therapist(request: HttpRequest) -> HttpResponse:
     """

@@ -176,7 +176,7 @@ def ingest_treatment_document(self, document_id):
     doc.save()
 
     try:
-        result = ingest_document(doc.file.path, doc.title)
+        result = ingest_document(doc.file.path, doc.title, document_id=doc.id)
 
         if result['status'] == 'ready':
             doc.status = 'ready'

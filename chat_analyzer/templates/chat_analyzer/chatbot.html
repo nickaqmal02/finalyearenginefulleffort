@@ -148,9 +148,13 @@
                         <div>
                             <div class="msg-ai">{{ q.answer|linebreaksbr }}</div>
                             {% if q.sources %}
-                            <div class="mt-2">
+                            <div class="mt-2 flex flex-wrap gap-1.5">
                                 {% for s in q.sources %}
-                                <span class="source-chip">{{ s.title }} (p.{{ s.page }})</span>
+                                    {% if s.file_url %}
+                                    <a href="{{ s.file_url }}" target="_blank" class="source-chip inline-flex items-center gap-1 hover:opacity-80 transition-opacity">{{ s.title }} (p.{{ s.page }}) <span class="text-[8px]">📄</span></a>
+                                    {% else %}
+                                    <span class="source-chip">{{ s.title }} (p.{{ s.page }})</span>
+                                    {% endif %}
                                 {% endfor %}
                             </div>
                             {% endif %}
@@ -237,9 +241,13 @@
 
             let sourcesHtml = '';
             if (data.sources && data.sources.length > 0) {
-                sourcesHtml = '<div class="mt-2">';
+                sourcesHtml = '<div class="mt-2 flex flex-wrap gap-1.5">';
                 data.sources.forEach(function(s) {
-                    sourcesHtml += `<span class="source-chip">${escapeHtml(s.title)} (p.${s.page})</span>`;
+                    if (s.file_url) {
+                        sourcesHtml += `<a href="${s.file_url}" target="_blank" class="source-chip inline-flex items-center gap-1 hover:opacity-80 transition-opacity">${escapeHtml(s.title)} (p.${s.page}) <span class="text-[8px]">📄</span></a>`;
+                    } else {
+                        sourcesHtml += `<span class="source-chip">${escapeHtml(s.title)} (p.${s.page})</span>`;
+                    }
                 });
                 sourcesHtml += '</div>';
             }
