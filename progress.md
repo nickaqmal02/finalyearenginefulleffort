@@ -1365,3 +1365,166 @@ Discussed (no code): (1) FYP evaluation matrix — compare XLM-R vs at least 3 b
 - **Commit each rater's CSV as it arrives** — timestamps after eval-blind-v1 tag.
 
 
+
+## 2026-10-28 — RAG Evaluation page: gold set built, eval script NEXT (ZURICH sprint)
+
+### What we did today
+- **Built a 2-page Quarto website** (`ModelEvaluationFinalYear/`): added `_quarto.yml` +
+  new `rag_evaluation.qmd` — "Does the Chatbot Retrieve the Right Evidence?" Existing
+  model_evaluation.qmd untouched (paper-adjacent, frozen). Navbar links both pages,
+  `_site/index.html` redirects to page 1 (old links keep working).
+- **Cell cache working:** `jupyter-cache` installed into Sentiri venv (Quarto fails
+  SILENTLY without it — no warning, just no caching. Evil.). Key discovery: per-cell
+  `#| cache: true` does NOTHING without project-level `cache: true` in YAML.
+  Render went 39s → 10s. Cache invalidates on CODE change only, not data — so
+  gold_set cells are deliberately uncached (editing gold set = fresh numbers, no
+  staleness trap). Force re-run: `quarto render --execute --cache=refresh`.
+- **Kernel quirk:** `quarto preview` fails with "kernel jupyter_env not found" in bare
+  shell. Fix: `export PATH=~/degree/finalyearengineredo/venv/bin:$PATH` first, or
+  `conda activate jupyter_env` (it's a conda env, needed jupyter-cache installed too).
+  `./render.sh` self-contains the PATH export — that's why it always worked.
+- **ChromaDB dedup:** discovered live ID collision — "Terapi Pertuturan Autism (Test
+  Upload)" was a duplicate doc with same text, different md5(title)[:8] prefix
+  (9349f30a_* vs ab083244_*). Deleted 4 chunks → collection frozen at **14 chunks /
+  3 docs** (Terapi Pertuturan, Tingkah Laku Cabaran, Terapi Pemakanan). NO re-ingest
+  before eval — md5-title IDs would shift and gold set would point at ghosts.
+- **Gold set built (13 questions, real IDs):** 5 ms / 2 en / 2 rojak / mixed + 3 feeding-doc
+  questions (all 3 docs covered) + 2 adversarial (price question, age-at-intervention
+  question — correct behavior = refusal line). Q6 rewritten: "track progress" →
+  "berapa kerap sesi terapi" (verifiable in ab083244_3). Q5/Q8 marked VERIFY against
+  full chunk text. **Nik annotated the chunk IDs himself** from col.get() browse.
+- **Eval metrics design locked:** hit@k (binary — did we find it), MRR (graded — how
+  high, 1/rank first gold), precision@k (noise — lower bound, gold not exhaustive),
+  computed for dense-only vs dense+rerank (the ablation that proves the cross-encoder
+  earns its latency) + refusal accuracy on adversarials. R1-R5 requirements table
+  mirrors model-eval page style. Slices (lang/difficulty) from ONE frozen run.
+- **eval_rag.py — hand-written by Nik, blank file, in progress:** Django setup +
+  gold set load + loop (list-of-dicts records) done. hit_at_k written (sets,
+  intersection, truthiness). reciprocal_rank NARRATED perfectly by Nik (enumerate
+  start=1, first gold only, one float per question) — typing it. Remaining:
+  precision_at_k, aggregate, JSON save, RUN.
+
+### What Nik learned (deep Socratic session — he asked, we answered)
+- **ChromaDB columnar shape:** .get() returns parallel lists (ids/documents/metadatas);
+  .query() wraps them in an outer list per query. zip() rebuilds rows from columns.
+  zip drops excess silently; strict=True makes mismatch crash loudly; zip_longest pads.
+- **Cosine distance vs similarity:** Chroma returns DISTANCE (0=identical, 2=opposite)
+  because HNSW is nearest-neighbor; code converts (2-d)/2 → similarity [0,1] (1=perfect).
+  Similarity bigger=better, distance smaller=better. SCORE_THRESHOLD=0.2 is very
+  permissive (passes almost-orthogonal results) — future dial.
+- **The two k's:** RETRIEVE_K=20 (funnel mouth, recall ceiling) vs TOP_K=5 (throat,
+  LLM context). Independent dials — different failure patterns point at different dials.
+- **Two-stage funnel semantics:** retrieve PROPOSES (bi-encoder, cheap broad scan),
+  rerank VERIFIES (cross-encoder, expensive sharp judgment on shortlist only).
+  "Nik's moment: 'omg the two k's hahaha' — reading his own past code and finding it
+  beautiful."
+- **Operator overloading:** & on sets = intersection, & on ints = bitwise AND. Same
+  symbol, behavior decided by operand types — silent wrong-answer risk, hence type
+  annotations (new permanent preference: annotate ALL his Python).
+- **hit@k is binary (returns 0/1); RR is graded (1/rank, one float); position IS user
+  experience.** RR and hit@k are secretly related: rr > 1/k ⟺ hit.
+- **Blank-file rule reaffirmed hard tonight:** "how to become better — writing barely
+  by hands or copy?" Answer: hands. The 30 micro-decisions in a scaffold are the
+  learning; copying skips them. Copy-tier = boilerplate only (django.setup, venv paths).
+
+### What we went through together
+- Nik's "am I great?" moment — friends story (built Hermes-powered Laravel+Postgres+
+  Stripe site for logistics friends in one night, they said "holy sheet"). Reframe:
+  THEY delegated judgment, HE deployed judgment + delegated typing. The line to walk:
+  keep verification depth ahead of delegation speed.
+- Deep procrastination-vs-curiosity negotiation — every question (res, zip, distance,
+  rank, set, bool, type annotations) was real learning, but the blank file waited
+  ~3 hours. Classic sweetness trap. Final deal: curiosity questions always answered;
+  thread goes quiet until code or error appears.
+
+### Environment / infra also done today
+- **Nickrouter wired into Hermes** (profile nick-jev): custom provider →
+  http://localhost:20128/v1, model ComboNicky (routes to glm-5.3; also available:
+  rootsys/glm-5.2, minimax-m3, hy3-tencent, kimi-k3). Verified end-to-end via curl
+  + smoke session. New sessions use it; current session unaffected.
+- **ZURICH sprint plan** at ~/diary/2026-10-28_zurich_one_week_sprint_plan.md — Wed:
+  surfaces + gold set; Thu: story bank; Fri: skills-map + mock; Sat: logistics; Sun:
+  REST. Interview Mon 2 Nov 10am Teams, hiring manager, 30 min.
+
+### What's next (in order)
+1. **FINISH eval_rag.py** — precision_at_k, aggregate, save rag_eval_results.json, RUN.
+   Warm blank file: both remaining functions already narrated by Nik.
+2. Numbers into rag_evaluation.qmd (stub cells load JSON) + worst-5 failure analysis
+   (Q5/Q8 gold verification still pending).
+3. 🔴 Rotate ROOTSYS_API_KEY in langchain_chain.py before repo gets traffic.
+4. GitHub READMEs (Sentiri + ApexAgent), resume sections (photo/Interests/References).
+5. Thu: story bank out loud ×3. Fri: mock interview. Mon 10am: game day.
+6. Post-eval (only if numbers demand): BM25+RRF hybrid leg, chunking fix, threshold
+   raise — diagnosis before prescription.
+
+---
+
+## 2026-10-30 (Thu night) — RAG EVAL RAN. The reranker convicted.
+
+### Shipped
+- **`scripts/rag_evaluation.py` RUN end-to-end** (37s, 13 questions). First try, zero crashes.
+  Output `rag_eval_results.json`: meta + 13 records (evidence: dense_ranked_ids, rerank_ranked_ids, scores) + aggregate.
+- **The headline finding — rerank displacement:**
+  - hit@20 (dense): **1.00** — perfect recall, funnel mouth never misses
+  - hit@5: dense-only **1.00** (equal-k, computed collect-then-score from saved evidence)
+    vs rerank **0.636** — 4/11 questions lose gold entirely from top-5
+  - MRR: dense 0.564 → rerank 0.439 (avg first-gold rank ~2 → ~2.3)
+  - precision@5: dense 0.218 vs rerank 0.127
+  - Worst case: "why only one brand of food" — gold at DENSE RANK 1, rerank pushed it
+    out of top-5. Failures split 2 English / 2 Malay → NOT just an English-reranker-
+    struggles-with-Malay story. Rerank also credited with 2 rescues (rank3→1). Net negative.
+- **Adversarial finding:** 2 adversarial questions retrieve at sim 0.79–0.85 vs
+  SCORE_THRESHOLD=0.2 → retrieval layer cannot refuse; refusal is generation-layer.
+  Confirmed: refusal accuracy = future eval axis.
+- **rag_evaluation.qmd Section 4 done** (rendered clean): pandas metrics table
+  (Styler: hide index, format precision=2, na_rep="—"), headline-finding prose,
+  improvements-in-evidence-order, adversarial section. Equal-k dense@5 computed
+  in-cell from saved evidence (collect-then-score — no pipeline re-run).
+- **Journal typography** (_quarto.yml, both pages): Source Serif 4 body, Inter
+  headings, JetBrains Mono code, 1.05em/1.7 line-height. Renders identically anywhere.
+- **README.md rebuilt** as landing page: results table up top, 3 PNG snapshots
+  (HEIC→sips→PNG), repo layout, reproduce commands. HEIC doesn't render in
+  browsers/GitHub — converted all.
+- **Committed + pushed**: 61e9a36 → github.com/nickaqmal02/MatrixEvaluationModel.
+  Commit trail now tells the arc: f44181e (metrics impl) → 61e9a36 (results+finding).
+
+### Decisions made tonight (evidence-driven)
+- **BM25/hybrid: deferred, in writing.** hit@20=1.0 → lexical-miss failure mode has
+  ZERO occurrences in 13 questions. BM25 fixes a disease the patient doesn't have.
+  Tripwire for revisiting: paraphrase question with hit@20=0, or collection >~100 chunks.
+- **Agentic RAG: don't build — TEST for it.** Next gold-set additions = multi-hop
+  questions (2 gold ids, e.g. PECS chunk + age-guideline chunk) + paraphrase +
+  cross-lingual + off-domain-adjacent. 4–6 axis-covering questions > 30 samey ones.
+  Gold set grows by AXES not volume; every question must be able to lose interestingly.
+- **Roadmap by evidence priority:** 1) rerank fix-or-remove (BGE-m3 swap = one line +
+  37s re-run) 2) multi-hop gold → agentic verdict 3) generation-layer eval (refusal +
+  faithfulness, LLM-as-judge territory — Ragas answer flips HERE) 4) BM25 parked.
+- **The eval discipline in one line: probe → run → read per-question rows (means hide,
+  rows reveal) → flaw found dictates next move. A passing result is a finding too.**
+
+### Learned
+- MRR = Mean Reciprocal Rank: RR=1/rank per question, mean over 11 → the aggregate
+  column IS per-question RRs collapsed by mean().
+- Why "—" in hit@20 rerank cell: structurally undefined — rerank IS the k=5 cut,
+  it never produces 20 outputs. The row exists to show the recall ceiling it operates under.
+- pandas Styler in Quarto: last-expression DataFrame auto-renders styled; bare df
+  shows ugly index column + truncated cells. .style.hide(axis="index").format(...) is the fix.
+- sips -s format png for HEIC→PNG (iPhone screenshots don't render on GitHub).
+- "The more the better" is FALSE for gold sets — instrument, not test bank; gold
+  annotation by hand is the real budget.
+
+### Interview narrative (updated)
+"My eval harness revealed my cross-encoder reranker strictly degrades retrieval:
+equal-k hit@5 falls 1.00→0.64, worst case gold demoted from dense rank 1 to out of
+top-5. Dense-only is at ceiling — the reranker has nothing to gain and something to
+lose at this collection size. Fix: multilingual reranker (BGE-m3) or remove — one-line
+swap, harness re-verifies in 37s. The eval also killed my BM25 plan (no lexical-miss
+occurrences) and is about to rule on agentic RAG via multi-hop gold questions."
+Best possible harness outcome: proves you know your system + kills changes that
+would've made it worse. Without tonight, I'd have shipped the reranker believing it helped.
+
+### Sprint state (3 days to interview, Mon 2 Nov 10am)
+- Sat: 🔴 ROOTSYS_API_KEY rotation (only blocking item) + optional BGE-m3 swap +
+  read pages aloud. Sun: story bank ×3 spoken aloud + resume bullet + main README
+  + REST. Mon: warm-up skim only, Teams 15 min early.
+- Core story banked. Everything else = optional upside. Sleep is legit prep.

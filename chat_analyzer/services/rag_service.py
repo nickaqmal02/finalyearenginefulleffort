@@ -42,8 +42,6 @@ RETRIEVE_K = 20
 SCORE_THRESHOLD = 0.2
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
-
-
 # ╔════════════════════════════════════════════╗
 # ║          SINGLETONS (load once)             ║
 # ╚════════════════════════════════════════════╝
@@ -86,7 +84,6 @@ def get_collection() -> chromadb.Collection:
         )
         logger.info(f"ChromaDB collection ready: {COLLECTION_NAME} at {VECTOR_STORE_DIR}")
     return _collection
-
 
 # ╔════════════════════════════════════════════╗
 # ║         DOCUMENT INGESTION                  ║

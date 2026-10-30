@@ -24,11 +24,12 @@ from langchain_core.prompts import PromptTemplate
 
 
 # ── Config ──
-ROOTSYS_API_KEY = "fiq-26561a77461073dc85b6f49b4557e454"
-ROOTSYS_BASE_URL = "https://rootsys.cloud/v1"
-MODEL_NAME = "glm-5.3"
-REDIS_URL = "redis://localhost:6379/0"
-DJANGO_API_BASE = "http://localhost:8000/api"
+# Secrets come from the environment (.env, loaded in settings.py). Never hardcode.
+ROOTSYS_API_KEY = os.environ.get("ROOTSYS_API_KEY", "")
+ROOTSYS_BASE_URL = os.environ.get("ROOTSYS_BASE_URL", "https://rootsys.cloud/v1")
+MODEL_NAME = os.environ.get("RESERVATION_MODEL", "glm-5.3")
+REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+DJANGO_API_BASE = os.environ.get("DJANGO_API_BASE", "http://localhost:8000/api")
 
 # ── System prompt for the reservation assistant ──
 RESERVATION_PROMPT = """You are Sentiri, a friendly and efficient reservation assistant for an autism therapy center in Malaysia.
@@ -59,6 +60,10 @@ Reply:"""
 
 def _get_llm():
     """Create a ChatOpenAI instance pointing to rootsys.cloud."""
+    if not ROOTSYS_API_KEY:
+        raise RuntimeError(
+            "ROOTSYS_API_KEY is not set. Add it to .env (see .env.example) and restart."
+        )
     # Set env var so ChatOpenAI picks it up (it requires SecretStr type)
     os.environ["OPENAI_API_KEY"] = ROOTSYS_API_KEY
     return ChatOpenAI(
