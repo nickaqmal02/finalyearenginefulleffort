@@ -12,11 +12,8 @@ from typing import Any, Optional
 import django
 from django.conf import settings
 
-file == "scripts/check_alignment.py"
-
-BASE_DIR: Path = Path(file).resolve().parent.parent
-sys.path.insert(0, str(BASE_DIR))
-sys.path.insert(0, str(BASE_DIR / "chat_analyzer"))
+base_dir: Path = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(base_dir))
 
 import os
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "finalyearengineredo.settings")
@@ -31,20 +28,25 @@ def db_ready_titles() -> set[str]:
         
     """
     qs = (TreatmentDocument.objects
-          .filter(status='ready', is_active=True
+          .filter(status='ready', is_active=True)
           .values_list('title', flat=True))
-    
+
     return set(qs)
 
 
 def chroma_titles() -> tuple[set[str], int]:
     """
-    get the chroma db titles
-
-    
+    distinct doc_titles present in chroma, plus count of malformed data 
     """
+    col = get_collection() # we got collection returned from this rag_service method
+    
+    payload: dict[str, Any] = col.get(include=['metadatas'])
+
+    metadatas: list[dict[str, Any]] = payload.get('metadatas', []) # [] if chroma didnt retunr metadata treat as empty list to handle from crashing
+
     titles: set[str] = set()
     malformed: int = 0
+
     for meta in metadatas:
         title: Optional[str] = meta.get('doc_title')
         if title is None:
@@ -54,7 +56,7 @@ def chroma_titles() -> tuple[set[str], int]:
     return titles, malformed
 
 def near_misses(a: set[str], b: set[str]) -> list[tuple[str, str]]:
-    """" find out the case-insensitive collisions between the two diff sets.
+    """ find out the case-insensitive collisions between the two diff sets.
 
     'ABA terapi' iin liars + 'aba terapi' in ghosts is really ONE bug
     # a string mismatch
@@ -63,7 +65,7 @@ def near_misses(a: set[str], b: set[str]) -> list[tuple[str, str]]:
     return [(x, lower_b[x.lower()]) for x in a if x.lower() in lower_b]
 
 def main() -> int:
-    db_set: set[str] = db_read_titles()
+    db_set: set[str] = db_ready_titles()
     chroma_set: set[str]
     malformed: int
     chroma_set, malformed = chroma_titles()
@@ -94,9 +96,6 @@ def main() -> int:
 
     return 1
 
-if name == "main":
+if __name__ == "__main__":
     sys.exit(main())
-
-
-
 

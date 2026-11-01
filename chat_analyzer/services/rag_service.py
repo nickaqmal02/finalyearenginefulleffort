@@ -15,7 +15,7 @@ import os
 import logging
 import hashlib
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, TypedDict
 from dataclasses import dataclass
 
 import chromadb
@@ -89,50 +89,71 @@ def get_collection() -> chromadb.Collection:
 # ║         DOCUMENT INGESTION                  ║
 # ╚════════════════════════════════════════════╝
 
-def load_and_chunk(file_path: str) -> List[Dict[str, Any]]:
+class Chunk(TypedDict):
+    """
+    one retrievable unit: text cotnent + metadata
+    """
+    content: str
+    metadata: dict[str, Any]
+
+class ChunkMetadata(TypedDict):
+    """
+    Provenance fields attached to every chunk
+    """
+    source: str
+    page: int
+    chunk_index: str
+
+def load_and_chunk(file_path: str) -> List[Chunk]:
     """Load a PDF or text file and split into chunks.
 
     Returns list of {content, metadata} dicts.
     """
-    path = Path(file_path)
+    path: Path = Path(file_path)
+
     if not path.exists():
         raise FileNotFoundError(f"Document not found: {file_path}")
 
-    # Choose loader based on file type
+    loader: Union[BaseLoader, None] = None
+
     if path.suffix.lower() == ".pdf":
         loader = PyMuPDFLoader(str(path))
-    elif path.suffix.lower() in (".txt", ".md"):
+    elif path.suffix.lower() == (".txt", ".md"):
         loader = TextLoader(str(path))
     else:
         raise ValueError(f"Unsupported file type: {path.suffix}")
 
-    documents = loader.load()
-    logger.info(f"Loaded {len(documents)} pages from {path.name}")
+    documents: list[Document] = loader.load()
+    logger.info(f"loaded {len(documents)} pages from {path.name}")
 
-    # Split into chunks
-    splitter = RecursiveCharacterTextSplitter(
+    splitter: RecursiveCharacterTextSplitter = RecursiveCharacterTextSplitter(
         chunk_size=CHUNK_SIZE,
         chunk_overlap=CHUNK_OVERLAP,
     )
-    chunks = splitter.split_documents(documents)
-    logger.info(f"Split into {len(chunks)} chunks")
 
-    # Convert to our format
-    result = []
-    for i, chunk in enumerate(chunks):
+    split_chunks: list[Document] = splitter.split_documents(documents)
+    logger.info(f"Split inot {len(split_chunks)} chunks")
+
+    result: list[Chunk] = []
+    chunk_index: int
+    doc: Document
+    for chunk_index, doc in enumerate(split_chunks):
         result.append({
-            "content": chunk.page_content,
+            "content": doc.page_content,
             "metadata": {
                 "source": path.name,
-                "page": chunk.metadata.get("page", 0),
-                "chunk_index": i,
+                "page": doc.metadata.get("page", 0),
+                "chunk_index": chunk_index,
             },
         })
+
     return result
 
 
-def embed_and_store(chunks: List[Dict[str, Any]], doc_title: str,
-                    document_id: Optional[int] = None) -> int:
+def embed_and_store(
+    chunks: List[Chunk],
+    doc_title: str,
+    document_id: Optional[int] = None) -> int:
     """Embed chunks and store in ChromaDB.
 
     Returns number of chunks stored.
@@ -141,21 +162,23 @@ def embed_and_store(chunks: List[Dict[str, Any]], doc_title: str,
     if not chunks:
         return 0
 
-    model = get_embedding_model()
-    collection = get_collection()
+    model: SentenceTransformer = get_embedding_model()
+    collection: chromadb.Collection = get_collection()
 
     # Generate embeddings
-    texts = [c["content"] for c in chunks]
-    embeddings = model.encode(texts, show_progress_bar=False)
+    texts: list[str] = [c["content"] for c in chunks]
+
+    embeddings: "np.ndarray" = model.encode(texts, show_progress_bar=False)
 
     # Generate unique IDs
-    doc_hash = hashlib.md5(doc_title.encode()).hexdigest()[:8]
-    ids = [f"{doc_hash}_{i}" for i in range(len(chunks))]
+    doc_hash: str = hashlib.md5(doc_title.encode()).hexdigest()[:8]
+    ids: list[str] = [f"{doc_hash}_{i}" for i in range(len(chunks))]
 
     # Add to ChromaDB — include document_id so we can look up the file later
-    metadatas = []
+    metadatas: list[dict[str, Any]] = []
+    
     for c in chunks:
-        meta = {**c["metadata"], "doc_title": doc_title}
+        meta: dict[str, Any] = {**c["metadata"], "doc_title": doc_title}
         if document_id is not None:
             meta["document_id"] = document_id
         metadatas.append(meta)
@@ -166,14 +189,22 @@ def embed_and_store(chunks: List[Dict[str, Any]], doc_title: str,
         documents=texts,
         metadatas=metadatas,
     )
+
     logger.info(f"Stored {len(chunks)} chunks in ChromaDB for '{doc_title}' (doc_id={document_id})")
     return len(chunks)
 
 
-def ingest_document(file_path: str, doc_title: str,
-                     document_id: Optional[int] = None) -> Dict[str, Any]:
-    """Full ingestion pipeline: load → chunk → embed → store.
+class IngestionResult(TypedDict):
+    """Result contract returned to the Celery task / view layer """
+    status: Literal["ready", "failed"]
+    chunks_created: int
+    error: str | None
 
+def ingest_document(
+    file_path: str,
+    doc_title: str,
+    document_id: Optional[int] = None) -> IngestionResult:
+    """Full ingestion pipeline: load → chunk → embed → store.
     Called by the Celery task when a doctor uploads a document.
     document_id links chunks to the TreatmentDocument row for file_url lookup.
     """
@@ -185,6 +216,7 @@ def ingest_document(file_path: str, doc_title: str,
             "chunks_created": count,
             "error": None,
         }
+
     except Exception as e:
         logger.error(f"Ingestion failed for '{doc_title}': {e}")
         return {
@@ -353,7 +385,6 @@ Jawab soalan berdasarkan MAKLUMAT yang diberikan dalam konteks sahaja.
 Jika konteks tidak mengandungi jawapan, katakan "Saya tidak mempunyai maklumat yang cukup untuk menjawab soalan ini."
 Jawab dalam Bahasa Malaysia jika soalan dalam Bahasa Malaysia, dan dalam Bahasa Inggeris jika soalan dalam Bahasa Inggeris.
 Sentiasa rujuk sumber dokumen dalam jawapan anda."""
-
 
 def generate_answer(query: str, context: str) -> str:
     """Generate an answer using the LLM with retrieved context."""
