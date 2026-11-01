@@ -1528,3 +1528,51 @@ would've made it worse. Without tonight, I'd have shipped the reranker believing
   read pages aloud. Sun: story bank ×3 spoken aloud + resume bullet + main README
   + REST. Mon: warm-up skim only, Teams 15 min early.
 - Core story banked. Everything else = optional upside. Sleep is legit prep.
+
+---
+
+## 2026-10-31 (Sat) — Transformer mechanics end to end: from ML taxonomy to the generation loop
+
+### What we did today
+- Full tutor arc on LLM internals, driven entirely by Nik's own probing (no fixed curriculum):
+  ML → deep learning → neural LM → LLM hierarchy; LMs as next-token probability machines;
+  "large" = parameters + data + compute (Chinchilla 70B beats GPT-3 175B; Phi's textbook-quality
+  data at 2.7B); masked vs autoregressive objectives and their use cases (understanding vs generation);
+  multimodal LLMs (GPT-4o, Gemini, Claude, LLaVA, Qwen-VL) and the encode-to-tokens trick; CLIP
+  (400M web-scraped image-text pairs, contrastive learning, NO stopwords, NO masking — three
+  different self-supervised paradigms); the Transformer (why RNNs died: sequential bottleneck,
+  long-range forgetting, unidirectionality); Q/K/V; dot-product scoring; softmax; weighted blending;
+  output layer as nearest-word matching; the autoregressive generation loop; [EOS] as a learned stop.
+- Ended on the parameter/activation split, causal masking + KV cache validity, and why chat
+  "memory" is just conversation history re-pasted into the input every turn.
+
+### The five corrections Nik made and got right the second time (self-test replays)
+- "return the most closest one" → attention BLENDS all values, weighted; it is not nearest-neighbour
+  retrieval. RAG selects; attention blends. This was the big unlock.
+- "create new embeddings per sentence" → embeddings are FIXED table lookups; the CONTEXT VECTOR is
+  what's recomputed per input. Fixed lookup → fresh blend.
+- "weights still adjusted after training?" → no: frozen at inference. Only ACTIVATIONS are computed.
+- "no softmax after training?" → softmax runs in the forward pass always; only backprop stops.
+- "so there's no winner" → correct: attention = contribution shares, output = full alignment
+  scoreboard, a "winner" exists only at the final argmax/sampler.
+
+### Learned (distinctions that carry into viva)
+- **PARAMETERS vs ACTIVATIONS is the master key.** Frozen learned knowledge vs temporary per-input
+  scratch work. Every "does it change?" question collapses to which one you mean.
+- **"Weight" is overloaded**: model parameters vs attention percentages. Classic viva trap.
+- Attention = softmax(QKᵀ/√d_k)·V. Score → scale → normalise → blend. No selection.
+- Output layer = the same dot-product matching one last time; often weight-tied to the embedding
+  table = "which known word is this final vector closest to?"
+- [EOS] is just a vocabulary token that wins by probability; stopping is a TRAINABLE skill
+  (proof: badly tuned models ramble until max_tokens cuts them).
+- Encoder vs decoder differ by ONE line: future positions masked to −∞.
+- Encoders (XLM-R) reshuffle ALL context vectors when any token changes; decoders cannot see the
+  future — which is exactly why KV caching is valid.
+- Chat memory = history re-fed each turn, context-window limited. The model is stateless.
+
+### What's next
+- Fundamentals gaps still open: multi-head attention (why h heads beat one, what each learns),
+  backprop-through-attention math, positional encoding (sinusoidal → RoPE), training dynamics
+  (warmup, scaling laws, collapse). Refinements — none change the mental model.
+- Interview Mon 2 Nov 10am: this session is ammunition for the XLM-R, reranker, and BERTopic stories.
+- Still open from the Oct 30 sprint: ROOTSYS_API_KEY rotation (the only blocking item).

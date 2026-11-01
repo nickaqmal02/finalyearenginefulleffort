@@ -402,6 +402,149 @@ class TopicMapper:
 
 ---
 
+## 🧠 Lesson 9: Transformer Mechanics — the model under every component we use
+
+**Date:** October 31, 2026
+
+Everything in this project touches a Transformer: XLM-R encodes sentiment, BERTopic's
+sentence-transformer embeddings are Transformers, and the interview chatbot is a decoder
+LLM. Not being able to explain the mechanism = using tools you can't defend.
+
+### 9.1 Where a language model sits
+
+```
+Artificial Intelligence
+└── Machine Learning          learns from data, not hardcoded rules
+    └── Deep Learning         multi-layer neural networks
+        └── Neural Language Model    objective = predict text
+            └── Large Language Model  same objective, scaled past emergence thresholds
+```
+
+- Not all ML is language modeling: vision (CNN/ViT), tabular (XGBoost), clustering (HDBSCAN).
+- BERTopic is ML (UMAP + HDBSCAN) but **not** a language model. Sastrawi is rule-based, **not ML**.
+- XLM-R is a language model but **not large**. GLM-5.2 is a language model **and** large.
+
+### 9.2 Two phases, two different supervision regimes
+
+| Phase | Who | Objective | Supervision |
+|---|---|---|---|
+| Pre-training | Meta (XLM-R), OpenAI (GPT) | masked LM / next-token | **self-supervised** — labels generated from the text itself |
+| Fine-tuning | me (Sentiri) | sentiment classification | **supervised** — human-annotated labels |
+| Inference | deployed API | none | none — forward pass only |
+
+Self-supervised ≠ supervised fine-tuning. They are sequential phases of the same model.
+The viva-safe sentence: *"XLM-R was self-supervised during pre-training; I supervised-fine-tuned
+it on labelled sentiment data."*
+
+### 9.3 Masked vs autoregressive
+
+| | Masked (BERT, XLM-R) | Autoregressive (GPT, GLM) |
+|---|---|---|
+| Learns | fill the blank from BOTH sides | predict the NEXT token from the left |
+| Architecture | encoder | decoder |
+| Good at | understanding: classification, embeddings, analysis | generation: chat, code, summarisation |
+| Our use | Sentiri sentiment | interview chatbot / GLM-5.2 |
+
+Not two architectures invented separately — the same block with one line of difference:
+the decoder masks future positions to −∞ so a token can only see the past.
+
+### 9.4 The one formula
+
+```
+Attention(Q, K, V) = softmax( QKᵀ / √d_k ) · V
+```
+
+- `Q = X·Wq` — what this token is looking for
+- `K = X·Wk` — what each token offers
+- `V = X·Wv` — the actual content each token gives
+- `QKᵀ` — every token dotted against every token → relevance scores
+- `√d_k` — scaling; without it, high-dimensional dot products saturate the softmax
+- `softmax` — per-row percentages summing to 1
+- `·V` — weighted blend of contents
+
+**No selection happens.** Attention is a weighted mixture, not a nearest-neighbour lookup.
+This was the hardest mislearn to shake: RAG *selects* the closest document; attention *blends*
+all of them, proportionally.
+
+Full stack, four lines:
+
+```
+X₀ = Embed(tokens) + PosEnc
+X_l = LayerNorm(X + MultiHead(X)); LayerNorm(X + FFN(X))   for l = 1..L
+p  = softmax(X_L · W_out)
+ŷ ~ p → append → repeat until [EOS] or max_tokens
+```
+
+### 9.5 Parameters vs activations — the master key
+
+| Parameters (frozen) | Activations (per input) |
+|---|---|
+| embedding table | Q, K, V |
+| Wq, Wk, Wv, Wo | attention percentages |
+| FFN weights, LayerNorm γ/β | context vectors |
+| output matrix | output logits / probabilities |
+| learned in training, stored on disk | computed during every forward pass, discarded |
+| identical for every user and query | unique to this input |
+
+Every "does it change?" question collapses into: *which of these two do you mean?*
+
+- Embeddings: **fixed lookup** — "chocolate" always starts from the same vector.
+- Context vector: **fresh blend** — different in every sentence, recomputed per layer and per pass.
+- Weights: **never change at inference** — backprop and weight updates are training-only.
+- Softmax: **runs always** — it is part of the forward pass, in both training and inference.
+
+### 9.6 How an answer is actually generated
+
+```
+"what is chocolate ?" → tokens → embeddings → 12 layers → final vector of "?"
+→ × output matrix → 50,000 scores → softmax → sample/argmax → "Chocolate"
+→ append → recompute everything → "is" → append → … → [EOS] → stop
+```
+
+- The output layer is the same dot-product matching as attention, one last time:
+  final vector vs every vocabulary column → "which known word am I closest to?"
+  (often weight-tied to the embedding table).
+- **[EOS] is a learned stop**, not built-in logic: every SFT training answer ended with it,
+  so complete answers make [EOS] win. Badly tuned models ramble — proof that stopping is a skill.
+- **Causal masking** means earlier tokens never see appended ones → their activations never change
+  during generation → which is exactly why KV caching is valid.
+- Encoders are the opposite: bidirectional attention means changing one token reshuffles every
+  context vector — better understanding, impossible generation.
+
+### 9.7 Consequences that show up in production
+
+- **Statelessness:** every API call recomputes from scratch; nothing persists between tweets.
+- **Chat "memory" is not memory:** conversation history is re-pasted into the input each turn,
+  and attention blends it fresh. Past the context window, early turns are dropped — that's the
+  model "forgetting."
+- **Same question, different answer:** context vectors are deterministic, but token *selection*
+  can sample from the distribution (temperature). Deterministic activations ≠ deterministic output.
+- **Data quality beats raw scale for a narrow task:** fine-tuned 270M XLM-R on clean domain data
+  beats a prompted trillion-parameter model on sentiment. But instruction-following and in-context
+  learning are emergent at scale and can't be bought with cleaner data on a small model.
+
+### 9.8 Why this matters for the reranker story
+
+The cross-encoder reranker degraded retrieval (hit@5 1.00 → 0.64) not because attention was
+broken but because its **learned attention percentages over-weighted lexical overlap** between
+query and document tokens — inflating keyword-matching documents and demoting semantically
+relevant ones. Being able to explain the failure in terms of the mechanism, not just the metric
+drop, is the difference between reporting a result and understanding a system.
+
+### Viva answer
+
+> *"A Transformer is a stack of self-attention layers where each token computes Query, Key and
+> Value vectors from a fixed embedding table, scores itself against every other token by dot
+> product, converts those scores to blend proportions with softmax, and absorbs a weighted
+> combination of the Values — producing a context vector that is recomputed for every input.
+> The parameters doing this are frozen after training; only the activations change per query.
+> XLM-R stacks twelve such encoder layers and feeds the [CLS] token's final context vector into
+> my sentiment classification head, which I fine-tuned. The only difference between XLM-R and a
+> GPT-style decoder is a causal mask that hides future tokens — which is what makes generation
+> possible and understanding weaker."*
+
+---
+
 ## 📋 Commands Reference
 
 ### Setup
